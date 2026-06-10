@@ -1,0 +1,243 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 50%, #f0f9ff 100%);
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-plex-sans-thai), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Decorative background elements */
+.login-page::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(13,110,140,0.08), transparent 70%);
+  z-index: 0;
+}
+.login-page::after {
+  content: "";
+  position: absolute;
+  bottom: -15%;
+  left: -8%;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(210,120,95,0.06), transparent 70%);
+  z-index: 0;
+}
+
+/* EKG line in background */
+.login-ekg {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 0;
+  opacity: 0.12;
+  transform: translateY(-50%);
+}
+.login-ekg path {
+  fill: none;
+  stroke: #0d6e8c;
+  stroke-width: 2;
+  stroke-dasharray: 2500;
+  stroke-dashoffset: 2500;
+  animation: login-ekg-draw 4s ease forwards 0.5s;
+}
+@keyframes login-ekg-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Card */
+.login-card {
+  position: relative;
+  z-index: 1;
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid #e2e8f0;
+  box-shadow:
+    0 24px 60px -20px rgba(11,46,58,0.15),
+    0 8px 24px -8px rgba(11,46,58,0.08);
+  padding: 48px 44px;
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+  animation: login-card-enter 0.5s cubic-bezier(0.2,0.7,0.2,1) forwards;
+  opacity: 0;
+  transform: translateY(16px);
+}
+@keyframes login-card-enter {
+  to { opacity: 1; transform: none; }
+}
+
+/* Brand */
+.login-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 32px;
+}
+.login-mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #0d6e8c;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 20px -6px rgba(13,110,140,0.5);
+  flex: 0 0 52px;
+}
+.login-brand-text {
+  text-align: left;
+}
+.login-brand-text .name {
+  font-weight: 700;
+  font-size: 22px;
+  color: #0b2e3a;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.login-brand-text .sub {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+/* Title */
+.login-title {
+  font-family: var(--font-noto-serif-thai), serif;
+  font-weight: 600;
+  font-size: 26px;
+  color: #0b2e3a;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+.login-desc {
+  font-size: 15px;
+  color: #64748b;
+  margin-bottom: 36px;
+  line-height: 1.6;
+}
+
+/* Divider */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 28px 0;
+  color: #94a3b8;
+  font-size: 13px;
+}
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+/* Google button */
+.login-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+.login-google-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px -4px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+.login-google-btn:active {
+  transform: none;
+  box-shadow: none;
+}
+.login-google-btn .google-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+
+/* Loading state */
+.login-google-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+.login-google-btn .spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #0d6e8c;
+  border-radius: 50%;
+  animation: login-spin 0.7s linear infinite;
+}
+@keyframes login-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Footer */
+.login-footer {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+.login-footer a {
+  color: #0d6e8c;
+  text-decoration: none;
+  font-weight: 500;
+}
+.login-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Error */
+.login-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .login-card {
+    margin: 16px;
+    padding: 36px 24px;
+  }
+  .login-title {
+    font-size: 22px;
+  }
+}

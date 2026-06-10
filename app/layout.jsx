@@ -1,4 +1,5 @@
 import { IBM_Plex_Sans_Thai, IBM_Plex_Sans, IBM_Plex_Mono, Noto_Serif_Thai } from 'next/font/google';
+import SessionProvider from '@/components/SessionProvider';
 import './globals.css';
 
 const ibmPlexSansThai = IBM_Plex_Sans_Thai({
@@ -38,8 +39,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="th" className={`${ibmPlexSansThai.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable} ${notoSerifThai.variable}`}>
       <body>
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );
 }
+

@@ -79,11 +79,7 @@ export default function LandingPage() {
             <a href="#features">จุดเด่น</a>
             <a href="#mission">วิสัยทัศน์</a>
           </div>
-          <Link className="btn btn-primary" href="/login" onClick={(e) => {
-            // Temporary mapping for mockup
-            e.preventDefault();
-            window.location.href = "/s/courses"; 
-          }}>
+          <Link className="btn btn-primary" href="/login">
             เข้าสู่ระบบ
             <svg className="ar" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7" />
@@ -107,7 +103,7 @@ export default function LandingPage() {
               <div className="sub serif reveal in d1">กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ</div>
               <p className="lead reveal in d2">พื้นที่แห่งการเรียนรู้ที่ออกแบบมาเพื่อสนับสนุนการศึกษาของนักศึกษาพยาบาลให้เกิดประสิทธิภาพสูงสุด ทั้งในและนอกชั้นเรียน — เพียงเข้าสู่ระบบก็พร้อมเริ่มต้นการเรียนรู้ได้ทันที</p>
               <div className="hero-cta reveal in d2">
-                <Link className="btn btn-primary btn-lg" href="/s/courses">เริ่มเรียนรู้
+                <Link className="btn btn-primary btn-lg" href="/login">เริ่มเรียนรู้
                   <svg className="ar" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
                 </Link>
                 <a className="btn btn-ghost btn-lg" href="#features">รู้จักระบบ</a>
