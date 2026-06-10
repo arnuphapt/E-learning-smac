@@ -1,0 +1,45 @@
+import { IBM_Plex_Sans_Thai, IBM_Plex_Sans, IBM_Plex_Mono, Noto_Serif_Thai } from 'next/font/google';
+import './globals.css';
+
+const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['thai', 'latin'],
+  variable: '--font-plex-sans-thai',
+  display: 'swap',
+});
+
+const ibmPlexSans = IBM_Plex_Sans({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-plex-sans',
+  display: 'swap',
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  weight: ['400', '500', '600'],
+  subsets: ['latin'],
+  variable: '--font-plex-mono',
+  display: 'swap',
+});
+
+const notoSerifThai = Noto_Serif_Thai({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['thai', 'latin'],
+  variable: '--font-noto-serif-thai',
+  display: 'swap',
+});
+
+export const metadata = {
+  title: 'NurseLearn — E-learning การพยาบาลผู้ใหญ่และผู้สูงอายุ',
+  description: 'ระบบการเรียนการสอน การพยาบาลผู้ใหญ่และผู้สูงอายุ',
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="th" className={`${ibmPlexSansThai.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable} ${notoSerifThai.variable}`}>
+      <body>
+        {children}
+      </body>
+    </html>
+  );
+}
