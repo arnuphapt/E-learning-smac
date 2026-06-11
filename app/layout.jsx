@@ -31,7 +31,7 @@ const notoSerifThai = Noto_Serif_Thai({
 });
 
 export const metadata = {
-  title: 'NurseLearn — E-learning การพยาบาลผู้ใหญ่และผู้สูงอายุ',
+  title: 'E-learning — การพยาบาลผู้ใหญ่และผู้สูงอายุ',
   description: 'ระบบการเรียนการสอน การพยาบาลผู้ใหญ่และผู้สูงอายุ',
 };
 

@@ -73,6 +73,85 @@ function CourseAccessDialog({ mode, row, onClose, onSave }) {
   );
 }
 
+function UserDialog({ mode, row, onClose, onSave }) {
+  const [name, setName] = React.useState(row ? row.name : "");
+  const [email, setEmail] = React.useState(row ? row.email : "");
+  const [role, setRole] = React.useState(row ? row.role : "student");
+  const [studentId, setStudentId] = React.useState(row ? (row.role === "student" ? row.studentId : "") : "");
+  const [sec, setSec] = React.useState(row ? row.sec : "Sec 1");
+  const [status, setStatus] = React.useState(row ? row.status : "active");
+
+  const handleSave = () => {
+    if (!name || !email) {
+      alert("กรุณากรอกข้อมูลที่จำเป็น (*) ให้ครบถ้วน");
+      return;
+    }
+    onSave({
+      name,
+      email,
+      role,
+      studentId: role === "student" ? studentId : "อาจารย์ผู้สอน",
+      sec: role === "student" ? sec : "ไม่มี",
+      status
+    });
+  };
+
+  return (
+    <Dialog title={mode === "add" ? "เพิ่มผู้ใช้งาน" : "แก้ไขข้อมูลผู้ใช้งาน"} desc="กำหนดข้อมูลผู้ใช้งานและสิทธิ์ในระบบ" onClose={onClose}
+      footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={handleSave}><Icon name="check" size={15} />บันทึก</button></>}>
+      <div className="field">
+        <label className="label">ชื่อ-นามสกุล <span className="c-danger">*</span></label>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น อ. ดร. สมชาย ใจดี หรือ ณัฐชยา ยิ้มแย้ม" />
+      </div>
+      <div className="field">
+        <label className="label">อีเมล <span className="c-danger">*</span></label>
+        <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="username@smnc.ac.th" />
+      </div>
+      <div className="grid grid-2 gap-3">
+        <div className="field">
+          <label className="label">บทบาท</label>
+          <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="student">นักศึกษา</option>
+            <option value="instructor">อาจารย์ผู้สอน</option>
+            <option value="admin">ผู้ดูแลระบบ</option>
+          </select>
+        </div>
+        {role === "student" ? (
+          <div className="field">
+            <label className="label">รหัสนักศึกษา</label>
+            <input className="input" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="เช่น 65010001" />
+          </div>
+        ) : (
+          <div className="field">
+            <label className="label">ตำแหน่ง</label>
+            <input className="input" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="เช่น อาจารย์" />
+          </div>
+        )}
+      </div>
+      
+      <div className="grid grid-2 gap-3">
+        {role === "student" && (
+          <div className="field">
+            <label className="label">Section / กลุ่มเรียน</label>
+            <select className="input" value={sec} onChange={(e) => setSec(e.target.value)}>
+              <option value="Sec 1">Sec 1</option>
+              <option value="Sec 2">Sec 2</option>
+              <option value="ไม่มี">ไม่มี</option>
+            </select>
+          </div>
+        )}
+        <div className="field">
+          <label className="label">สถานะการใช้งาน</label>
+          <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="active">ใช้งานปกติ</option>
+            <option value="suspended">ระงับการใช้งาน</option>
+          </select>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 function MasterDataContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -83,12 +162,24 @@ function MasterDataContent() {
   const [dlg, setDlg] = React.useState(null); // {mode, row}
   const D = DATA;
 
+  const [usersList, setUsersList] = React.useState([
+    { id: "u1", name: "อ. ดร. สุภาวดี ทองคำ", email: "supawadee.t@smnc.ac.th", role: "instructor", studentId: "อาจารย์ผู้สอน", sec: "ไม่มี", status: "active" },
+    { id: "u2", name: "อ. กมลชนก ศรีวิไล", email: "kamolchanok.s@smnc.ac.th", role: "instructor", studentId: "อาจารย์ผู้สอน", sec: "ไม่มี", status: "active" },
+    { id: "u3", name: "ณัฐนรี วงศ์สวรรค์", email: "65010001@smnc.ac.th", role: "student", studentId: "65010001", sec: "Sec 1", status: "active" },
+    { id: "u4", name: "ธนกฤต อินทรชัย", email: "65010002@smnc.ac.th", role: "student", studentId: "65010002", sec: "Sec 1", status: "active" },
+    { id: "u5", name: "พิมพ์ชนก ดวงแก้ว", email: "65010003@smnc.ac.th", role: "student", studentId: "65010003", sec: "Sec 1", status: "active" },
+    { id: "u6", name: "ศุภวิชญ์ มากมี", email: "65010004@smnc.ac.th", role: "student", studentId: "65010004", sec: "Sec 2", status: "active" },
+    { id: "u7", name: "อรปรียา สุขใจ", email: "65010005@smnc.ac.th", role: "student", studentId: "65010005", sec: "Sec 2", status: "active" },
+    { id: "u8", name: "กิตติพศ เรืองศรี", email: "65010006@smnc.ac.th", role: "student", studentId: "65010006", sec: "Sec 2", status: "suspended" },
+  ]);
+
   const tabs = [
     ["years", "ปีการศึกษา", "cal"],
     ["terms", "ภาคเรียน", "layers"],
     ["groups", "กลุ่มวิชา", "folder"],
     ["sections", "Section / กลุ่มเรียน", "users"],
     ["course_access", "สิทธิ์การเข้าถึง", "lock"],
+    ["users", "จัดการผู้ใช้งาน", "user"],
   ];
   const meta = {
     years: { title: "ปีการศึกษา", add: "เพิ่มปีการศึกษา", desc: "กำหนดปีการศึกษาและช่วงเวลา ปีที่ตั้งเป็น “ใช้งาน” จะเป็นค่าเริ่มต้นของระบบ" },
@@ -96,7 +187,8 @@ function MasterDataContent() {
     groups: { title: "กลุ่มวิชา", add: "เพิ่มกลุ่มวิชา", desc: "กลุ่มสาขาวิชาและหัวหน้ากลุ่มผู้รับผิดชอบ" },
     sections: { title: "Section / กลุ่มเรียน", add: "เพิ่ม Section", desc: "กลุ่มเรียนของนักศึกษาในแต่ละกลุ่มวิชา" },
     course_access: { title: "สิทธิ์การเข้าถึงรายวิชา", add: "ตั้งค่าสิทธิ์", desc: "กำหนดรหัสนักศึกษา/อีเมล ที่สามารถเข้าถึงรายวิชานั้นๆ ได้" },
-  }[tab];
+    users: { title: "จัดการผู้ใช้งาน", add: "เพิ่มผู้ใช้", desc: "จัดการข้อมูลผู้สอน นักศึกษา และสิทธิ์การใช้งานระบบ" },
+  }[tab] || { title: "ข้อมูลหลัก", add: "เพิ่มข้อมูล", desc: "จัดการข้อมูลระบบ" };
 
   return (
     <div className="container">
@@ -176,13 +268,91 @@ function MasterDataContent() {
                 </tbody>
               </table>
             )}
+            {tab === "users" && (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>ชื่อ-นามสกุล</th>
+                    <th>อีเมล</th>
+                    <th>บทบาท</th>
+                    <th>รหัสประจำตัว / ตำแหน่ง</th>
+                    <th>กลุ่มเรียน</th>
+                    <th>สถานะ</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersList.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <Avatar name={u.name.replace(/^อ\. (ดร\. )?/, "")} size={28} />
+                          <span className="fw-6">{u.name}</span>
+                        </div>
+                      </td>
+                      <td className="t-sm muted">{u.email}</td>
+                      <td>
+                        {u.role === "admin" ? (
+                          <Badge tone="danger">ผู้ดูแลระบบ</Badge>
+                        ) : u.role === "instructor" ? (
+                          <Badge tone="primary">อาจารย์ผู้สอน</Badge>
+                        ) : (
+                          <Badge tone="info">นักศึกษา</Badge>
+                        )}
+                      </td>
+                      <td className="tnum t-sm">{u.studentId || "-"}</td>
+                      <td>{u.sec !== "ไม่มี" ? <Badge tone="outline">{u.sec}</Badge> : <span className="muted t-sm">-</span>}</td>
+                      <td>
+                        {u.status === "active" ? (
+                          <Badge tone="success" dot>ใช้งาน</Badge>
+                        ) : (
+                          <Badge tone="warning" dot>ระงับ</Badge>
+                        )}
+                      </td>
+                      <td>
+                        <RowActions
+                          onEdit={() => setDlg({ mode: "edit", row: u })}
+                          onDelete={() => {
+                            if (confirm(`ยืนยันการลบผู้ใช้ ${u.name}?`)) {
+                              setUsersList((prev) => prev.filter((x) => x.id !== u.id));
+                              toast("ลบผู้ใช้งานแล้ว");
+                            }
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
 
       {dlg && tab === "years" && <YearDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast(dlg.mode === "add" ? "เพิ่มปีการศึกษาแล้ว" : "บันทึกการแก้ไขแล้ว"); }} />}
       {dlg && tab === "course_access" && <CourseAccessDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast("บันทึกการแก้ไขสิทธิ์แล้ว"); }} />}
-      {dlg && tab !== "years" && tab !== "course_access" && <GenericDialog title={meta.add} mode={dlg.mode} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast("บันทึกข้อมูลแล้ว"); }} />}
+      {dlg && tab === "users" && (
+        <UserDialog
+          mode={dlg.mode}
+          row={dlg.row}
+          onClose={() => setDlg(null)}
+          onSave={(updatedUser) => {
+            setDlg(null);
+            if (dlg.mode === "add") {
+              const newUser = {
+                ...updatedUser,
+                id: "u_" + Date.now(),
+              };
+              setUsersList((prev) => [...prev, newUser]);
+              toast("เพิ่มผู้ใช้งานเรียบร้อยแล้ว");
+            } else {
+              setUsersList((prev) => prev.map((u) => (u.id === dlg.row.id ? { ...u, ...updatedUser } : u)));
+              toast("บันทึกการแก้ไขเรียบร้อยแล้ว");
+            }
+          }}
+        />
+      )}
+      {dlg && tab !== "years" && tab !== "course_access" && tab !== "users" && <GenericDialog title={meta.add} mode={dlg.mode} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast("บันทึกข้อมูลแล้ว"); }} />}
     </div>
   );
 }

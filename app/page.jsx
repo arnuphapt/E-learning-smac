@@ -72,7 +72,7 @@ export default function LandingPage() {
                 <path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5" />
               </svg>
             </span>
-            <span>NurseLearn<small>การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></span>
+            <span>E-learning<small>การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></span>
           </a>
           <div className="nav-links">
             <a href="#about">เกี่ยวกับระบบ</a>
@@ -291,7 +291,7 @@ export default function LandingPage() {
             <div className="in">
               <h2>พร้อมเริ่มต้นการเรียนรู้แล้วหรือยัง?</h2>
               <p>เข้าสู่ระบบเพื่อเข้าถึงรายวิชา บทเรียน วิดีโอการสอน และแบบทดสอบทั้งหมดของคุณ</p>
-              <Link className="btn btn-primary btn-lg" href="/s/courses">เข้าสู่ระบบ NurseLearn<svg className="ar" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg></Link>
+              <Link className="btn btn-primary btn-lg" href="/s/courses">เข้าสู่ระบบ E-learning<svg className="ar" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg></Link>
             </div>
           </div>
         </div>
@@ -304,7 +304,7 @@ export default function LandingPage() {
             <div>
               <div className="brand">
                 <span className="mk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z" /><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5" /></svg></span>
-                <span>NurseLearn<small>การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></span>
+                <span>E-learning<small>การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></span>
               </div>
               <p className="desc">ระบบการเรียนรู้ออนไลน์สำหรับนักศึกษาพยาบาล วิทยาลัยพยาบาลศรีมหาสารคาม คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก</p>
             </div>
@@ -319,7 +319,7 @@ export default function LandingPage() {
                 <h4>สำหรับผู้เรียน</h4>
                 <Link href="/s/courses">รายวิชา</Link>
                 <Link href="/s/courses">แบบทดสอบ</Link>
-                <Link href="/s/courses">ส่งงาน</Link>
+                <Link href="/s/assignments">ส่งงาน</Link>
               </div>
               <div className="footer-col">
                 <h4>ติดต่อ</h4>

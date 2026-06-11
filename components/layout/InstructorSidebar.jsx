@@ -24,6 +24,7 @@ function InstructorSidebarContent() {
     ["/i/master?tab=groups", "folder", "กลุ่มวิชา", isMaster && tab === "groups"],
     ["/i/master?tab=sections", "users", "Section / กลุ่มเรียน", isMaster && tab === "sections"],
     ["/i/master?tab=course_access", "lock", "สิทธิ์การเข้าถึง", isMaster && tab === "course_access"],
+    ["/i/master?tab=users", "user", "จัดการผู้ใช้งาน", isMaster && tab === "users"],
   ];
 
   const Item = ([to, ic, label, active]) => (
@@ -36,7 +37,7 @@ function InstructorSidebarContent() {
     <div className="sidebar app-scroll">
       <Link href="/i/courses" className="logo pointer" style={{ textDecoration: 'none' }}>
         <span className="mark"><Icon name="grad" size={17} /></span>
-        <div>NurseLearn<small>พื้นที่อาจารย์ผู้สอน</small></div>
+        <div>E-learning<small>พื้นที่อาจารย์ผู้สอน</small></div>
       </Link>
       <Link href="/i/course/new" className="btn btn-primary btn-block" style={{ margin: "0 2px 6px", textDecoration: 'none' }}>
         <Icon name="plus" size={16} />สร้างรายวิชา

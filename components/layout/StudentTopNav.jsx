@@ -7,17 +7,19 @@ import { Avatar } from "../ui/Primitives";
 
 export default function StudentTopNav() {
   const pathname = usePathname() || "";
-  const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test") || pathname.startsWith("/s/assignment");
+  const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
+  const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
   const onCal = pathname === "/s/calendar";
 
   return (
     <div className="topnav">
       <Link href="/s/courses" className="logo pointer" style={{ textDecoration: 'none' }}>
         <span className="mark"><Icon name="grad" size={17} /></span>
-        <div>NurseLearn<small>การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></div>
+        <div>E-learning<small>การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></div>
       </Link>
       <nav>
         <Link href="/s/courses" className={onCourses ? "on" : ""} style={{ textDecoration: 'none' }}>รายวิชา</Link>
+        <Link href="/s/assignments" className={onAssignments ? "on" : ""} style={{ textDecoration: 'none' }}>ใบงาน</Link>
         <Link href="/s/calendar" className={onCal ? "on" : ""} style={{ textDecoration: 'none' }}>ปฏิทิน</Link>
         <Link href="/s/courses" style={{ textDecoration: 'none' }}>ความคืบหน้า</Link>
       </nav>

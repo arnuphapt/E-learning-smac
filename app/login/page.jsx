@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -17,10 +17,10 @@ function GoogleIcon() {
   );
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
-  const error = searchParams.get("error");
+  const error = searchParams?.get("error") || null;
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -43,7 +43,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <div className="login-brand-text">
-            <div className="name">NurseLearn</div>
+            <div className="name">E-learning</div>
             <div className="sub">การพยาบาลผู้ใหญ่และผู้สูงอายุ</div>
           </div>
         </div>
@@ -92,5 +92,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="login-page">
+        <div className="login-card" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 200 }}>
+          <span className="spinner" style={{ borderLeftColor: "var(--primary)" }} />
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
