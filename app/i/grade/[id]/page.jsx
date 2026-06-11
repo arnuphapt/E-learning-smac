@@ -97,12 +97,28 @@ export default function Grader() {
               <div className="flex items-center gap-2"><Avatar name={student.name} size={34} /><div><div className="fw-6">{student.name}</div><div className="t-xs muted">{student.student_no || "-"} · {student.section || "-"}</div></div></div>
               <div className="flex items-center gap-2">{sub.late && <Badge tone="warning" dot>ส่งล่าช้า</Badge>}{statusBadge(sub.status)}</div>
             </div>
-            <div className="card card-p mb-3 flex items-center gap-3">
-              <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}><Icon name="file" size={18} /></div>
-              <div className="flex-1"><div className="t-sm fw-6">{sub.file}</div><div className="t-xs muted">ส่งเมื่อ {sub.submitted_at} · PDF 1.8 MB</div></div>
-              <button className="btn btn-outline btn-sm"><Icon name="download" size={14} />ดาวน์โหลด</button>
-            </div>
-            <Ph label="ตัวอย่างเอกสารงานนักศึกษา (PDF preview)" h={mobile ? 320 : 520} />
+            {sub.file ? (
+              <>
+                <div className="card card-p mb-3 flex items-center gap-3">
+                  <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}><Icon name="file" size={18} /></div>
+                  <div className="flex-1"><div className="t-sm fw-6">{sub.file}</div><div className="t-xs muted">ส่งเมื่อ {sub.submitted_at}</div></div>
+                  <button className="btn btn-outline btn-sm"><Icon name="download" size={14} />ดาวน์โหลด</button>
+                </div>
+                <Ph label="ตัวอย่างเอกสารงานนักศึกษา (PDF preview)" h={mobile ? 320 : 520} />
+              </>
+            ) : null}
+
+            {sub.text ? (
+              <div className="card card-p mb-3" style={{ borderLeft: "4px solid var(--primary)" }}>
+                <div className="t-sm fw-7 mb-2 flex items-center gap-2">
+                  <Icon name="msg" size={16} className="c-primary" />
+                  คำตอบของนักศึกษา (แบบข้อความ)
+                </div>
+                <div className="lead pretty" style={{ padding: 14, borderRadius: 11, background: "var(--muted)", whiteSpace: "pre-line", fontSize: 14 }}>
+                  {sub.text}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {/* grading panel */}

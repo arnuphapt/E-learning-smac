@@ -31,7 +31,6 @@ function InstructorSidebarContent() {
     ["/i/master/terms", "layers", "ภาคเรียน", pathname === "/i/master/terms"],
     ["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"],
     ["/i/master/sections", "users", "Section / กลุ่มเรียน", pathname === "/i/master/sections"],
-    ["/i/master/course-access", "lock", "สิทธิ์การเข้าถึง", pathname === "/i/master/course-access"],
     ["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"],
   ];
 
@@ -59,10 +58,6 @@ function InstructorSidebarContent() {
       
       <div className="sb-label">ตั้งค่าข้อมูลหลัก (Master)</div>
       {items3.map(Item)}
-      
-      <div className="sb-label">อื่นๆ</div>
-      <Link href="/i/courses" className="sb-item" style={{ textDecoration: 'none' }}><Icon name="msg" size={18} className="ic" />ข้อความนักศึกษา</Link>
-      <Link href="/i/courses" className="sb-item" style={{ textDecoration: 'none' }}><Icon name="settings" size={18} className="ic" />ตั้งค่าระบบ</Link>
       
       <div className="sb-foot">
         <Avatar name={session?.user?.name || "สุภาวดี"} src={session?.user?.image} size={36} />

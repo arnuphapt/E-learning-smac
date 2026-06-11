@@ -36,10 +36,6 @@ export default function InstructorHeader() {
       </div>
       
       <div className="flex items-center gap-3">
-        <button className="iconbtn ghost"><Icon name="bell" size={18} /></button>
-        <button className="iconbtn ghost"><Icon name="settings" size={18} /></button>
-        <div className="divider" style={{ width: 1, height: 24, margin: "0 4px" }} />
-        
         <div className="rel" ref={menuRef}>
           <div className="flex items-center gap-2 pointer" onClick={() => setMenuOpen(!menuOpen)} style={{ padding: "4px 8px", borderRadius: 8, transition: ".15s", background: menuOpen ? "var(--muted)" : "transparent" }}>
             <Avatar name={session?.user?.name || "อาจารย์"} src={session?.user?.image} size={32} />

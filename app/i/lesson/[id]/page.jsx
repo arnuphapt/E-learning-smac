@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, Avatar, Dialog, Ph, statusBadge } from "@/components/ui/Primitives";
@@ -51,15 +51,23 @@ function VideoManage({ lesson, onSave }) {
   const [status, setStatus] = useState(lesson.status || "draft");
   const [preReq, setPreReq] = useState(lesson.pretest?.required || false);
   const [postReq, setPostReq] = useState(lesson.posttest?.required || false);
+  const [watchLimit, setWatchLimit] = useState(lesson.watch_limit ?? true);
+  const [allowDownload, setAllowDownload] = useState(lesson.allow_download ?? true);
 
   const handleSave = () => {
+    if (!title) {
+      toast("กรุณากรอกชื่อบทเรียน");
+      return;
+    }
     onSave({
       title,
       description: desc,
       duration,
       status,
       pretest: { ...lesson.pretest, required: preReq },
-      posttest: { ...lesson.posttest, required: postReq }
+      posttest: { ...lesson.posttest, required: postReq },
+      watch_limit: watchLimit,
+      allow_download: allowDownload
     });
   };
 
@@ -82,10 +90,10 @@ function VideoManage({ lesson, onSave }) {
         <div className="card">
           <div className="card-h"><div className="title">รายละเอียดบทเรียน</div></div>
           <div className="card-p">
-            <div className="field"><label className="label">ชื่อบทเรียน</label><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-            <div className="field"><label className="label">คำอธิบาย</label><textarea className="input" rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
+            <div className="field"><label className="label">ชื่อบทเรียน <span className="c-danger">*</span></label><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น บทที่ 1 — ความรู้เบื้องต้น" /></div>
+            <div className="field"><label className="label">คำอธิบาย</label><textarea className="input" rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="คำอธิบายและหัวข้อในบทเรียนนี้…" /></div>
             <div className="grid grid-2 gap-3">
-              <div className="field" style={{ margin: 0 }}><label className="label">ความยาว (เช่น 42 นาที)</label><input className="input" value={duration} onChange={(e) => setDuration(e.target.value)} /></div>
+              <div className="field" style={{ margin: 0 }}><label className="label">ความยาว (เช่น 42 นาที)</label><input className="input" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="เช่น 30 นาที" /></div>
               <div className="field" style={{ margin: 0 }}><label className="label">สถานะการเผยแพร่</label>
                 <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
                   <option value="active">เผยแพร่แล้ว</option>
@@ -101,8 +109,8 @@ function VideoManage({ lesson, onSave }) {
           <div className="t-sm fw-7 mb-3">การตั้งค่าการเข้าถึง</div>
           <ToggleRow label="ต้องทำ Pre-test ก่อนดูวิดีโอ" on={preReq} onChange={setPreReq} />
           <ToggleRow label="ต้องทำ Post-test หลังเรียน" on={postReq} onChange={setPostReq} />
-          <ToggleRow label="ดูวิดีโอครบ 80% ก่อนทำ Post-test" on={true} />
-          <ToggleRow label="อนุญาตให้ดาวน์โหลดเอกสาร" on={true} />
+          <ToggleRow label="ดูวิดีโอครบ 80% ก่อนทำ Post-test" on={watchLimit} onChange={setWatchLimit} />
+          <ToggleRow label="อนุญาตให้ดาวน์โหลดเอกสาร" on={allowDownload} onChange={setAllowDownload} />
           <button className="btn btn-primary btn-block mt-4" onClick={handleSave}><Icon name="check" size={15} />บันทึกรายละเอียด</button>
         </div>
       </div>
@@ -137,14 +145,66 @@ function QuestionEditor({ q, onClose, onSave }) {
   );
 }
 
-function TestBuilder({ lesson, toast, questions, onLoad }) {
+function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
   const [which, setWhich] = React.useState("pre");
   const [qs, setQs] = React.useState(questions || []);
   const [editing, setEditing] = React.useState(null);
 
+  const [prePassing, setPrePassing] = React.useState(lesson.pretest?.passing_score ?? "");
+  const [preTime, setPreTime] = React.useState(lesson.pretest?.time_limit ?? 30);
+  const [preAttempts, setPreAttempts] = React.useState(lesson.pretest?.attempts ?? "1");
+  const [preShuffle, setPreShuffle] = React.useState(lesson.pretest?.shuffle ?? true);
+  const [preShowAnswers, setPreShowAnswers] = React.useState(lesson.pretest?.show_answers ?? true);
+
+  const [postPassing, setPostPassing] = React.useState(lesson.posttest?.passing_score ?? 60);
+  const [postTime, setPostTime] = React.useState(lesson.posttest?.time_limit ?? 30);
+  const [postAttempts, setPostAttempts] = React.useState(lesson.posttest?.attempts ?? "1");
+  const [postShuffle, setPostShuffle] = React.useState(lesson.posttest?.shuffle ?? true);
+  const [postShowAnswers, setPostShowAnswers] = React.useState(lesson.posttest?.show_answers ?? true);
+
   React.useEffect(() => {
     setQs(questions || []);
   }, [questions]);
+
+  React.useEffect(() => {
+    setPrePassing(lesson.pretest?.passing_score ?? "");
+    setPreTime(lesson.pretest?.time_limit ?? 30);
+    setPreAttempts(lesson.pretest?.attempts ?? "1");
+    setPreShuffle(lesson.pretest?.shuffle ?? true);
+    setPreShowAnswers(lesson.pretest?.show_answers ?? true);
+
+    setPostPassing(lesson.posttest?.passing_score ?? 60);
+    setPostTime(lesson.posttest?.time_limit ?? 30);
+    setPostAttempts(lesson.posttest?.attempts ?? "1");
+    setPostShuffle(lesson.posttest?.shuffle ?? true);
+    setPostShowAnswers(lesson.posttest?.show_answers ?? true);
+  }, [lesson]);
+
+  const filteredQs = qs.filter((q) => q.kind === which);
+
+  const handleSaveSettings = async () => {
+    if (which === "pre") {
+      const updatedPretest = {
+        ...lesson.pretest,
+        passing_score: prePassing === "" || prePassing === "—" ? null : parseInt(prePassing) || 0,
+        time_limit: parseInt(preTime) || 0,
+        attempts: preAttempts,
+        shuffle: preShuffle,
+        show_answers: preShowAnswers
+      };
+      await onSaveSettings({ pretest: updatedPretest });
+    } else {
+      const updatedPosttest = {
+        ...lesson.posttest,
+        passing_score: postPassing === "" || postPassing === "—" ? null : parseInt(postPassing) || 0,
+        time_limit: parseInt(postTime) || 0,
+        attempts: postAttempts,
+        shuffle: postShuffle,
+        show_answers: postShowAnswers
+      };
+      await onSaveSettings({ posttest: updatedPosttest });
+    }
+  };
 
   const handleSaveQuestion = async (nq) => {
     if (nq.id && !String(nq.id).startsWith("temp_")) {
@@ -153,7 +213,9 @@ function TestBuilder({ lesson, toast, questions, onLoad }) {
         type: nq.type || "single",
         text: nq.text,
         choices: nq.choices,
-        answer: nq.answer
+        answer: nq.answer,
+        lesson_id: lesson.id,
+        kind: which
       }).eq("id", nq.id);
       if (error) toast("เกิดข้อผิดพลาด: " + error.message);
       else {
@@ -164,11 +226,13 @@ function TestBuilder({ lesson, toast, questions, onLoad }) {
       const newId = "q_" + Date.now();
       const { error } = await supabase.from("questions").insert([{
         id: newId,
-        no: qs.length + 1,
+        no: filteredQs.length + 1,
         type: nq.type || "single",
         text: nq.text,
         choices: nq.choices,
-        answer: nq.answer
+        answer: nq.answer,
+        lesson_id: lesson.id,
+        kind: which
       }]);
       if (error) toast("เกิดข้อผิดพลาด: " + error.message);
       else {
@@ -189,6 +253,38 @@ function TestBuilder({ lesson, toast, questions, onLoad }) {
     }
   };
 
+  const passingValue = which === "pre" ? prePassing : postPassing;
+  const setPassingValue = (val) => {
+    let cleaned = val.replace(/[^0-9]/g, "");
+    let num = cleaned === "" ? "" : Math.min(100, parseInt(cleaned, 10));
+    if (which === "pre") setPrePassing(num);
+    else setPostPassing(num);
+  };
+
+  const timeValue = which === "pre" ? preTime : postTime;
+  const setTimeValue = (val) => {
+    if (which === "pre") setPreTime(val);
+    else setPostTime(val);
+  };
+
+  const attemptsValue = which === "pre" ? preAttempts : postAttempts;
+  const setAttemptsValue = (val) => {
+    if (which === "pre") setPreAttempts(val);
+    else setPostAttempts(val);
+  };
+
+  const shuffleValue = which === "pre" ? preShuffle : postShuffle;
+  const setShuffleValue = (val) => {
+    if (which === "pre") setPreShuffle(val);
+    else setPostShuffle(val);
+  };
+
+  const showAnswersValue = which === "pre" ? preShowAnswers : postShowAnswers;
+  const setShowAnswersValue = (val) => {
+    if (which === "pre") setPreShowAnswers(val);
+    else setPostShowAnswers(val);
+  };
+
   return (
     <div className="flex gap-5 items-start wrap">
       <div className="flex-1" style={{ minWidth: 300 }}>
@@ -197,10 +293,10 @@ function TestBuilder({ lesson, toast, questions, onLoad }) {
             <button className={which === "pre" ? "on" : ""} onClick={() => setWhich("pre")}>Pre-test</button>
             <button className={which === "post" ? "on" : ""} onClick={() => setWhich("post")}>Post-test</button>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => setEditing({ no: qs.length + 1, type: "single", text: "", choices: [{ id: "a", text: "" }, { id: "b", text: "" }], answer: "a", id: "temp_" + Date.now() })}><Icon name="plus" size={15} />เพิ่มข้อสอบ</button>
+          <button className="btn btn-primary btn-sm" onClick={() => setEditing({ no: filteredQs.length + 1, type: "single", text: "", choices: [{ id: "a", text: "" }, { id: "b", text: "" }], answer: "a", id: "temp_" + Date.now() })}><Icon name="plus" size={15} />เพิ่มข้อสอบ</button>
         </div>
         <div className="flex col gap-3">
-          {qs.map((q, i) => (
+          {filteredQs.map((q, i) => (
             <div key={q.id} className="card card-p">
               <div className="flex items-start gap-3">
                 <div className="iconbtn ghost" style={{ cursor: "grab", marginTop: -4 }}><Icon name="more" size={16} style={{ transform: "rotate(90deg)" }} /></div>
@@ -222,7 +318,7 @@ function TestBuilder({ lesson, toast, questions, onLoad }) {
               </div>
             </div>
           ))}
-          <button className="card card-p flex items-center justify-center gap-2 pointer muted" style={{ borderStyle: "dashed", background: "#fbfcfd" }} onClick={() => setEditing({ no: qs.length + 1, type: "single", text: "", choices: [{ id: "a", text: "" }, { id: "b", text: "" }], answer: "a", id: "temp_" + Date.now() })}>
+          <button className="card card-p flex items-center justify-center gap-2 pointer muted" style={{ borderStyle: "dashed", background: "#fbfcfd" }} onClick={() => setEditing({ no: filteredQs.length + 1, type: "single", text: "", choices: [{ id: "a", text: "" }, { id: "b", text: "" }], answer: "a", id: "temp_" + Date.now() })}>
             <Icon name="plus" size={16} />เพิ่มข้อสอบใหม่
           </button>
         </div>
@@ -230,13 +326,26 @@ function TestBuilder({ lesson, toast, questions, onLoad }) {
       <div style={{ width: 300, flex: "0 0 300px" }}>
         <div className="card card-p">
           <div className="t-sm fw-7 mb-3">ตั้งค่าแบบทดสอบ {which === "pre" ? "ก่อนเรียน" : "หลังเรียน"}</div>
-          <div className="field"><label className="label">คะแนนผ่าน (%)</label><input className="input" defaultValue={which === "pre" ? "—" : "60"} /></div>
-          <div className="field"><label className="label">เวลาทำ (นาที)</label><input className="input" defaultValue="30" /></div>
-          <div className="field"><label className="label">จำนวนครั้งที่ทำได้</label><select className="input"><option>1 ครั้ง</option><option>2 ครั้ง</option><option>ไม่จำกัด</option></select></div>
-          <ToggleRow label="สลับลำดับข้อสอบ" on={true} />
-          <ToggleRow label="แสดงเฉลยหลังส่ง" on={true} />
-          <div className="flex items-center justify-between mt-3 t-sm"><span className="muted">รวม</span><span className="fw-7">{qs.length} ข้อ · {qs.length} คะแนน</span></div>
-          <button className="btn btn-primary btn-block mt-3" onClick={() => toast("บันทึกเกณฑ์สำเร็จ")}><Icon name="check" size={15} />บันทึกเกณฑ์</button>
+          <div className="field">
+            <label className="label">คะแนนผ่าน (%)</label>
+            <input className="input" value={passingValue !== "" && passingValue !== null && passingValue !== undefined ? passingValue + "%" : ""} onChange={(e) => setPassingValue(e.target.value)} placeholder="เช่น 60" />
+          </div>
+          <div className="field">
+            <label className="label">เวลาทำ (นาที)</label>
+            <input className="input" value={timeValue} onChange={(e) => setTimeValue(e.target.value)} />
+          </div>
+          <div className="field">
+            <label className="label">จำนวนครั้งที่ทำได้</label>
+            <select className="input" value={attemptsValue} onChange={(e) => setAttemptsValue(e.target.value)}>
+              <option value="1">1 ครั้ง</option>
+              <option value="2">2 ครั้ง</option>
+              <option value="unlimited">ไม่จำกัด</option>
+            </select>
+          </div>
+          <ToggleRow label="สลับลำดับข้อสอบ" on={shuffleValue} onChange={setShuffleValue} />
+          <ToggleRow label="แสดงเฉลยหลังส่ง" on={showAnswersValue} onChange={setShowAnswersValue} />
+          <div className="flex items-center justify-between mt-3 t-sm"><span className="muted">รวม</span><span className="fw-7">{filteredQs.length} ข้อ · {filteredQs.length} คะแนน</span></div>
+          <button className="btn btn-primary btn-block mt-3" onClick={handleSaveSettings}><Icon name="check" size={15} />บันทึกเกณฑ์</button>
         </div>
       </div>
       {editing && <QuestionEditor q={editing} onClose={() => setEditing(null)} onSave={handleSaveQuestion} />}
@@ -245,12 +354,14 @@ function TestBuilder({ lesson, toast, questions, onLoad }) {
 }
 
 function AssignmentBuilder({ lesson, toast, assignments, rubrics, onLoad }) {
-  const a = assignments[0] || { title: "", instructions: "", due: "", points: 10, allow_file: true, allow_text: true };
+  const a = assignments[0] || { title: "", instructions: "", due: "", due_time: "23:59", allow_late: false, points: 10, allow_file: true, allow_text: true };
   const rubric = rubrics[0] || { criteria: [] };
 
   const [title, setTitle] = useState(a.title || "");
   const [instructions, setInstructions] = useState(a.instructions || "");
   const [due, setDue] = useState(a.due || "");
+  const [dueTime, setDueTime] = useState(a.due_time || "23:59");
+  const [allowLate, setAllowLate] = useState(a.allow_late ?? false);
   const [allowFile, setAllowFile] = useState(a.allow_file ?? true);
   const [allowText, setAllowText] = useState(a.allow_text ?? true);
 
@@ -261,6 +372,8 @@ function AssignmentBuilder({ lesson, toast, assignments, rubrics, onLoad }) {
     setTitle(a.title || "");
     setInstructions(a.instructions || "");
     setDue(a.due || "");
+    setDueTime(a.due_time || "23:59");
+    setAllowLate(a.allow_late ?? false);
     setAllowFile(a.allow_file ?? true);
     setAllowText(a.allow_text ?? true);
   }, [assignments]);
@@ -279,6 +392,8 @@ function AssignmentBuilder({ lesson, toast, assignments, rubrics, onLoad }) {
       title,
       instructions,
       due,
+      due_time: dueTime,
+      allow_late: allowLate,
       points: total,
       allow_file: allowFile,
       allow_text: allowText,
@@ -307,7 +422,6 @@ function AssignmentBuilder({ lesson, toast, assignments, rubrics, onLoad }) {
         const { error: rErr } = await supabase.from("rubrics").insert([{ id: rubricId, title: title + " Rubric", criteria }]);
         error = rErr;
         if (!rErr && !a.id) {
-          // Bind rubric_id to assignment if newly created
           await supabase.from("assignments").update({ rubric_id: rubricId }).eq("id", assignmentId);
         }
       }
@@ -331,14 +445,30 @@ function AssignmentBuilder({ lesson, toast, assignments, rubrics, onLoad }) {
             <div className="field"><label className="label">คำชี้แจง</label><textarea className="input" rows={4} value={instructions} onChange={(e) => setInstructions(e.target.value)} /></div>
             <div className="grid grid-3 gap-3">
               <div className="field" style={{ margin: 0 }}><label className="label">กำหนดส่ง</label><input className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>
-              <div className="field" style={{ margin: 0 }}><label className="label">เวลา</label><input className="input" defaultValue="23:59" /></div>
+              <div className="field" style={{ margin: 0 }}><label className="label">เวลา</label><input className="input" value={dueTime} onChange={(e) => {
+                let val = e.target.value;
+                let cleaned = val.replace(/[^0-9]/g, "").slice(0, 4);
+                if (cleaned.length >= 2) {
+                  let hh = parseInt(cleaned.slice(0, 2), 10);
+                  if (hh > 23) cleaned = "23" + cleaned.slice(2);
+                }
+                if (cleaned.length >= 4) {
+                  let mm = parseInt(cleaned.slice(2, 4), 10);
+                  if (mm > 59) cleaned = cleaned.slice(0, 2) + "59";
+                }
+                let formatted = cleaned;
+                if (cleaned.length > 2) {
+                  formatted = cleaned.slice(0, 2) + ":" + cleaned.slice(2);
+                }
+                setDueTime(formatted);
+              }} placeholder="23:59" /></div>
               <div className="field" style={{ margin: 0 }}><label className="label">คะแนนเต็ม</label><input className="input" value={total} readOnly /></div>
             </div>
             <label className="label mt-2">รูปแบบการส่งงาน</label>
             <div className="flex gap-2 wrap">
               <Chk label="แนบไฟล์ (PDF/DOCX/รูปภาพ)" on={allowFile} onChange={setAllowFile} />
               <Chk label="พิมพ์คำตอบเป็นข้อความ" on={allowText} onChange={setAllowText} />
-              <Chk label="อนุญาตให้ส่งล่าช้า" on={false} />
+              <Chk label="อนุญาตให้ส่งล่าช้า" on={allowLate} onChange={setAllowLate} />
             </div>
           </div>
         </div>
@@ -488,12 +618,150 @@ function LessonScores({ enrolledStudents, testScores, submissions }) {
   );
 }
 
-export default function InstructorLesson() {
+function DocsManage({ lesson, onSave, toast }) {
+  const [docs, setDocs] = useState(lesson.documents || []);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    setDocs(lesson.documents || []);
+  }, [lesson.documents]);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const filePath = `${lesson.id}/${Date.now()}_${file.name}`;
+      const { data, error } = await supabase.storage
+        .from("lesson-documents")
+        .upload(filePath, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("lesson-documents")
+        .getPublicUrl(filePath);
+
+      const newDoc = {
+        name: file.name,
+        size: formatBytes(file.size),
+        path: filePath,
+        url: publicUrl
+      };
+
+      const updatedDocs = [...docs, newDoc];
+      setDocs(updatedDocs);
+      await onSave({ documents: updatedDocs });
+      toast("อัปโหลดเอกสารสำเร็จ");
+    } catch (error) {
+      console.error(error);
+      toast("เกิดข้อผิดพลาดในการอัปโหลด: " + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (docToDelete) => {
+    if (!confirm(`คุณต้องการลบเอกสาร "${docToDelete.name}" ใช่หรือไม่?`)) return;
+
+    try {
+      if (docToDelete.path) {
+        const { error } = await supabase.storage
+          .from("lesson-documents")
+          .remove([docToDelete.path]);
+        if (error) {
+          console.warn("Storage deletion error (continuing database update):", error.message);
+        }
+      }
+
+      const updatedDocs = docs.filter((d) => d.path !== docToDelete.path || d.name !== docToDelete.name);
+      setDocs(updatedDocs);
+      await onSave({ documents: updatedDocs });
+      toast("ลบเอกสารสำเร็จ");
+    } catch (error) {
+      console.error(error);
+      toast("เกิดข้อผิดพลาดในการลบ: " + error.message);
+    }
+  };
+
+  function formatBytes(bytes, decimals = 1) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
+
+  return (
+    <div className="flex gap-5 items-start wrap">
+      <div className="flex-1" style={{ minWidth: 300 }}>
+        <div className="card mb-4">
+          <div className="card-h flex items-center justify-between">
+            <div>
+              <div className="title">เอกสารประกอบการเรียน</div>
+              <div className="desc">เอกสารสำหรับให้นักศึกษาเปิดดูหรือดาวน์โหลด (รองรับ PDF, Word, PowerPoint, รูปภาพ)</div>
+            </div>
+            <label className={`btn btn-primary btn-sm ${uploading ? "disabled" : ""}`} style={{ cursor: "pointer", position: "relative" }}>
+              <Icon name="upload" size={15} />
+              {uploading ? "กำลังอัปโหลด..." : "อัปโหลดเอกสาร"}
+              <input type="file" onChange={handleUpload} style={{ display: "none" }} disabled={uploading} />
+            </label>
+          </div>
+          
+          <div style={{ padding: 8 }}>
+            {docs.length === 0 ? (
+              <div className="empty" style={{ padding: "40px 0" }}>
+                <div className="ec"><Icon name="folder" size={22} style={{ color: "var(--subtle)" }} /></div>
+                <div className="t-sm muted">ยังไม่มีเอกสารประกอบการเรียนสำหรับบทเรียนนี้</div>
+              </div>
+            ) : (
+              docs.map((doc, i) => (
+                <div key={i} className="flex items-center gap-3" style={{ padding: "12px 14px", borderBottom: i < docs.length - 1 ? "1px solid var(--border)" : "none" }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}>
+                    <Icon name="file" size={18} />
+                  </div>
+                  <div className="flex-1" style={{ minWidth: 0 }}>
+                    <div className="t-sm fw-6 truncate">{doc.name}</div>
+                    <div className="t-xs muted">{doc.size}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ height: 32, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <Icon name="eye" size={14} /> เปิดดู
+                    </a>
+                    <button className="iconbtn ghost c-danger" onClick={() => handleDelete(doc)}>
+                      <Icon name="trash" size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+      <div style={{ width: 300, flex: "0 0 300px" }}>
+        <div className="card card-p">
+          <div className="t-sm fw-7 mb-3">คำแนะนำ</div>
+          <div className="t-xs muted lead pretty" style={{ fontSize: 13, lineHeight: 1.5 }}>
+            • เอกสารที่อัปโหลดจะถูกแสดง in หน้าบทเรียนของนักศึกษาในแถบ "เอกสารประกอบ"<br />
+            • คุณสามารถตั้งค่าว่าจะอนุญาตให้นักศึกษาดาวน์โหลดเอกสารไปเก็บไว้ในเครื่องได้หรือไม่ ได้ที่แถบ "วิดีโอ" (การตั้งค่าการเข้าถึง)
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InstructorLessonContent() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const nav = (path) => router.push(path);
 
   const lessonId = params?.id;
+  const queryCourseId = searchParams.get("course_id");
+
   const [lesson, setLesson] = useState(null);
   const [course, setCourse] = useState(null);
   const [tab, setTab] = useState("video");
@@ -502,32 +770,53 @@ export default function InstructorLesson() {
 
   const loadData = async () => {
     if (!lessonId) return;
+    
     if (lessonId === "new") {
-      setLesson({ title: "บทเรียนใหม่", index: 1, pretest: {}, posttest: {}, duration: "", desc: "" });
-      setCourse({ code: "วิชาใหม่", title: "ไม่มีวิชา" });
+      const { data: cData } = await supabase.from("courses").select("*").eq("id", queryCourseId).single();
+      const { data: existingLessons } = await supabase.from("lessons").select("id").eq("course_id", queryCourseId);
+      const nextIndex = existingLessons ? existingLessons.length + 1 : 1;
+
+      setLesson({
+        id: "l_" + Date.now(),
+        course_id: queryCourseId,
+        title: "",
+        description: "",
+        duration: "",
+        status: "draft",
+        index: nextIndex,
+        video: false,
+        pretest: { required: false },
+        posttest: { required: false },
+        assignment: null,
+        watch_limit: true,
+        allow_download: true
+      });
+      setCourse(cData || { code: "วิชาใหม่", title: "ไม่มีวิชา" });
       setLoading(false);
       return;
     }
+
     const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
     if (!lData) { setLoading(false); return; }
     
     const { data: cData } = await supabase.from("courses").select("*").eq("id", lData.course_id).single();
     
     const [qRes, aRes, rRes, subRes, tsRes, stRes] = await Promise.all([
-      supabase.from("questions").select("*").order("no", { ascending: true }),
+      supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),
       supabase.from("assignments").select("*").eq("lesson_id", lessonId),
       supabase.from("rubrics").select("*"),
-      supabase.from("submissions").select("*").eq("assignment_id", aRes?.data?.[0]?.id || "_dummy_"), // filtered by assignment
+      supabase.from("submissions").select("*"),
       supabase.from("test_scores").select("*"),
       supabase.from("users").select("*").eq("role", "student")
     ]);
     
-    // In case query for submissions needs to run with resolved assignment id
+    // Filter submissions by assignment if exists
     let finalSubmissions = subRes.data || [];
     const assignmentObj = aRes.data?.[0];
     if (assignmentObj) {
-      const { data: subData } = await supabase.from("submissions").select("*").eq("assignment_id", assignmentObj.id);
-      if (subData) finalSubmissions = subData;
+      finalSubmissions = finalSubmissions.filter(sub => sub.assignment_id === assignmentObj.id);
+    } else {
+      finalSubmissions = [];
     }
     
     setLesson(lData);
@@ -545,15 +834,32 @@ export default function InstructorLesson() {
 
   useEffect(() => {
     loadData();
-  }, [lessonId]);
+  }, [lessonId, queryCourseId]);
 
   const handleSaveLessonDetails = async (updatedFields) => {
-    const { error } = await supabase.from("lessons").update(updatedFields).eq("id", lessonId);
-    if (error) {
-      toast("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
+    const isNew = lessonId === "new";
+    if (isNew) {
+      const newLessonObj = {
+        id: lesson.id,
+        course_id: lesson.course_id,
+        index: lesson.index,
+        ...updatedFields
+      };
+      const { error } = await supabase.from("lessons").insert([newLessonObj]);
+      if (error) {
+        toast("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message);
+      } else {
+        toast("สร้างบทเรียนสำเร็จ");
+        router.replace(`/i/lesson/${lesson.id}`);
+      }
     } else {
-      setLesson(prev => ({ ...prev, ...updatedFields }));
-      toast("บันทึกรายละเอียดบทเรียนเรียบร้อยแล้ว");
+      const { error } = await supabase.from("lessons").update(updatedFields).eq("id", lessonId);
+      if (error) {
+        toast("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
+      } else {
+        setLesson(prev => ({ ...prev, ...updatedFields }));
+        toast("บันทึกรายละเอียดบทเรียนเรียบร้อยแล้ว");
+      }
     }
   };
 
@@ -589,22 +895,45 @@ export default function InstructorLesson() {
     return true;
   });
 
+  const isNew = lessonId === "new";
+
   return (
     <div className="container-wide">
-      <Crumb nav={nav} items={[{ label: "รายวิชา", to: "/i/courses" }, { label: course.code, to: "/i/course/" + course.id }, { label: "บทที่ " + lesson.index }]} />
-      <PageHead kicker={"แก้ไขบทเรียน · " + course.code} title={lesson.title}
-        right={<div className="flex gap-2"><button className="btn btn-outline" onClick={() => nav("/s/lesson/" + lesson.id)}><Icon name="eye" size={16} />ดูมุมมองนักศึกษา</button></div>} />
+      <Crumb nav={nav} items={[{ label: "รายวิชา", to: "/i/courses" }, { label: course.code, to: "/i/course/" + course.id }, { label: isNew ? "สร้างบทเรียนใหม่" : "บทที่ " + lesson.index }]} />
+      <PageHead kicker={isNew ? "สร้างบทเรียนใหม่ · " + course.code : "แก้ไขบทเรียน · " + course.code} title={isNew ? "บทเรียนใหม่" : lesson.title}
+        right={!isNew && <div className="flex gap-2"><button className="btn btn-outline" onClick={() => nav("/s/lesson/" + lesson.id)}><Icon name="eye" size={16} />ดูมุมมองนักศึกษา</button></div>} />
 
-      <div className="tabs mb-5">
-        {[["video", "วิดีโอ", "video"], ["test", "ข้อสอบ Pre/Post", "clipboard"], ["assign", "ใบงาน + Rubric", "file"], ["scores", "คะแนนนักศึกษา", "chart"]].map(([k, t, ic]) => (
-          <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}><Icon name={ic} size={15} />{t}</button>
-        ))}
-      </div>
+      {isNew ? (
+        <VideoManage lesson={lesson} onSave={handleSaveLessonDetails} />
+      ) : (
+        <>
+          <div className="tabs mb-5">
+            {[
+              ["video", "วิดีโอ", "video"],
+              ["docs", "เอกสารประกอบ", "folder"],
+              ["test", "ข้อสอบ Pre/Post", "clipboard"],
+              ["assign", "ใบงาน + Rubric", "file"],
+              ["scores", "คะแนนนักศึกษา", "chart"]
+            ].map(([k, t, ic]) => (
+              <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}><Icon name={ic} size={15} />{t}</button>
+            ))}
+          </div>
 
-      {tab === "video" && <VideoManage lesson={lesson} onSave={handleSaveLessonDetails} />}
-      {tab === "test" && <TestBuilder lesson={lesson} toast={toast} questions={data.questions} onLoad={loadData} />}
-      {tab === "assign" && <AssignmentBuilder lesson={lesson} toast={toast} assignments={data.assignments} rubrics={data.rubrics} onLoad={loadData} />}
-      {tab === "scores" && <LessonScores enrolledStudents={enrolledStudents} testScores={data.testScores} submissions={data.submissions} />}
+          {tab === "video" && <VideoManage lesson={lesson} onSave={handleSaveLessonDetails} />}
+          {tab === "docs" && <DocsManage lesson={lesson} onSave={handleSaveLessonDetails} toast={toast} />}
+          {tab === "test" && <TestBuilder lesson={lesson} toast={toast} questions={data.questions} onLoad={loadData} onSaveSettings={handleSaveLessonDetails} />}
+          {tab === "assign" && <AssignmentBuilder lesson={lesson} toast={toast} assignments={data.assignments} rubrics={data.rubrics} onLoad={loadData} />}
+          {tab === "scores" && <LessonScores enrolledStudents={enrolledStudents} testScores={data.testScores} submissions={data.submissions} />}
+        </>
+      )}
     </div>
+  );
+}
+
+export default function InstructorLesson() {
+  return (
+    <Suspense fallback={<Loading className="container p-5 text-center muted" />}>
+      <InstructorLessonContent />
+    </Suspense>
   );
 }

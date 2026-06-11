@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Dialog } from "@/components/ui/Primitives";
@@ -10,6 +11,8 @@ import Loading from "@/components/ui/Loading";
 export default function TestTaking() {
   const router = useRouter();
   const params = useParams();
+  const { data: session } = useSession();
+  const role = session?.user?.role;
   const nav = (path) => router.push(path);
 
   const lessonId = params?.id;
@@ -24,14 +27,21 @@ export default function TestTaking() {
       if (!lessonId) return;
       const [lRes, qRes] = await Promise.all([
         supabase.from("lessons").select("*").eq("id", lessonId).single(),
-        supabase.from("questions").select("*")
+        supabase.from("questions").select("*").eq("lesson_id", lessonId).eq("kind", kind).order("no", { ascending: true })
       ]);
+      const isStaff = role === "instructor" || role === "admin";
+      if (lRes.data && lRes.data.status === "draft" && !isStaff) {
+        setLesson(null);
+        setQs([]);
+        setLoading(false);
+        return;
+      }
       setLesson(lRes.data);
       setQs(qRes.data || []);
       setLoading(false);
     }
     load();
-  }, [lessonId]);
+  }, [lessonId, role]);
 
   const [cur, setCur] = useState(0);
   const [answers, setAnswers] = useState({});

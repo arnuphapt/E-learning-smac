@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { useSession } from "next-auth/react";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
+import Loading from "@/components/ui/Loading";
 
 function LessonRow({ l, nav }) {
   const locked = l.status === "locked-pretest";
@@ -40,8 +42,8 @@ function LessonRow({ l, nav }) {
             </div>
           </div>
           <div style={{ width: 120 }} className="hide-m">
-            <div className="flex items-center justify-between t-xs mb-1"><span className="muted">{l.progress}%</span></div>
-            <Progress value={l.progress} h={6} />
+            <div className="flex items-center justify-between t-xs mb-1"><span className="muted">{l.progress || 0}%</span></div>
+            <Progress value={l.progress || 0} h={6} />
           </div>
           <Icon name="chevR" size={18} style={{ color: "var(--subtle)" }} />
         </div>
@@ -53,17 +55,120 @@ function LessonRow({ l, nav }) {
 export default function StudentCourse() {
   const router = useRouter();
   const params = useParams();
+  const { data: session } = useSession();
   const nav = (path) => router.push(path);
 
   const courseId = params?.id;
-  const course = DATA.courses.find((c) => c.id === courseId) || DATA.courses[0];
-  const lessons = DATA.lessons.filter((l) => l.courseId === course.id);
+  const studentId = session?.dbId;
+  const role = session?.user?.role;
+
+  const [course, setCourse] = useState(null);
+  const [lessons, setLessons] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      if (!courseId) return;
+      
+      const [cRes, lRes] = await Promise.all([
+        supabase.from("courses").select("*").eq("id", courseId).single(),
+        supabase.from("lessons").select("*").eq("course_id", courseId).order("index", { ascending: true })
+      ]);
+      
+      if (!cRes.data) {
+        setLoading(false);
+        return;
+      }
+
+      let fetchedLessons = lRes.data || [];
+      const isStaff = role === "instructor" || role === "admin";
+      if (!isStaff) {
+        fetchedLessons = fetchedLessons.filter((l) => l.status !== "draft");
+      }
+
+      if (studentId) {
+        // Fetch student test scores and assignment submissions
+        const [tsRes, subRes, assignRes] = await Promise.all([
+          supabase.from("test_scores").select("*").eq("student_id", studentId),
+          supabase.from("submissions").select("*").eq("student_id", studentId),
+          supabase.from("assignments").select("*").eq("course_id", courseId)
+        ]);
+
+        const testScores = tsRes.data || [];
+        const submissions = subRes.data || [];
+        const assignments = assignRes.data || [];
+
+        fetchedLessons = fetchedLessons.map((l) => {
+          const myScore = testScores.find((ts) => ts.student_id === studentId);
+          const preTaken = myScore ? (myScore.pre !== null && myScore.pre !== undefined) : false;
+          const postTaken = myScore ? (myScore.post !== null && myScore.post !== undefined) : false;
+
+          let status = l.status || "active";
+          const hasPre = l.pretest && l.pretest.required;
+          if (hasPre && !preTaken && l.index > 1) {
+            status = "locked-pretest";
+          }
+
+          const asg = assignments.find((a) => a.lesson_id === l.id);
+          let assignmentObj = null;
+          if (asg) {
+            const sub = submissions.find((s) => s.assignment_id === asg.id);
+            assignmentObj = {
+              id: asg.id,
+              status: sub ? sub.status : "todo"
+            };
+          }
+
+          return {
+            ...l,
+            status,
+            pretest: l.pretest ? {
+              ...l.pretest,
+              taken: preTaken
+            } : null,
+            posttest: l.posttest ? {
+              ...l.posttest,
+              taken: postTaken
+            } : null,
+            assignment: assignmentObj
+          };
+        });
+      }
+
+      setCourse(cRes.data);
+      setLessons(fetchedLessons);
+      setLoading(false);
+    }
+    load();
+  }, [courseId, studentId, role]);
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (!course) {
+    return (
+      <div className="container p-5">
+        <div className="card">
+          <div className="empty">
+            <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
+            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบข้อมูลรายวิชา</div>
+            <div className="t-sm muted">ไม่พบข้อมูลรายวิชาตามรหัสที่ระบุ หรือไม่มีอยู่ในฐานข้อมูลของระบบ</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Count lessons completed (meaning student finished post-test if required, or progress is 100)
+  const completedCount = lessons.filter(l => {
+    const hasPost = l.posttest && l.posttest.required;
+    if (hasPost) return l.posttest.taken;
+    return l.progress === 100;
+  }).length;
 
   return (
     <div className="container">
       <Crumb nav={nav} items={[{ label: "รายวิชาของฉัน", to: "/s/courses" }, { label: course.code }]} />
       <div className="card mb-5" style={{ overflow: "hidden" }}>
-        <div style={{ height: 8, background: `linear-gradient(90deg, ${course.hero}, ${course.hero}aa)` }} />
+        <div style={{ height: 8, background: `linear-gradient(90deg, ${course.hero || "#0d6e8c"}, ${(course.hero || "#0d6e8c")}aa)` }} />
         <div className="card-p flex items-start justify-between gap-4 wrap">
           <div style={{ minWidth: 260 }}>
             <div className="flex items-center gap-2 mb-2">
@@ -80,9 +185,9 @@ export default function StudentCourse() {
           </div>
           <div className="card bg-muted" style={{ padding: 16, minWidth: 188, border: 0 }}>
             <div className="t-xs muted mb-1">ความคืบหน้ารวม</div>
-            <div className="flex items-end gap-2"><span className="t-3xl fw-7 tnum" style={{ lineHeight: 1 }}>{course.progress}</span><span className="muted mb-1">%</span></div>
-            <div className="mt-2"><Progress value={course.progress} /></div>
-            <div className="t-xs muted mt-2">เรียนจบ 1 จาก {lessons.length} บทเรียน</div>
+            <div className="flex items-end gap-2"><span className="t-3xl fw-7 tnum" style={{ lineHeight: 1 }}>{course.progress || 0}</span><span className="muted mb-1">%</span></div>
+            <div className="mt-2"><Progress value={course.progress || 0} /></div>
+            <div className="t-xs muted mt-2">เรียนจบ {completedCount} จาก {lessons.length} บทเรียน</div>
           </div>
         </div>
       </div>

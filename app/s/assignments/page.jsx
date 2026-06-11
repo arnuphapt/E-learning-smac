@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -10,6 +11,8 @@ import Loading from "@/components/ui/Loading";
 
 export default function StudentAssignments() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const role = session?.user?.role;
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -36,9 +39,16 @@ export default function StudentAssignments() {
   const nav = (path) => router.push(path);
 
   // 1. Process assignments and combine with course & status information
-  const assignmentsList = assignments.map((asg) => {
-    const course = courses.find((c) => c.id === asg.course_id);
-    const lesson = lessons.find((l) => l.id === asg.lesson_id);
+  const assignmentsList = assignments
+    .filter((asg) => {
+      const lesson = lessons.find((l) => l.id === asg.lesson_id);
+      const isStaff = role === "instructor" || role === "admin";
+      if (lesson?.status === "draft" && !isStaff) return false;
+      return true;
+    })
+    .map((asg) => {
+      const course = courses.find((c) => c.id === asg.course_id);
+      const lesson = lessons.find((l) => l.id === asg.lesson_id);
     
     // Status and score are loaded dynamically from student's progress in lessons
     const status = lesson?.assignment?.status || "not-submitted";

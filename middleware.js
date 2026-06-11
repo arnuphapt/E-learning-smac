@@ -33,10 +33,7 @@ export async function middleware(request) {
   if (token) {
     const role = token.role || "student";
     
-    // Instructor/Admin trying to access student routes
-    if (pathname.startsWith("/s/") && (role === "instructor" || role === "admin")) {
-      return NextResponse.redirect(new URL("/i/courses", request.url));
-    }
+
     
     // Student trying to access instructor routes
     if (pathname.startsWith("/i/") && role === "student") {

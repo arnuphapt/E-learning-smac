@@ -217,14 +217,7 @@ export default function CreateCourse() {
             </div>
           </div>
 
-          <div className="card">
-            <div className="card-h"><div className="title">การลงทะเบียน</div></div>
-            <div className="card-p">
-              <ToggleRow label="เปิดให้นักศึกษาเข้าร่วมด้วยรหัสรายวิชา" on={true} />
-              <ToggleRow label="ต้องอนุมัติก่อนเข้าร่วม" on={false} />
-              <ToggleRow label="เผยแพร่ทันทีหลังสร้าง" on={false} />
-            </div>
-          </div>
+
         </div>
 
         {/* live preview + actions */}

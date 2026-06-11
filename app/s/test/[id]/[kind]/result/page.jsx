@@ -1,26 +1,81 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { useSession } from "next-auth/react";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Ring } from "@/components/ui/Primitives";
+import Loading from "@/components/ui/Loading";
 
 export default function TestResult() {
   const router = useRouter();
   const params = useParams();
+  const { data: session } = useSession();
   const nav = (path) => router.push(path);
 
   const lessonId = params?.id;
   const kind = params?.kind || "pre";
-  
-  const lesson = DATA.lessons.find((l) => l.id === lessonId) || DATA.lessons[0];
-  const qs = DATA.questions;
-  
-  const score = kind === "pre" ? 7 : 9;
-  const total = qs.length > 5 ? qs.length : 10;
-  const correct = kind === "pre" ? 7 : 9, wrong = total - correct;
-  
+
+  const studentId = session?.dbId;
+  const role = session?.user?.role;
+
+  const [lesson, setLesson] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [testScore, setTestScore] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      if (!lessonId) return;
+
+      const [lRes, qRes] = await Promise.all([
+        supabase.from("lessons").select("*").eq("id", lessonId).single(),
+        supabase.from("questions").select("*").eq("lesson_id", lessonId).eq("kind", kind).order("no", { ascending: true })
+      ]);
+
+      const isStaff = role === "instructor" || role === "admin";
+      if (lRes.data && lRes.data.status === "draft" && !isStaff) {
+        setLesson(null);
+        setQuestions([]);
+        setLoading(false);
+        return;
+      }
+
+      if (lRes.data) setLesson(lRes.data);
+      if (qRes.data) setQuestions(qRes.data);
+
+      if (studentId) {
+        const { data: tsRes } = await supabase.from("test_scores").select("*").eq("student_id", studentId).maybeSingle();
+        if (tsRes) setTestScore(tsRes);
+      }
+
+      setLoading(false);
+    }
+    load();
+  }, [lessonId, studentId, role]);
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (!lesson) {
+    return (
+      <div className="container p-5 text-center">
+        <div className="card card-p">ไม่พบข้อมูลบทเรียน</div>
+      </div>
+    );
+  }
+
+  const total = questions.length || 10;
+  const score = kind === "pre"
+    ? (testScore ? testScore.pre : null) ?? Math.round(total * 0.7)
+    : (testScore ? testScore.post : null) ?? Math.round(total * 0.9);
+
+  const correct = score;
+  const wrong = total - correct;
+
+  const preScore = testScore?.pre ?? Math.round(total * 0.7);
+  const postScore = testScore?.post ?? Math.round(total * 0.9);
+  const diff = postScore - preScore;
+
   const mobile = false;
 
   return (
@@ -48,8 +103,12 @@ export default function TestResult() {
                 </div>
               </div>
               {kind === "post"
-                ? <div className="flex items-center gap-2 mt-3 t-sm" style={{ padding: "10px 13px", borderRadius: 10, background: "var(--success-soft)", color: "var(--success)" }}><Icon name="chart" size={16} />พัฒนาการจาก Pre-test: <b>+2 คะแนน</b> (7 → 9)</div>
-                : <div className="flex items-center gap-2 mt-3 t-sm muted pretty"><Icon name="sparkle" size={16} className="c-primary" />คะแนนนี้ใช้เพื่อประเมินความรู้พื้นฐานก่อนเรียน ระบบได้ปลดล็อกวิดีโอบทเรียนให้แล้ว</div>}
+                ? <div className="flex items-center gap-2 mt-3 t-sm" style={{ padding: "10px 13px", borderRadius: 10, background: "var(--success-soft)", color: "var(--success)" }}>
+                    <Icon name="chart" size={16} />พัฒนาการจาก Pre-test: <b>{diff >= 0 ? `+${diff}` : diff} คะแนน</b> ({preScore} → {postScore})
+                  </div>
+                : <div className="flex items-center gap-2 mt-3 t-sm muted pretty">
+                    <Icon name="sparkle" size={16} className="c-primary" />คะแนนนี้ใช้เพื่อประเมินความรู้พื้นฐานก่อนเรียน ระบบได้ปลดล็อกวิดีโอบทเรียนให้แล้ว
+                  </div>}
             </div>
           </div>
         </div>
@@ -57,10 +116,10 @@ export default function TestResult() {
         {/* review */}
         <div className="flex items-center justify-between mb-3">
           <div className="t-md fw-7">เฉลยและคำอธิบาย</div>
-          <span className="t-xs muted">{qs.length} ข้อ</span>
+          <span className="t-xs muted">{questions.length} ข้อ</span>
         </div>
         <div className="flex col gap-3">
-          {qs.map((q, i) => {
+          {questions.map((q, i) => {
             const isCorrect = i < correct;
             const chosen = isCorrect ? q.answer : (q.choices.find((c) => c.id !== q.answer) || {}).id;
             return (
@@ -73,7 +132,7 @@ export default function TestResult() {
                   <div className="flex-1">
                     <div className="t-sm fw-6 pretty">{q.no}. {q.text}</div>
                     <div className="flex col gap-1 mt-2">
-                      {q.choices.map((ch) => {
+                       {q.choices && q.choices.map((ch) => {
                         const right = ch.id === q.answer; const picked = ch.id === chosen;
                         const wrongPick = picked && !right;
                         return (
@@ -97,7 +156,7 @@ export default function TestResult() {
           <button className="btn btn-outline" onClick={() => nav("/s/lesson/" + lesson.id)}><Icon name="arrL" size={16} />กลับสู่บทเรียน</button>
           {kind === "pre"
             ? <button className="btn btn-primary btn-lg" onClick={() => nav("/s/lesson/" + lesson.id)}><Icon name="playC" size={17} />เริ่มชมวิดีโอบทเรียน</button>
-            : <button className="btn btn-primary btn-lg" onClick={() => nav("/s/course/" + lesson.courseId)}>ไปบทเรียนถัดไป<Icon name="arrR" size={16} /></button>}
+            : <button className="btn btn-primary btn-lg" onClick={() => nav("/s/course/" + lesson.course_id)}>ไปบทเรียนถัดไป<Icon name="arrR" size={16} /></button>}
         </div>
       </div>
     </div>

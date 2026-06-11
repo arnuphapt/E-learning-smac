@@ -17,8 +17,57 @@ export default function InstructorCourses() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from("courses").select("*");
-      if (data) setCourses(data);
+      const [cRes, lRes, sRes, aRes, subRes] = await Promise.all([
+        supabase.from("courses").select("*"),
+        supabase.from("lessons").select("id, course_id"),
+        supabase.from("users").select("id, student_no, section, email").eq("role", "student"),
+        supabase.from("assignments").select("id, course_id"),
+        supabase.from("submissions").select("id, assignment_id, status")
+      ]);
+
+      if (cRes.data) {
+        const coursesList = cRes.data;
+        const allLessons = lRes.data || [];
+        const allStudents = sRes.data || [];
+        const allAssignments = aRes.data || [];
+        const allSubmissions = subRes.data || [];
+
+        const enrichedCourses = coursesList.map((c) => {
+          const courseLessonsCount = allLessons.filter((l) => l.course_id === c.id).length;
+
+          const courseSection = c.section;
+          const allowedYears = c.access?.allowedYears || [];
+          const allowedEmails = c.access?.allowedEmails || [];
+          const enrolledStudents = allStudents.filter((s) => {
+            if (courseSection && courseSection !== "ไม่ระบุ Section" && s.section !== courseSection) {
+              return false;
+            }
+            if (allowedYears.length > 0) {
+              const studentYear = s.student_no ? s.student_no.slice(0, 2) : "";
+              if (!allowedYears.includes(studentYear) && !allowedEmails.includes(s.email)) {
+                return false;
+              }
+            }
+            return true;
+          });
+
+          const courseAssignmentIds = allAssignments
+            .filter((a) => a.course_id === c.id)
+            .map((a) => a.id);
+          const pendingGradingCount = allSubmissions.filter(
+            (sub) => courseAssignmentIds.includes(sub.assignment_id) && sub.status === "submitted"
+          ).length;
+
+          return {
+            ...c,
+            lessonsCount: courseLessonsCount,
+            studentsCount: enrolledStudents.length,
+            pendingGradingCount: pendingGradingCount
+          };
+        });
+
+        setCourses(enrichedCourses);
+      }
       setLoading(false);
     }
     load();
@@ -53,9 +102,15 @@ export default function InstructorCourses() {
                   </div>
                 </td>
                 <td className="hide-m muted">{c.term}</td>
-                <td className="num">{c.lessons}</td>
-                <td className="num">{c.students}</td>
-                <td className="hide-m">{i === 0 ? <Badge tone="warning" dot>3 ชิ้น</Badge> : <span className="muted t-sm">—</span>}</td>
+                <td className="num">{c.lessonsCount}</td>
+                <td className="num">{c.studentsCount}</td>
+                <td className="hide-m">
+                  {c.pendingGradingCount > 0 ? (
+                    <Badge tone="warning" dot>{c.pendingGradingCount} ชิ้น</Badge>
+                  ) : (
+                    <span className="muted t-sm">—</span>
+                  )}
+                </td>
                 <td><Icon name="chevR" size={17} style={{ color: "var(--subtle)" }} /></td>
               </tr>
             )}

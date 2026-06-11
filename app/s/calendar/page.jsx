@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Primitives";
@@ -13,60 +14,130 @@ const TONE_FG = { primary: "var(--primary-soft-fg)", info: "var(--info)", warnin
 
 export default function Calendar() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const role = session?.user?.role;
   const nav = (path) => router.push(path);
 
-  const [CAL_EVENTS, setEvents] = useState({});
+  const [currentDate] = useState(new Date());
+  const [viewedDate, setViewedDate] = useState(new Date());
+  const [allAssignments, setAllAssignments] = useState([]);
+  const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const { data: assignments } = await supabase.from("assignments").select("*, course:courses(code)");
-      const evs = {
-        13: [{ t: "Pre-test บทที่ 2", course: "NUR301", tone: "warning", kind: "test", to: "/s/lesson/l2" }],
-        23: [{ t: "Post-test บทที่ 1", course: "NUR301", tone: "info", kind: "test", to: "/s/lesson/l1" }],
-      };
-      if (assignments) {
-        assignments.forEach(a => {
-           const d = new Date(a.due);
-           let day = d.getDate();
-           if (isNaN(day)) day = 20; 
-           if (!evs[day]) evs[day] = [];
-           evs[day].push({
-              t: a.title,
-              course: a.course?.code || "NUR301",
-              tone: "primary",
-              kind: "assignment",
-              to: "/s/lesson/" + a.lesson_id
-           });
-        });
+      const [aRes, lRes] = await Promise.all([
+        supabase.from("assignments").select("*, course:courses(code)"),
+        supabase.from("lessons").select("*")
+      ]);
+      
+      if (aRes.data) {
+        setAllAssignments(aRes.data);
       }
-      setEvents(evs);
+      if (lRes.data) {
+        setLessons(lRes.data);
+      }
       setLoading(false);
     }
     load();
   }, []);
 
-  const TODAY = 10; // 10 มิ.ย.
-  const DOW = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
-  const firstDow = 0; // 1 มิ.ย. 2568 = อาทิตย์
-  const daysInMonth = 30;
-  const cells = Array.from({ length: 35 }, (_, i) => i - firstDow + 1);
+  const prevMonth = () => {
+    setViewedDate(new Date(viewedDate.getFullYear(), viewedDate.getMonth() - 1, 1));
+  };
+  const nextMonth = () => {
+    setViewedDate(new Date(viewedDate.getFullYear(), viewedDate.getMonth() + 1, 1));
+  };
 
-  const upcoming = Object.entries(CAL_EVENTS)
-    .flatMap(([d, evs]) => evs.map((e) => ({ ...e, day: +d })))
-    .filter((e) => e.day >= TODAY)
-    .sort((a, b) => a.day - b.day);
+  const getHeaderLabel = (date) => {
+    const monthNames = [
+      "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+      "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+    ];
+    const monthName = monthNames[date.getMonth()];
+    const yearBE = date.getFullYear() + 543;
+    return `${monthName} ${yearBE}`;
+  };
+
+  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const getFirstDow = (year, month) => new Date(year, month, 1).getDay();
+
+  const isCurrentMonth = viewedDate.getFullYear() === currentDate.getFullYear() && viewedDate.getMonth() === currentDate.getMonth();
+  const TODAY = isCurrentMonth ? currentDate.getDate() : -1;
+
+  const DOW = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+  const daysInMonth = getDaysInMonth(viewedDate.getFullYear(), viewedDate.getMonth());
+  const firstDow = getFirstDow(viewedDate.getFullYear(), viewedDate.getMonth());
+  
+  const totalCellsNeeded = firstDow + daysInMonth;
+  const gridRows = Math.ceil(totalCellsNeeded / 7);
+  const cells = Array.from({ length: gridRows * 7 }, (_, i) => i - firstDow + 1);
+
+  // Filter out assignments if their parent lesson is draft and the user is a student
+  const assignmentsList = allAssignments.filter((asg) => {
+    const lesson = lessons.find((l) => l.id === asg.lesson_id);
+    const isStaff = role === "instructor" || role === "admin";
+    if (lesson?.status === "draft" && !isStaff) return false;
+    return true;
+  });
+
+  // Compute events for viewed month
+  const getEventsForViewedMonth = () => {
+    const evs = {};
+    assignmentsList.forEach(a => {
+      if (!a.due) return;
+      const d = new Date(a.due);
+      if (d.getFullYear() === viewedDate.getFullYear() && d.getMonth() === viewedDate.getMonth()) {
+        const day = d.getDate();
+        if (!evs[day]) evs[day] = [];
+        evs[day].push({
+          t: a.title,
+          course: a.course?.code || "NUR301",
+          tone: "primary",
+          kind: "assignment",
+          to: "/s/assignment/" + a.id
+        });
+      }
+    });
+    return evs;
+  };
+
+  const CAL_EVENTS = getEventsForViewedMonth();
+
+  // Compute upcoming deadlines
+  const getUpcomingDeadlines = () => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    return assignmentsList
+      .map(a => {
+        if (!a.due) return null;
+        const d = new Date(a.due);
+        return {
+          t: a.title,
+          course: a.course?.code || "NUR301",
+          tone: "primary",
+          kind: "assignment",
+          to: "/s/assignment/" + a.id,
+          date: d
+        };
+      })
+      .filter(item => item && item.date >= now)
+      .sort((a, b) => a.date - b.date);
+  };
+
+  const upcoming = getUpcomingDeadlines();
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
 
   return (
     <div className="container">
-      <PageHead kicker="มิถุนายน 2568" title="ปฏิทินการส่งงาน"
+      <PageHead kicker={getHeaderLabel(viewedDate)} title="ปฏิทินการส่งงาน"
         desc="กำหนดส่งใบงานและแบบทดสอบของทุกรายวิชา รวมไว้ในที่เดียว"
         right={<div className="flex items-center gap-2">
-          <button className="iconbtn"><Icon name="chevL" size={16} /></button>
-          <div className="t-base fw-6" style={{ minWidth: 116, textAlign: "center" }}>มิถุนายน 2568</div>
-          <button className="iconbtn"><Icon name="chevR" size={16} /></button>
+          <button className="iconbtn" onClick={prevMonth}><Icon name="chevL" size={16} /></button>
+          <div className="t-base fw-6" style={{ minWidth: 130, textAlign: "center" }}>{getHeaderLabel(viewedDate)}</div>
+          <button className="iconbtn" onClick={nextMonth}><Icon name="chevR" size={16} /></button>
         </div>} />
 
       <div className="flex gap-5 items-start">
@@ -76,7 +147,7 @@ export default function Calendar() {
           <div className="cal-grid">
             {cells.map((day, i) => {
               const inMonth = day >= 1 && day <= daysInMonth;
-              const num = inMonth ? day : (day < 1 ? 31 + day : day - daysInMonth);
+              const num = inMonth ? day : (day < 1 ? getDaysInMonth(viewedDate.getFullYear(), viewedDate.getMonth() - 1) + day : day - daysInMonth);
               const evs = inMonth ? (CAL_EVENTS[day] || []) : [];
               return (
                 <div key={i} className={"cal-cell" + (!inMonth ? " muted-day" : "") + (inMonth && day === TODAY ? " today" : "")}>
@@ -100,24 +171,41 @@ export default function Calendar() {
           <div className="card">
             <div className="card-h"><div className="title flex items-center gap-2"><Icon name="clock" size={16} className="c-primary" />กำหนดส่งที่ใกล้ถึง</div></div>
             <div style={{ padding: 8 }}>
-              {upcoming.map((e, i) => {
-                const left = e.day - TODAY;
-                return (
-                  <div key={i} className="flex items-center gap-3 pointer" style={{ padding: "11px 12px", borderRadius: 11 }} onClick={() => nav(e.to)}>
-                    <div style={{ width: 46, flex: "0 0 46px", textAlign: "center", padding: "6px 0", borderRadius: 9, background: TONE_BG[e.tone], color: TONE_FG[e.tone] }}>
-                      <div className="t-xs fw-6" style={{ lineHeight: 1 }}>มิ.ย.</div>
-                      <div className="t-lg fw-7 tnum" style={{ lineHeight: 1.1 }}>{e.day}</div>
-                    </div>
-                    <div className="flex-1" style={{ minWidth: 0 }}>
-                      <div className="t-sm fw-6 truncate">{e.t}</div>
-                      <div className="flex items-center gap-2 t-xs muted mt-1">
-                        <span className="flex items-center gap-1"><Icon name={e.kind === "test" ? "clipboard" : "file"} size={12} />{e.course}</span>
+              {upcoming.length === 0 ? (
+                <div className="empty" style={{ padding: "24px 0" }}>
+                  <div className="ec"><Icon name="cal" size={20} /></div>
+                  <div className="t-xs muted">ไม่มีกำหนดส่งเร็วๆ นี้</div>
+                </div>
+              ) : (
+                upcoming.map((e, i) => {
+                  const now = new Date();
+                  now.setHours(0, 0, 0, 0);
+                  const diffMs = e.date.getTime() - now.getTime();
+                  const left = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                  
+                  const monthsShortThai = [
+                    "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+                    "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."
+                  ];
+                  const monthStr = monthsShortThai[e.date.getMonth()];
+                  
+                  return (
+                    <div key={i} className="flex items-center gap-3 pointer" style={{ padding: "11px 12px", borderRadius: 11 }} onClick={() => nav(e.to)}>
+                      <div style={{ width: 46, flex: "0 0 46px", textAlign: "center", padding: "6px 0", borderRadius: 9, background: TONE_BG[e.tone], color: TONE_FG[e.tone] }}>
+                        <div className="t-xs fw-6" style={{ lineHeight: 1 }}>{monthStr}</div>
+                        <div className="t-lg fw-7 tnum" style={{ lineHeight: 1.1 }}>{e.date.getDate()}</div>
                       </div>
+                      <div className="flex-1" style={{ minWidth: 0 }}>
+                        <div className="t-sm fw-6 truncate">{e.t}</div>
+                        <div className="flex items-center gap-2 t-xs muted mt-1">
+                          <span className="flex items-center gap-1"><Icon name="file" size={12} />{e.course}</span>
+                        </div>
+                      </div>
+                      <Badge tone={left <= 3 ? "warning" : "muted"}>{left === 0 ? "วันนี้" : "อีก " + left + " วัน"}</Badge>
                     </div>
-                    <Badge tone={left <= 3 ? "warning" : "muted"}>{left === 0 ? "วันนี้" : "อีก " + left + " วัน"}</Badge>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
           <div className="card card-p mt-4">

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge } from "@/components/ui/Primitives";
@@ -78,29 +79,44 @@ function VideoStage({ lesson, nav, gated }) {
 function LessonOverview({ lesson }) {
   return (
     <div className="card card-p">
-      <div className="t-base fw-7 mb-2">วัตถุประสงค์การเรียนรู้</div>
-      <ul className="muted lead" style={{ margin: 0, paddingLeft: 18 }}>
-        <li>อธิบายพยาธิสรีรวิทยาและปัจจัยเสี่ยงของภาวะหัวใจล้มเหลวได้</li>
-        <li>ประเมินอาการแสดงและจำแนกความรุนแรงตามเกณฑ์ NYHA ได้</li>
-        <li>วางแผนการพยาบาลผู้ป่วยภาวะหัวใจล้มเหลวแบบองค์รวมได้</li>
-        <li>ระบุการพยาบาลเพื่อป้องกันภาวะแทรกซ้อนที่สำคัญได้</li>
-      </ul>
-      <hr className="divider mt-4 mb-4" />
-      <div className="t-base fw-7 mb-2">เนื้อหาโดยสังเขป</div>
-      <p className="muted lead pretty" style={{ margin: 0 }}>{lesson.desc} โดยเน้นการเชื่อมโยงความรู้พื้นฐานกับการปฏิบัติการพยาบาลจริง พร้อมกรณีตัวอย่างผู้ป่วยในหอผู้ป่วยอายุรกรรม</p>
+      <div className="t-base fw-7 mb-2">รายละเอียดบทเรียน</div>
+      <p className="muted lead pretty" style={{ margin: 0, whiteSpace: "pre-line" }}>
+        {lesson.description || "ไม่มีคำอธิบายบทเรียน"}
+      </p>
     </div>
   );
 }
 
-function LessonDocs() {
-  const files = [["เอกสารประกอบการสอน บทที่ 1.pdf", "2.4 MB", "file"], ["สไลด์ Heart Failure.pdf", "5.1 MB", "file"], ["แนวทางการประเมิน NYHA.pdf", "640 KB", "file"]];
+function LessonDocs({ lesson, allowDownload = true }) {
+  const docs = lesson?.documents || [];
+
+  if (docs.length === 0) {
+    return (
+      <div className="card">
+        <div className="empty" style={{ padding: "40px 0" }}>
+          <div className="ec"><Icon name="folder" size={22} style={{ color: "var(--subtle)" }} /></div>
+          <div className="t-sm muted">ไม่มีเอกสารประกอบการเรียนสำหรับบทเรียนนี้</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card">
-      {files.map((f, i) => (
-        <div key={i} className={"flex items-center gap-3 card-p " + (i < files.length - 1 ? "border-b" : "")} style={{ padding: "14px 18px" }}>
+      {docs.map((doc, i) => (
+        <div key={i} className={"flex items-center gap-3 card-p " + (i < docs.length - 1 ? "border-b" : "")} style={{ padding: "14px 18px" }}>
           <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}><Icon name="file" size={18} /></div>
-          <div className="flex-1"><div className="t-sm fw-6">{f[0]}</div><div className="t-xs muted">PDF · {f[1]}</div></div>
-          <button className="btn btn-outline btn-sm"><Icon name="download" size={15} />ดาวน์โหลด</button>
+          <div className="flex-1" style={{ minWidth: 0 }}>
+            <div className="t-sm fw-6 truncate">{doc.name}</div>
+            <div className="t-xs muted">{doc.size}</div>
+          </div>
+          {allowDownload ? (
+            <a href={doc.url} download={doc.name} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Icon name="download" size={15} />ดาวน์โหลด
+            </a>
+          ) : (
+            <span className="t-xs muted flex items-center gap-1" style={{ padding: "6px 12px", background: "var(--muted)", borderRadius: 8 }}><Icon name="lock" size={13} />ไม่อนุญาตให้ดาวน์โหลด</span>
+          )}
         </div>
       ))}
     </div>
@@ -124,11 +140,45 @@ function LessonAssignTab({ asg, nav }) {
   );
 }
 
-function LessonNotes() {
+function LessonNotes({ studentId, lessonId }) {
+  const key = `notes_${studentId || "guest"}_${lessonId}`;
+  const [note, setNote] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    try {
+      const val = localStorage.getItem(key);
+      if (val) setNote(val);
+    } catch (e) {}
+  }, [key]);
+
+  const handleSave = () => {
+    try {
+      localStorage.setItem(key, note);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {}
+  };
+
   return (
-    <div className="card card-p">
-      <textarea className="input" rows={5} placeholder="จดบันทึกระหว่างเรียน… (บันทึกอัตโนมัติ)" defaultValue="" />
-      <div className="flex justify-end mt-3"><button className="btn btn-soft btn-sm"><Icon name="check" size={15} />บันทึกแล้ว</button></div>
+    <div className="card">
+      <div className="card-h"><div className="title t-base flex items-center gap-2"><Icon name="pencil" size={15} className="c-primary" />สมุดบันทึกของฉัน</div></div>
+      <div className="card-p" style={{ paddingTop: 0 }}>
+        <textarea 
+          className="input" 
+          rows={5} 
+          placeholder="จดบันทึกระหว่างเรียน…" 
+          value={note} 
+          onChange={(e) => setNote(e.target.value)} 
+          style={{ width: "100%", resize: "vertical" }}
+        />
+        <div className="flex justify-end mt-3">
+          <button className="btn btn-soft btn-sm" onClick={handleSave}>
+            <Icon name="check" size={15} />
+            {saved ? "บันทึกสำเร็จ" : "บันทึกโน้ต"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -157,18 +207,24 @@ function NextLessonCard({ lesson, nav, allLessons }) {
 export default function StudentLesson() {
   const router = useRouter();
   const params = useParams();
+  const { data: session } = useSession();
   const nav = (path) => router.push(path);
 
   // In a real app, use media queries or a hook for 'device'. Here we'll default to desktop styling behavior for simplicity.
   const mobile = false;
 
   const lessonId = params?.id;
+  const studentId = session?.dbId;
+  const role = session?.user?.role;
+
   const [lesson, setLesson] = useState(null);
   const [course, setCourse] = useState(null);
   const [assignment, setAssignment] = useState(null);
   const [allLessons, setAllLessons] = useState([]);
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+  const [testScore, setTestScore] = useState(null);
+  const [submission, setSubmission] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -176,20 +232,51 @@ export default function StudentLesson() {
       const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
       if (!lData) { setLoading(false); return; }
       
-      const [cRes, aRes, allRes] = await Promise.all([
+      const isStaff = role === "instructor" || role === "admin";
+      if (lData.status === "draft" && !isStaff) {
+        setLesson(null);
+        setLoading(false);
+        return;
+      }
+      
+      const queries = [
         supabase.from("courses").select("*").eq("id", lData.course_id).single(),
         supabase.from("assignments").select("*").eq("lesson_id", lessonId).single(),
         supabase.from("lessons").select("*").eq("course_id", lData.course_id).order("index", { ascending: true })
-      ]);
-      
+      ];
+
+      if (studentId) {
+        queries.push(supabase.from("test_scores").select("*").eq("student_id", studentId).maybeSingle());
+      }
+
+      const results = await Promise.all(queries);
+      const cRes = results[0];
+      const aRes = results[1];
+      const allRes = results[2];
+      const tsRes = studentId ? results[3] : null;
+
       setLesson(lData);
       setCourse(cRes.data || { id: "c1", code: "Unknown" });
       setAssignment(aRes.data);
-      setAllLessons(allRes.data || []);
+
+      let fetchedAllLessons = allRes.data || [];
+      if (!isStaff) {
+        fetchedAllLessons = fetchedAllLessons.filter(l => l.status !== "draft");
+      }
+      setAllLessons(fetchedAllLessons);
+      if (tsRes && tsRes.data) {
+        setTestScore(tsRes.data);
+      }
+
+      if (studentId && aRes.data) {
+        const { data: subData } = await supabase.from("submissions").select("*").eq("student_id", studentId).eq("assignment_id", aRes.data.id).maybeSingle();
+        setSubmission(subData);
+      }
+
       setLoading(false);
     }
     load();
-  }, [lessonId]);
+  }, [lessonId, studentId, role]);
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
   if (!lesson) {
@@ -211,6 +298,9 @@ export default function StudentLesson() {
   const asg = assignment ? { ...assignment, status: "todo" } : null;
   const gated = lesson.status === "locked-pretest" && !pre.taken;
 
+  const watchProgress = lesson.progress || 0;
+  const isPostGated = post.required && (lesson.watch_limit ?? true) && watchProgress < 80;
+
   const SideRail = (
     <div className="flex col gap-4">
       <div className="card">
@@ -221,17 +311,18 @@ export default function StudentLesson() {
             onClick={() => nav("/s/test/" + lesson.id + "/pre")}
             action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
           <ChecklistItem icon="playC" tone={gated ? "locked" : "current"}
-            label="วิดีโอบทเรียน" sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${lesson.progress}%`} />
+            label="วิดีโอบทเรียน" sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
           {asg && <ChecklistItem icon="file" tone={asg.status === "graded" ? "done" : asg.status === "submitted" ? "current" : "todo"}
             label="ใบงาน" sub={asg.status === "graded" ? `ตรวจแล้ว · ${asg.score}/${asg.total}` : asg.status === "submitted" ? "ส่งแล้ว · รอตรวจ" : "ยังไม่ส่ง"}
             onClick={() => nav("/s/assignment/" + asg.id)}
             action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />}
-          {post.required && <ChecklistItem icon={post.taken ? "checkC" : "clipboard"} tone={post.taken ? "done" : gated ? "locked" : "todo"}
-            label="Post-test" sub={post.taken ? `ทำแล้ว · ${post.score}/${post.total}` : gated ? "ปลดล็อกหลังเรียนจบ" : "พร้อมให้ทำแล้ว"}
-            onClick={() => !gated && nav("/s/test/" + lesson.id + "/post")}
-            action={!gated && !post.taken ? <span className="btn btn-soft btn-sm">ทำเลย</span> : <Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />}
+          {post.required && <ChecklistItem icon={post.taken ? "checkC" : "clipboard"} tone={post.taken ? "done" : (gated || isPostGated) ? "locked" : "todo"}
+            label="Post-test" sub={post.taken ? `ทำแล้ว · ${post.score}/${post.total}` : gated ? "ปลดล็อกหลังเรียนจบ" : isPostGated ? `ต้องดูวิดีโอให้ครบ 80% (ขณะนี้ ${watchProgress}%)` : "พร้อมให้ทำแล้ว"}
+            onClick={() => !(gated || isPostGated) && nav("/s/test/" + lesson.id + "/post")}
+            action={!(gated || isPostGated) && !post.taken ? <span className="btn btn-soft btn-sm">ทำเลย</span> : <Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />}
         </div>
       </div>
+      <LessonNotes studentId={studentId} lessonId={lesson.id} />
       <NextLessonCard lesson={lesson} nav={nav} allLessons={allLessons} />
     </div>
   );
@@ -255,15 +346,14 @@ export default function StudentLesson() {
           </div>
 
           <div className="tabs mt-5">
-            {[["overview", "ภาพรวม", "book"], ["docs", "เอกสารประกอบ", "folder"], ["assign", "ใบงาน", "file"], ["notes", "บันทึก", "pencil"]].map(([k, t, ic]) => (
+            {[["overview", "ภาพรวม", "book"], ["docs", "เอกสารประกอบ", "folder"], ["assign", "ใบงาน", "file"]].map(([k, t, ic]) => (
               <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}><Icon name={ic} size={15} />{t}</button>
             ))}
           </div>
           <div className="mt-4">
             {tab === "overview" && <LessonOverview lesson={lesson} />}
-            {tab === "docs" && <LessonDocs />}
+            {tab === "docs" && <LessonDocs lesson={lesson} allowDownload={lesson.allow_download ?? true} />}
             {tab === "assign" && <LessonAssignTab asg={asg} nav={nav} />}
-            {tab === "notes" && <LessonNotes />}
           </div>
           {mobile && <div className="mt-5">{SideRail}</div>}
         </div>
