@@ -37,10 +37,24 @@ async function seed() {
     name: "อ. กมลชนก ศรีวิไล",
     role: "instructor",
   });
+  // Add admin user
+  users.push({
+    id: "admin1",
+    name: "Admin Bassball",
+    email: "bassball389@gmail.com",
+    role: "admin",
+  });
 
   const { error: uErr } = await supabase.from('users').upsert(users);
   if (uErr) console.error("Error inserting users", uErr);
   else console.log("Users seeded");
+
+  // Insert Allowed Domains
+  const { error: adErr } = await supabase.from('allowed_domains').upsert([
+    { domain: 'smnc.ac.th' }
+  ]);
+  if (adErr) console.error("Error inserting allowed_domains", adErr);
+  else console.log("Allowed domains seeded");
 
   // Academic Years
   const { error: ayErr } = await supabase.from('academic_years').upsert(DATA.academicYears.map(ay => ({
