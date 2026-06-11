@@ -32,16 +32,22 @@ export default function CreateCourse() {
   const [term, setTerm] = React.useState("");
   const [instructor, setInstructor] = React.useState("");
   const [credits, setCredits] = React.useState("3 (2-2-5)");
+  const [subjectGroup, setSubjectGroup] = React.useState("");
+  const [section, setSection] = React.useState("");
 
   const [terms, setTerms] = React.useState([]);
   const [instructors, setInstructors] = React.useState([]);
+  const [subjectGroups, setSubjectGroups] = React.useState([]);
+  const [sections, setSections] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     async function load() {
-      const [tRes, uRes] = await Promise.all([
+      const [tRes, uRes, gRes, sRes] = await Promise.all([
         supabase.from("terms").select("*"),
-        supabase.from("users").select("*").in("role", ["instructor", "admin"])
+        supabase.from("users").select("*").in("role", ["instructor", "admin"]),
+        supabase.from("subject_groups").select("*").eq("status", "active"),
+        supabase.from("sections").select("*").eq("status", "active")
       ]);
 
       const fetchedTerms = tRes.data || [];
@@ -55,6 +61,19 @@ export default function CreateCourse() {
       if (fetchedInstructors.length > 0) {
         setInstructor(fetchedInstructors[0].name);
       }
+
+      const fetchedGroups = gRes.data || [];
+      setSubjectGroups(fetchedGroups);
+      if (fetchedGroups.length > 0) {
+        setSubjectGroup(fetchedGroups[0].id);
+      }
+
+      const fetchedSections = sRes.data || [];
+      setSections(fetchedSections);
+      if (fetchedSections.length > 0) {
+        setSection(fetchedSections[0].name);
+      }
+
       setLoading(false);
     }
     load();
@@ -72,6 +91,8 @@ export default function CreateCourse() {
       selectedYear = selectedTermObj.year;
     }
 
+    const selectedGroup = subjectGroups.find(g => g.id === subjectGroup);
+
     const newCourse = {
       id: "c_" + Date.now(),
       code,
@@ -80,6 +101,9 @@ export default function CreateCourse() {
       term,
       year: String(selectedYear),
       instructor: instructor || "ไม่ระบุ",
+      group_id: subjectGroup || null,
+      group_name: selectedGroup?.name || null,
+      section: section || null,
       lessons: 0,
       students: 0,
       progress: 0,
@@ -115,6 +139,22 @@ export default function CreateCourse() {
               </div>
               <div className="grid grid-2 gap-3">
                 <div className="field"><label className="label">รหัสวิชา <span className="c-danger">*</span></label><input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="เช่น NUR301" /></div>
+                <div className="field"><label className="label">กลุ่มวิชา</label>
+                  <select className="input" value={subjectGroup} onChange={(e) => setSubjectGroup(e.target.value)}>
+                    {subjectGroups.length === 0 ? (
+                      <option value="">— ยังไม่มีกลุ่มวิชา กรุณาเพิ่มในระบบหลักก่อน —</option>
+                    ) : (
+                      <>
+                        <option value="">ไม่ระบุกลุ่มวิชา</option>
+                        {subjectGroups.map((g) => (
+                          <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-2 gap-3">
                 <div className="field"><label className="label">ภาคเรียน</label>
                   <select className="input" value={term} onChange={(e) => setTerm(e.target.value)}>
                     {terms.length === 0 ? (
@@ -123,6 +163,20 @@ export default function CreateCourse() {
                       terms.map((t) => (
                         <option key={t.id} value={`${t.name} ${t.year}`}>{t.name} {t.year}</option>
                       ))
+                    )}
+                  </select>
+                </div>
+                <div className="field"><label className="label">Section / กลุ่มเรียน</label>
+                  <select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
+                    {sections.length === 0 ? (
+                      <option value="">— ยังไม่มี Section กรุณาเพิ่มในระบบหลักก่อน —</option>
+                    ) : (
+                      <>
+                        <option value="">ไม่ระบุ Section</option>
+                        {sections.map((s) => (
+                          <option key={s.id} value={s.name}>{s.name}</option>
+                        ))}
+                      </>
                     )}
                   </select>
                 </div>
@@ -186,6 +240,12 @@ export default function CreateCourse() {
                   <div className="fw-7">{title || "ชื่อรายวิชา"}</div>
                   <div className="t-xs muted mt-1 pretty" style={{ minHeight: 30 }}>{subtitle || "คำอธิบายรายวิชาจะแสดงที่นี่"}</div>
                   <div className="flex items-center gap-2 mt-2 t-xs muted"><Icon name="user" size={13} />{instructor || "ไม่ระบุอาจารย์"}</div>
+                  {section && (
+                    <div className="flex items-center gap-2 mt-1 t-xs muted"><Icon name="users" size={13} />Section: {section}</div>
+                  )}
+                  {subjectGroup && subjectGroups.find(g => g.id === subjectGroup) && (
+                    <div className="flex items-center gap-2 mt-1 t-xs muted"><Icon name="folder" size={13} />{subjectGroups.find(g => g.id === subjectGroup)?.name}</div>
+                  )}
                 </div>
               </div>
             </div>

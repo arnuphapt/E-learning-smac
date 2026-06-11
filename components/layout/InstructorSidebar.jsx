@@ -27,12 +27,12 @@ function InstructorSidebarContent() {
   
   const isMaster = pathname.startsWith("/i/master");
   const items3 = [
-    ["/i/master?tab=years", "cal", "ปีการศึกษา", isMaster && tab === "years"],
-    ["/i/master?tab=terms", "layers", "ภาคเรียน", isMaster && tab === "terms"],
-    ["/i/master?tab=groups", "folder", "กลุ่มวิชา", isMaster && tab === "groups"],
-    ["/i/master?tab=sections", "users", "Section / กลุ่มเรียน", isMaster && tab === "sections"],
-    ["/i/master?tab=course_access", "lock", "สิทธิ์การเข้าถึง", isMaster && tab === "course_access"],
-    ["/i/master?tab=users", "user", "จัดการผู้ใช้งาน", isMaster && tab === "users"],
+    ["/i/master/years", "cal", "ปีการศึกษา", pathname === "/i/master/years" || (pathname === "/i/master" && tab === "years")],
+    ["/i/master/terms", "layers", "ภาคเรียน", pathname === "/i/master/terms"],
+    ["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"],
+    ["/i/master/sections", "users", "Section / กลุ่มเรียน", pathname === "/i/master/sections"],
+    ["/i/master/course-access", "lock", "สิทธิ์การเข้าถึง", pathname === "/i/master/course-access"],
+    ["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"],
   ];
 
   const Item = ([to, ic, label, active]) => (

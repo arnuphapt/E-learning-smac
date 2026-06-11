@@ -16,9 +16,9 @@ function ImageSlot({ placeholder, shape = "rounded", radius = 22, ratio = "16/11
       boxShadow: "inset 0 0 20px rgba(0,0,0,0.02)"
     }}>
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 10, opacity: 0.6 }}>
-        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-        <circle cx="9" cy="9" r="2"/>
-        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
       </svg>
       <span style={{ fontSize: 13, fontWeight: 500 }}>{placeholder}</span>
     </div>
@@ -49,7 +49,7 @@ export default function LandingPage() {
       },
       { threshold: 0.1, rootMargin: "0px 0px -5% 0px" }
     );
-    
+
     // Slight delay to ensure DOM is fully painted
     setTimeout(() => {
       if (containerRef.current) {
