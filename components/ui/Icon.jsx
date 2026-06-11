@@ -55,6 +55,7 @@ export const ICONS = {
   layers: "M12 2 2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
   target: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
   gauge: "M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM13.4 10.6 18 6M3 12a9 9 0 0 1 18 0",
+  loader: "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83",
 };
 
 export default function Icon({ name, size = 18, sw = 2, fill, style, className }) {

@@ -89,7 +89,19 @@ export default function AssignmentDetail() {
   };
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
-  if (!a) return <div className="container p-5 text-center muted">ไม่พบใบงาน</div>;
+  if (!a) {
+    return (
+      <div className="container p-5">
+        <div className="card">
+          <div className="empty">
+            <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
+            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบใบงาน</div>
+            <div className="t-sm muted">ไม่พบใบงานตามรหัสที่ระบุ หรือข้อมูลใบงานนี้ไม่มีอยู่ในระบบ</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const Main = (
     <div className="flex-1" style={{ minWidth: 0 }}>

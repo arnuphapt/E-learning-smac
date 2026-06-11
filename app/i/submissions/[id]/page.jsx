@@ -7,6 +7,7 @@ import Icon from "@/components/ui/Icon";
 import { Avatar, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import Table from "@/components/ui/Table";
 
 export default function SubmissionList() {
   const router = useRouter();
@@ -47,7 +48,19 @@ export default function SubmissionList() {
   }, [asgId]);
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
-  if (!a) return <div className="container p-5 text-center muted">ไม่พบใบงาน</div>;
+  if (!a) {
+    return (
+      <div className="container p-5">
+        <div className="card">
+          <div className="empty">
+            <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
+            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบใบงาน</div>
+            <div className="t-sm muted">ไม่พบใบงานตามรหัสที่ระบุ หรือข้อมูลใบงานนี้ไม่มีอยู่ในระบบ</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const sById = (id) => students.find((s) => s.id === id) || { name: "Unknown", student_no: "-", section: "-" };
   const counts = { all: subs.length, submitted: subs.filter((s) => s.status === "submitted" || s.status === "late").length, graded: subs.filter((s) => s.status === "graded").length, "not-submitted": subs.filter((s) => s.status === "not-submitted").length };
@@ -76,25 +89,33 @@ export default function SubmissionList() {
             <button className="btn btn-outline btn-sm"><Icon name="filter" size={15} />Section</button>
           </div>
         </div>
-        <table className="table hover">
-          <thead><tr><th>นักศึกษา</th><th>สถานะ</th><th className="hide-m">ไฟล์งาน</th><th className="hide-m">ส่งเมื่อ</th><th>คะแนน</th><th></th></tr></thead>
-          <tbody>
-            {list.map((sub) => {
-              const s = sById(sub.student_id);
-              const can = sub.status !== "not-submitted";
-              return (
-                <tr key={sub.id} onClick={() => can && nav("/i/grade/" + sub.id)} style={{ cursor: can ? "pointer" : "default", opacity: can ? 1 : .65 }}>
-                  <td><div className="flex items-center gap-2"><Avatar name={s.name} size={30} /><div><div className="fw-6">{s.name}</div><div className="t-xs muted">{s.student_no || "-"} · {s.section || "-"}</div></div></div></td>
-                  <td>{statusBadge(sub.status)}</td>
-                  <td className="hide-m">{sub.file ? <span className="flex items-center gap-2 t-sm c-primary"><Icon name="file" size={15} />{sub.file}</span> : <span className="muted t-sm">—</span>}</td>
-                  <td className="hide-m muted t-sm">{sub.submitted_at || "—"}</td>
-                  <td>{sub.score != null ? <span className="num fw-7">{sub.score}/{sub.total}</span> : can ? <span className="muted t-sm">รอตรวจ</span> : <span className="muted t-sm">—</span>}</td>
-                  <td>{can && <button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); nav("/i/grade/" + sub.id); }}>{sub.status === "graded" ? "แก้คะแนน" : "ตรวจงาน"}</button>}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <Table
+          className="table hover"
+          headers={[
+            "นักศึกษา",
+            "สถานะ",
+            <span className="hide-m" key="file">ไฟล์งาน</span>,
+            <span className="hide-m" key="sentAt">ส่งเมื่อ</span>,
+            "คะแนน",
+            ""
+          ]}
+          data={list}
+          colSpan={6}
+          renderRow={(sub) => {
+            const s = sById(sub.student_id);
+            const can = sub.status !== "not-submitted";
+            return (
+              <tr key={sub.id} onClick={() => can && nav("/i/grade/" + sub.id)} style={{ cursor: can ? "pointer" : "default", opacity: can ? 1 : .65 }}>
+                <td><div className="flex items-center gap-2"><Avatar name={s.name} size={30} /><div><div className="fw-6">{s.name}</div><div className="t-xs muted">{s.student_no || "-"} · {s.section || "-"}</div></div></div></td>
+                <td>{statusBadge(sub.status)}</td>
+                <td className="hide-m">{sub.file ? <span className="flex items-center gap-2 t-sm c-primary"><Icon name="file" size={15} />{sub.file}</span> : <span className="muted t-sm">—</span>}</td>
+                <td className="hide-m muted t-sm">{sub.submitted_at || "—"}</td>
+                <td>{sub.score != null ? <span className="num fw-7">{sub.score}/{sub.total}</span> : can ? <span className="muted t-sm">รอตรวจ</span> : <span className="muted t-sm">—</span>}</td>
+                <td>{can && <button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); nav("/i/grade/" + sub.id); }}>{sub.status === "graded" ? "แก้คะแนน" : "ตรวจงาน"}</button>}</td>
+              </tr>
+            );
+          }}
+        />
       </div>
     </div>
   );

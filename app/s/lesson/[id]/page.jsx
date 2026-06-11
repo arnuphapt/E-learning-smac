@@ -192,7 +192,19 @@ export default function StudentLesson() {
   }, [lessonId]);
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
-  if (!lesson) return <div className="container p-5 text-center muted">ไม่พบบทเรียน</div>;
+  if (!lesson) {
+    return (
+      <div className="container p-5">
+        <div className="card">
+          <div className="empty">
+            <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
+            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบบทเรียน</div>
+            <div className="t-sm muted">ไม่พบบทเรียนตามรหัสที่ระบุ หรือไม่มีอยู่ในฐานข้อมูลของบทเรียนนี้</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const pre = lesson.pretest || { required: true, taken: false, questions: 10, total: 10, score: 0 };
   const post = lesson.posttest || { required: true, taken: false, questions: 10, total: 10, score: 0 };

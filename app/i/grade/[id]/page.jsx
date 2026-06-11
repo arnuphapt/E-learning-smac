@@ -60,7 +60,19 @@ export default function Grader() {
   }, [subId]);
 
   if (loading) return <Loading fullHeight />;
-  if (!sub || !student || !a) return <div className="container p-5 text-center muted">ไม่พบข้อมูลการส่งงาน</div>;
+  if (!sub || !student || !a) {
+    return (
+      <div className="container p-5">
+        <div className="card">
+          <div className="empty">
+            <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
+            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบข้อมูลการส่งงาน</div>
+            <div className="t-sm muted">ไม่พบรายละเอียดการส่งงานของนักเรียนคนนี้ หรือรหัสการส่งงานไม่ถูกต้อง</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const total = Object.values(scores).reduce((s, v) => s + v, 0);
   const mobile = false;

@@ -223,6 +223,7 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 @keyframes rise{from{opacity:0;transform:translate(-50%,12px);}}
 @keyframes spin{to{transform:rotate(360deg);}}
 .spin{animation:spin .8s linear infinite;}
+.text-center{text-align:center;}
 
 /* empty / loading rows */
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:48px 24px;color:var(--muted-fg);gap:12px;}

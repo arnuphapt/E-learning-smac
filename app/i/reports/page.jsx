@@ -8,6 +8,7 @@ import Icon from "@/components/ui/Icon";
 import { statusBadge } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import Table from "@/components/ui/Table";
 
 export default function Reports() {
   const router = useRouter();
@@ -120,22 +121,24 @@ export default function Reports() {
           <div className="card">
             <div className="card-h flex items-center justify-between"><div className="title">ตัวอย่างข้อมูล</div><span className="t-xs muted">{students.length} แถว</span></div>
             <div style={{ overflowX: "auto" }}>
-              <table className="table">
-                <thead><tr><th>ชื่อ-นามสกุล</th><th>รหัส</th><th>Sec</th><th>Pre</th><th>Post</th><th>ใบงาน</th><th>สถานะ</th></tr></thead>
-                <tbody>
-                  {students.slice(0, 10).map((s) => { 
-                    const r = testScores.find((x) => x.student_id === s.id) || {}; 
-                    const sub = submissions.find((x) => x.student_id === s.id); 
-                    return (
+              <Table
+                className="table"
+                headers={["ชื่อ-นามสกุล", "รหัส", "Sec", "Pre", "Post", "ใบงาน", "สถานะ"]}
+                data={students.slice(0, 10)}
+                colSpan={7}
+                renderRow={(s) => { 
+                  const r = testScores.find((x) => x.student_id === s.id) || {}; 
+                  const sub = submissions.find((x) => x.student_id === s.id); 
+                  return (
                     <tr key={s.id}>
                       <td className="fw-5">{s.name}</td><td className="num">{s.student_no || "-"}</td><td className="t-sm">{s.section || "-"}</td>
                       <td className="num">{r.pre ?? "-"}</td><td className="num">{r.post ?? "-"}</td>
                       <td className="num">{sub && sub.score != null ? sub.score : "-"}</td>
                       <td>{statusBadge(sub ? sub.status : "not-submitted")}</td>
                     </tr>
-                  ); })}
-                </tbody>
-              </table>
+                  ); 
+                }}
+              />
             </div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import Icon from "@/components/ui/Icon";
 import { Badge, Progress, Avatar } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import Table from "@/components/ui/Table";
 
 function StudentRoster({ students }) {
   return (
@@ -14,19 +15,25 @@ function StudentRoster({ students }) {
       <div className="card-h flex items-center justify-between"><div className="title">รายชื่อนักศึกษา ({students.length})</div>
         <div className="flex gap-2"><div className="rel"><Icon name="search" size={15} style={{ position: "absolute", left: 10, top: 9, color: "var(--subtle)" }} /><input className="input btn-sm" style={{ paddingLeft: 32, width: 200, height: 34 }} placeholder="ค้นหา…" /></div></div>
       </div>
-      <table className="table">
-        <thead><tr><th>รหัสนักศึกษา</th><th>ชื่อ-นามสกุล</th><th>Section</th><th className="hide-m">ความคืบหน้า</th></tr></thead>
-        <tbody>
-          {students.map((s) => (
-            <tr key={s.id}>
-              <td className="num">{s.student_no || "-"}</td>
-              <td><div className="flex items-center gap-2"><Avatar name={s.name} size={28} />{s.name}</div></td>
-              <td><Badge tone="outline">{s.section || "-"}</Badge></td>
-              <td className="hide-m" style={{ width: 180 }}><div className="flex items-center gap-2"><Progress value={40 + Math.random() * 50} h={6} /></div></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <Table
+        className="table"
+        headers={[
+          "รหัสนักศึกษา",
+          "ชื่อ-นามสกุล",
+          "Section",
+          <span className="hide-m" key="progress">ความคืบหน้า</span>
+        ]}
+        data={students}
+        colSpan={4}
+        renderRow={(s) => (
+          <tr key={s.id}>
+            <td className="num">{s.student_no || "-"}</td>
+            <td><div className="flex items-center gap-2"><Avatar name={s.name} size={28} />{s.name}</div></td>
+            <td><Badge tone="outline">{s.section || "-"}</Badge></td>
+            <td className="hide-m" style={{ width: 180 }}><div className="flex items-center gap-2"><Progress value={40 + Math.random() * 50} h={6} /></div></td>
+          </tr>
+        )}
+      />
     </div>
   );
 }
@@ -61,7 +68,19 @@ export default function InstructorCourse() {
   }, [courseId]);
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
-  if (!course) return <div className="container p-5 text-center muted">ไม่พบข้อมูลรายวิชา</div>;
+  if (!course) {
+    return (
+      <div className="container p-5">
+        <div className="card">
+          <div className="empty">
+            <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
+            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบข้อมูลรายวิชา</div>
+            <div className="t-sm muted">ไม่พบข้อมูลรายวิชาตามรหัสที่ระบุ หรือไม่มีอยู่ในฐานข้อมูลของระบบ</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">

@@ -7,6 +7,7 @@ import Icon from "@/components/ui/Icon";
 import { Badge, Avatar, Dialog } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import Table from "@/components/ui/Table";
 
 function mStatus(s) {
   const m = { active: ["success", "ใช้งาน"], archived: ["muted", "เก็บถาวร"], upcoming: ["info", "กำลังจะมาถึง"] };
@@ -240,125 +241,133 @@ function MasterDataContent() {
 
             {loading ? (
               <Loading className="p-5 text-center muted" />
-            ) : tab === "years" && (
-              <table className="table">
-                <thead><tr><th>ปีการศึกษา</th><th>เริ่ม</th><th>สิ้นสุด</th><th>รายวิชา</th><th>สถานะ</th><th></th></tr></thead>
-                <tbody>
-                  {D.academicYears.map((y) => (
-                    <tr key={y.id}>
-                      <td><div className="flex items-center gap-2"><div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="cal" size={16} /></div><span className="fw-6">{y.label}</span></div></td>
-                      <td className="muted t-sm">{y.start_date}</td>
-                      <td className="muted t-sm">{y.end_date}</td>
-                      <td className="num">{y.courses}</td>
-                      <td>{mStatus(y.status)}</td>
-                      <td><RowActions onEdit={() => setDlg({ mode: "edit", row: y })} onDelete={() => toast("ลบปีการศึกษาแล้ว")} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            {tab === "terms" && (
-              <table className="table">
-                <thead><tr><th>ภาคเรียน</th><th>ปีการศึกษา</th><th>เริ่ม</th><th>สิ้นสุด</th><th>สถานะ</th><th></th></tr></thead>
-                <tbody>
-                  {D.terms.map((t) => (
-                    <tr key={t.id}><td className="fw-6">{t.name}</td><td className="t-sm">{t.year}</td><td className="muted t-sm">{t.start_date}</td><td className="muted t-sm">{t.end_date}</td><td>{mStatus(t.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: t })} onDelete={() => toast("ลบภาคเรียนแล้ว")} /></td></tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            {tab === "groups" && (
-              <table className="table">
-                <thead><tr><th>กลุ่มวิชา</th><th>หัวหน้ากลุ่ม</th><th>รายวิชา</th><th>สถานะ</th><th></th></tr></thead>
-                <tbody>
-                  {D.subjectGroups.map((g) => (
-                    <tr key={g.id}><td className="fw-6">{g.name}</td><td className="t-sm flex items-center gap-2"><Avatar name={g.head.replace(/^อ\. (ดร\. )?/, "")} size={24} />{g.head}</td><td className="num">{g.courses}</td><td>{mStatus(g.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: g })} onDelete={() => toast("ลบกลุ่มวิชาแล้ว")} /></td></tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            {tab === "sections" && (
-              <table className="table">
-                <thead><tr><th>Section</th><th>กลุ่มวิชา</th><th>จำนวนนักศึกษา</th><th>สถานะ</th><th></th></tr></thead>
-                <tbody>
-                  {D.sectionList.map((s) => (
-                    <tr key={s.id}><td><Badge tone="primary">{s.name}</Badge></td><td className="t-sm">{s.group_name}</td><td className="num">{s.students}</td><td>{mStatus(s.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: s })} onDelete={() => toast("ลบ Section แล้ว")} /></td></tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            {tab === "course_access" && (
-              <table className="table">
-                <thead><tr><th>รหัสวิชา</th><th>ชื่อวิชา</th><th>ปีนักศึกษาที่เข้าได้</th><th>อีเมลพิเศษ</th><th></th></tr></thead>
-                <tbody>
-                  {D.courses.map((c) => (
-                    <tr key={c.id}>
-                      <td><Badge tone="primary">{c.code}</Badge></td>
-                      <td className="fw-6">{c.title}</td>
-                      <td>{c.access?.allowedYears?.join(", ") || "-"}</td>
-                      <td className="t-sm muted">{c.access?.allowedEmails?.length ? `${c.access.allowedEmails.length} อีเมล` : "-"}</td>
-                      <td><RowActions onEdit={() => setDlg({ mode: "edit", row: c })} onDelete={() => toast("ลบสิทธิ์แล้ว")} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            {tab === "users" && (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>ชื่อ-นามสกุล</th>
-                    <th>อีเมล</th>
-                    <th>บทบาท</th>
-                    <th>รหัสประจำตัว / ตำแหน่ง</th>
-                    <th>กลุ่มเรียน</th>
-                    <th>สถานะ</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usersList.map((u) => (
-                    <tr key={u.id}>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <Avatar name={u.name.replace(/^อ\. (ดร\. )?/, "")} size={28} />
-                          <span className="fw-6">{u.name}</span>
-                        </div>
-                      </td>
-                      <td className="t-sm muted">{u.email}</td>
-                      <td>
-                        {u.role === "admin" ? (
-                          <Badge tone="danger">ผู้ดูแลระบบ</Badge>
-                        ) : u.role === "instructor" ? (
-                          <Badge tone="primary">อาจารย์ผู้สอน</Badge>
-                        ) : (
-                          <Badge tone="info">นักศึกษา</Badge>
-                        )}
-                      </td>
-                      <td className="tnum t-sm">{u.studentId || "-"}</td>
-                      <td>{u.sec !== "ไม่มี" ? <Badge tone="outline">{u.sec}</Badge> : <span className="muted t-sm">-</span>}</td>
-                      <td>
-                        {u.status === "active" ? (
-                          <Badge tone="success" dot>ใช้งาน</Badge>
-                        ) : (
-                          <Badge tone="warning" dot>ระงับ</Badge>
-                        )}
-                      </td>
-                      <td>
-                        <RowActions
-                          onEdit={() => setDlg({ mode: "edit", row: u })}
-                          onDelete={() => {
-                            if (confirm(`ยืนยันการลบผู้ใช้ ${u.name}?`)) {
-                              setUsersList((prev) => prev.filter((x) => x.id !== u.id));
-                              toast("ลบผู้ใช้งานแล้ว");
-                            }
-                          }}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            ) : (
+              <>
+                {tab === "years" && (
+                  <Table
+                    className="table"
+                    headers={["ปีการศึกษา", "เริ่ม", "สิ้นสุด", "รายวิชา", "สถานะ", ""]}
+                    data={D.academicYears}
+                    colSpan={6}
+                    renderRow={(y) => (
+                      <tr key={y.id}>
+                        <td><div className="flex items-center gap-2"><div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="cal" size={16} /></div><span className="fw-6">{y.label}</span></div></td>
+                        <td className="muted t-sm">{y.start_date}</td>
+                        <td className="muted t-sm">{y.end_date}</td>
+                        <td className="num">{y.courses}</td>
+                        <td>{mStatus(y.status)}</td>
+                        <td><RowActions onEdit={() => setDlg({ mode: "edit", row: y })} onDelete={() => toast("ลบปีการศึกษาแล้ว")} /></td>
+                      </tr>
+                    )}
+                  />
+                )}
+                {tab === "terms" && (
+                  <Table
+                    className="table"
+                    headers={["ภาคเรียน", "ปีการศึกษา", "เริ่ม", "สิ้นสุด", "สถานะ", ""]}
+                    data={D.terms}
+                    colSpan={6}
+                    renderRow={(t) => (
+                      <tr key={t.id}><td className="fw-6">{t.name}</td><td className="t-sm">{t.year}</td><td className="muted t-sm">{t.start_date}</td><td className="muted t-sm">{t.end_date}</td><td>{mStatus(t.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: t })} onDelete={() => toast("ลบภาคเรียนแล้ว")} /></td></tr>
+                    )}
+                  />
+                )}
+                {tab === "groups" && (
+                  <Table
+                    className="table"
+                    headers={["กลุ่มวิชา", "หัวหน้ากลุ่ม", "รายวิชา", "สถานะ", ""]}
+                    data={D.subjectGroups}
+                    colSpan={5}
+                    renderRow={(g) => (
+                      <tr key={g.id}><td className="fw-6">{g.name}</td><td className="t-sm flex items-center gap-2"><Avatar name={g.head.replace(/^อ\. (ดร\. )?/, "")} size={24} />{g.head}</td><td className="num">{g.courses}</td><td>{mStatus(g.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: g })} onDelete={() => toast("ลบกลุ่มวิชาแล้ว")} /></td></tr>
+                    )}
+                  />
+                )}
+                {tab === "sections" && (
+                  <Table
+                    className="table"
+                    headers={["Section", "กลุ่มวิชา", "จำนวนนักศึกษา", "สถานะ", ""]}
+                    data={D.sectionList}
+                    colSpan={5}
+                    renderRow={(s) => (
+                      <tr key={s.id}><td><Badge tone="primary">{s.name}</Badge></td><td className="t-sm">{s.group_name}</td><td className="num">{s.students}</td><td>{mStatus(s.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: s })} onDelete={() => toast("ลบ Section แล้ว")} /></td></tr>
+                    )}
+                  />
+                )}
+                {tab === "course_access" && (
+                  <Table
+                    className="table"
+                    headers={["รหัสวิชา", "ชื่อวิชา", "ปีนักศึกษาที่เข้าได้", "อีเมลพิเศษ", ""]}
+                    data={D.courses}
+                    colSpan={5}
+                    renderRow={(c) => (
+                      <tr key={c.id}>
+                        <td><Badge tone="primary">{c.code}</Badge></td>
+                        <td className="fw-6">{c.title}</td>
+                        <td>{c.access?.allowedYears?.join(", ") || "-"}</td>
+                        <td className="t-sm muted">{c.access?.allowedEmails?.length ? `${c.access.allowedEmails.length} อีเมล` : "-"}</td>
+                        <td><RowActions onEdit={() => setDlg({ mode: "edit", row: c })} onDelete={() => toast("ลบสิทธิ์แล้ว")} /></td>
+                      </tr>
+                    )}
+                  />
+                )}
+                {tab === "users" && (
+                  <Table
+                    className="table"
+                    headers={[
+                      "ชื่อ-นามสกุล",
+                      "อีเมล",
+                      "บทบาท",
+                      "รหัสประจำตัว / ตำแหน่ง",
+                      "กลุ่มเรียน",
+                      "สถานะ",
+                      ""
+                    ]}
+                    data={usersList}
+                    colSpan={7}
+                    renderRow={(u) => (
+                      <tr key={u.id}>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <Avatar name={u.name.replace(/^อ\. (ดร\. )?/, "")} size={28} />
+                            <span className="fw-6">{u.name}</span>
+                          </div>
+                        </td>
+                        <td className="t-sm muted">{u.email}</td>
+                        <td>
+                          {u.role === "admin" ? (
+                            <Badge tone="danger">ผู้ดูแลระบบ</Badge>
+                          ) : u.role === "instructor" ? (
+                            <Badge tone="primary">อาจารย์ผู้สอน</Badge>
+                          ) : (
+                            <Badge tone="info">นักศึกษา</Badge>
+                          )}
+                        </td>
+                        <td className="tnum t-sm">{u.studentId || "-"}</td>
+                        <td>{u.sec !== "ไม่มี" ? <Badge tone="outline">{u.sec}</Badge> : <span className="muted t-sm">-</span>}</td>
+                        <td>
+                          {u.status === "active" ? (
+                            <Badge tone="success" dot>ใช้งาน</Badge>
+                          ) : (
+                            <Badge tone="warning" dot>ระงับ</Badge>
+                          )}
+                        </td>
+                        <td>
+                          <RowActions
+                            onEdit={() => setDlg({ mode: "edit", row: u })}
+                            onDelete={() => {
+                              if (confirm(`ยืนยันการลบผู้ใช้ ${u.name}?`)) {
+                                setUsersList((prev) => prev.filter((x) => x.id !== u.id));
+                                toast("ลบผู้ใช้งานแล้ว");
+                              }
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>

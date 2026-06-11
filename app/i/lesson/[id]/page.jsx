@@ -7,6 +7,7 @@ import Icon from "@/components/ui/Icon";
 import { Badge, Progress, Avatar, Dialog, Ph, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import Table from "@/components/ui/Table";
 
 function ToggleRow({ label, on }) {
   const [v, setV] = React.useState(on);
@@ -239,16 +240,28 @@ function SubmissionMini({ nav, submissions, students }) {
     <div className="card">
       <div className="card-h flex items-center justify-between"><div className="title">ใบงานที่ 1 — กรณีศึกษาผู้ป่วยหัวใจล้มเหลว</div>
         <button className="btn btn-primary btn-sm" onClick={() => nav("/i/submissions/a1")}>ดูทั้งหมด<Icon name="arrR" size={14} /></button></div>
-      <table className="table">
-        <thead><tr><th>นักศึกษา</th><th>สถานะ</th><th className="hide-m">ส่งเมื่อ</th><th>คะแนน</th></tr></thead>
-        <tbody>
-          {subs.slice(0, 4).map((sub) => { const s = sById(sub.studentId); return (
-            <tr key={sub.id}><td><div className="flex items-center gap-2"><Avatar name={s.name} size={26} />{s.name}</div></td>
-              <td>{statusBadge(sub.status)}</td><td className="hide-m muted t-sm">{sub.at || "—"}</td>
-              <td>{sub.score != null ? <span className="num fw-6">{sub.score}/{sub.total}</span> : <span className="muted t-sm">—</span>}</td></tr>
-          ); })}
-        </tbody>
-      </table>
+      <Table
+        className="table"
+        headers={[
+          "นักศึกษา",
+          "สถานะ",
+          <span className="hide-m" key="sentAt">ส่งเมื่อ</span>,
+          "คะแนน"
+        ]}
+        data={subs.slice(0, 4)}
+        colSpan={4}
+        renderRow={(sub) => {
+          const s = sById(sub.studentId);
+          return (
+            <tr key={sub.id}>
+              <td><div className="flex items-center gap-2"><Avatar name={s.name} size={26} />{s.name}</div></td>
+              <td>{statusBadge(sub.status)}</td>
+              <td className="hide-m muted t-sm">{sub.at || "—"}</td>
+              <td>{sub.score != null ? <span className="num fw-6">{sub.score}/{sub.total}</span> : <span className="muted t-sm">—</span>}</td>
+            </tr>
+          );
+        }}
+      />
     </div>
   );
 }
@@ -277,24 +290,31 @@ function LessonScores({ lesson, nav, testScores, submissions, students }) {
             ))}
           </div>
           <div className="card">
-            <table className="table">
-              <thead><tr><th>นักศึกษา</th><th className="hide-m">Section</th><th>Pre-test</th><th>Post-test</th><th>พัฒนาการ</th></tr></thead>
-              <tbody>
-                {scores.map((r) => {
-                  const s = sById(r.studentId);
-                  const diff = r.post != null && r.pre != null ? r.post - r.pre : null;
-                  return (
-                    <tr key={r.studentId}>
-                      <td><div className="flex items-center gap-2"><Avatar name={s.name} size={28} /><div><div className="fw-5">{s.name}</div><div className="t-xs muted">{s.no}</div></div></div></td>
-                      <td className="hide-m"><Badge tone="outline">{s.sec}</Badge></td>
-                      <td>{r.pre != null ? <span className="num fw-6">{r.pre}/{r.total}</span> : <span className="muted t-sm">ยังไม่ทำ</span>}</td>
-                      <td>{r.post != null ? <span className="num fw-6">{r.post}/{r.total}</span> : <span className="muted t-sm">ยังไม่ทำ</span>}</td>
-                      <td>{diff != null ? <Badge tone={diff > 0 ? "success" : "muted"} dot>{diff > 0 ? "+" : ""}{diff}</Badge> : <span className="muted t-sm">—</span>}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <Table
+              className="table"
+              headers={[
+                "นักศึกษา",
+                <span className="hide-m" key="sec">Section</span>,
+                "Pre-test",
+                "Post-test",
+                "พัฒนาการ"
+              ]}
+              data={scores}
+              colSpan={5}
+              renderRow={(r) => {
+                const s = sById(r.studentId);
+                const diff = r.post != null && r.pre != null ? r.post - r.pre : null;
+                return (
+                  <tr key={r.studentId}>
+                    <td><div className="flex items-center gap-2"><Avatar name={s.name} size={28} /><div><div className="fw-5">{s.name}</div><div className="t-xs muted">{s.no}</div></div></div></td>
+                    <td className="hide-m"><Badge tone="outline">{s.sec}</Badge></td>
+                    <td>{r.pre != null ? <span className="num fw-6">{r.pre}/{r.total}</span> : <span className="muted t-sm">ยังไม่ทำ</span>}</td>
+                    <td>{r.post != null ? <span className="num fw-6">{r.post}/{r.total}</span> : <span className="muted t-sm">ยังไม่ทำ</span>}</td>
+                    <td>{diff != null ? <Badge tone={diff > 0 ? "success" : "muted"} dot>{diff > 0 ? "+" : ""}{diff}</Badge> : <span className="muted t-sm">—</span>}</td>
+                  </tr>
+                );
+              }}
+            />
           </div>
         </>
       ) : <SubmissionMini nav={nav} submissions={submissions} students={students} />}
@@ -354,7 +374,19 @@ export default function InstructorLesson() {
   }, [lessonId]);
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
-  if (!lesson) return <div className="container p-5 text-center muted">ไม่พบบทเรียน</div>;
+  if (!lesson) {
+    return (
+      <div className="container p-5">
+        <div className="card">
+          <div className="empty">
+            <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
+            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบบทเรียน</div>
+            <div className="t-sm muted">ไม่พบบทเรียนตามรหัสที่ระบุ หรือไม่มีอยู่ในฐานข้อมูลของบทเรียนนี้</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-wide">
