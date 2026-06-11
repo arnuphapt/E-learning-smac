@@ -8,6 +8,7 @@ import { Badge, Avatar, Dialog } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
+import { toast } from "@/components/ui/Toast";
 
 function mStatus(s) {
   const m = { active: ["success", "ใช้งาน"], archived: ["muted", "เก็บถาวร"], upcoming: ["info", "กำลังจะมาถึง"] };
@@ -24,16 +25,80 @@ function RowActions({ onEdit, onDelete }) {
   );
 }
 
+function parseThaiDateToISO(thaiDateStr) {
+  if (!thaiDateStr) return "";
+  const parts = thaiDateStr.split(" ");
+  if (parts.length !== 3) return "";
+  
+  const day = parts[0].padStart(2, "0");
+  const monthStr = parts[1];
+  const yearBE = parseInt(parts[2], 10);
+  const yearCE = yearBE - 543;
+  
+  const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const monthIdx = thaiMonths.indexOf(monthStr);
+  if (monthIdx === -1) return "";
+  
+  const month = String(monthIdx + 1).padStart(2, "0");
+  return `${yearCE}-${month}-${day}`;
+}
+
+function formatThaiDate(dateStr) {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr;
+  
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  
+  const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const thaiYear = year + 543;
+  
+  return `${day} ${thaiMonths[month - 1]} ${thaiYear}`;
+}
+
 function YearDialog({ mode, row, onClose, onSave }) {
-  const [year, setYear] = React.useState(row ? row.year : "");
+  const currentBE = new Date().getFullYear() + 543;
+  const [year, setYear] = React.useState(row ? row.year : String(currentBE));
   const [status, setStatus] = React.useState(row ? row.status : "upcoming");
+  const [startDate, setStartDate] = React.useState(row ? parseThaiDateToISO(row.start_date) : "");
+  const [endDate, setEndDate] = React.useState(row ? parseThaiDateToISO(row.end_date) : "");
+
+  const yearsOptions = [];
+  for (let i = currentBE - 5; i <= currentBE + 5; i++) {
+    yearsOptions.push(i);
+  }
+
+  const handleSave = () => {
+    if (!year) {
+      alert("กรุณาเลือกปีการศึกษา");
+      return;
+    }
+    onSave({
+      year,
+      label: `ปีการศึกษา ${year}`,
+      start_date: formatThaiDate(startDate),
+      end_date: formatThaiDate(endDate),
+      status,
+      courses: row ? row.courses || 0 : 0
+    });
+  };
+
   return (
     <Dialog title={mode === "add" ? "เพิ่มปีการศึกษา" : "แก้ไขปีการศึกษา"} desc="กำหนดปีการศึกษาและช่วงเวลาเปิด-ปิด" onClose={onClose}
-      footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={onSave}><Icon name="check" size={15} />บันทึก</button></>}>
-      <div className="field"><label className="label">ปีการศึกษา (พ.ศ.) <span className="c-danger">*</span></label><input className="input" value={year} onChange={(e) => setYear(e.target.value)} placeholder="เช่น 2569" /></div>
+      footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={handleSave}><Icon name="check" size={15} />บันทึก</button></>}>
+      <div className="field">
+        <label className="label">ปีการศึกษา (พ.ศ.) <span className="c-danger">*</span></label>
+        <select className="input" value={year} onChange={(e) => setYear(e.target.value)}>
+          {yearsOptions.map((y) => (
+            <option key={y} value={String(y)}>{y}</option>
+          ))}
+        </select>
+      </div>
       <div className="grid grid-2 gap-3">
-        <div className="field"><label className="label">วันเริ่มต้น</label><input className="input" defaultValue={row ? row.start : ""} placeholder="1 มิ.ย. 2569" /></div>
-        <div className="field"><label className="label">วันสิ้นสุด</label><input className="input" defaultValue={row ? row.end : ""} placeholder="31 พ.ค. 2570" /></div>
+        <div className="field"><label className="label">วันเริ่มต้น</label><input className="input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>
+        <div className="field"><label className="label">วันสิ้นสุด</label><input className="input" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></div>
       </div>
       <label className="label">สถานะ</label>
       <div className="flex gap-2">
@@ -158,7 +223,7 @@ function MasterDataContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nav = (path) => router.push(path);
-  const toast = (msg) => alert(msg);
+
 
   const tab = searchParams.get("tab") || "years";
   const [dlg, setDlg] = React.useState(null); // {mode, row}
@@ -206,6 +271,37 @@ function MasterDataContent() {
   }, []);
 
   const D = data;
+
+  const handleSaveYear = async (updatedYear) => {
+    setDlg(null);
+    if (dlg.mode === "add") {
+      const newYearObj = {
+        id: "y_" + Date.now(),
+        ...updatedYear
+      };
+      const { error } = await supabase.from("academic_years").insert([newYearObj]);
+      if (error) {
+        toast("เกิดข้อผิดพลาดในการสร้างปีการศึกษา: " + error.message);
+      } else {
+        setData(prev => ({
+          ...prev,
+          academicYears: [newYearObj, ...prev.academicYears].sort((a, b) => b.year.localeCompare(a.year))
+        }));
+        toast("เพิ่มปีการศึกษาเรียบร้อยแล้ว");
+      }
+    } else {
+      const { error } = await supabase.from("academic_years").update(updatedYear).eq("id", dlg.row.id);
+      if (error) {
+        toast("เกิดข้อผิดพลาดในการแก้ไขปีการศึกษา: " + error.message);
+      } else {
+        setData(prev => ({
+          ...prev,
+          academicYears: prev.academicYears.map(y => y.id === dlg.row.id ? { ...y, ...updatedYear } : y)
+        }));
+        toast("บันทึกการแก้ไขเรียบร้อยแล้ว");
+      }
+    }
+  };
 
   const tabs = [
     ["years", "ปีการศึกษา", "cal"],
@@ -373,7 +469,7 @@ function MasterDataContent() {
         </div>
       </div>
 
-      {dlg && tab === "years" && <YearDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast(dlg.mode === "add" ? "เพิ่มปีการศึกษาแล้ว" : "บันทึกการแก้ไขแล้ว"); }} />}
+      {dlg && tab === "years" && <YearDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={handleSaveYear} />}
       {dlg && tab === "course_access" && <CourseAccessDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast("บันทึกการแก้ไขสิทธิ์แล้ว"); }} />}
       {dlg && tab === "users" && (
         <UserDialog

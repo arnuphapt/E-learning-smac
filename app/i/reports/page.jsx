@@ -9,11 +9,12 @@ import { statusBadge } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
+import { toast } from "@/components/ui/Toast";
 
 export default function Reports() {
   const router = useRouter();
   const nav = (path) => router.push(path);
-  const toast = (msg) => alert(msg);
+
 
   const [course, setCourse] = React.useState(null);
   const [scope, setScope] = React.useState("all");

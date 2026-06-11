@@ -8,6 +8,7 @@ import { Badge, Progress, Avatar, Dialog, Ph, statusBadge } from "@/components/u
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
+import { toast } from "@/components/ui/Toast";
 
 function ToggleRow({ label, on }) {
   const [v, setV] = React.useState(on);
@@ -178,7 +179,7 @@ function AssignmentBuilder({ lesson, toast, nav, assignments, rubrics }) {
             <div className="field"><label className="label">ชื่อใบงาน</label><input className="input" defaultValue={a.title} /></div>
             <div className="field"><label className="label">คำชี้แจง</label><textarea className="input" rows={4} defaultValue={a.instructions} /></div>
             <div className="grid grid-3 gap-3">
-              <div className="field" style={{ margin: 0 }}><label className="label">กำหนดส่ง</label><input className="input" type="text" defaultValue="2025-06-20" /></div>
+              <div className="field" style={{ margin: 0 }}><label className="label">กำหนดส่ง</label><input className="input" type="date" defaultValue="2025-06-20" /></div>
               <div className="field" style={{ margin: 0 }}><label className="label">เวลา</label><input className="input" defaultValue="23:59" /></div>
               <div className="field" style={{ margin: 0 }}><label className="label">คะแนนเต็ม</label><input className="input" value={total} readOnly /></div>
             </div>
@@ -326,7 +327,7 @@ export default function InstructorLesson() {
   const router = useRouter();
   const params = useParams();
   const nav = (path) => router.push(path);
-  const toast = (msg) => alert(msg); // fallback toast
+
 
   const lessonId = params?.id;
   const [lesson, setLesson] = useState(null);

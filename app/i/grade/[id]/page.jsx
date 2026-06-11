@@ -7,12 +7,13 @@ import Icon from "@/components/ui/Icon";
 import { Avatar, statusBadge, Badge, Ph, Progress } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import { toast } from "@/components/ui/Toast";
 
 export default function Grader() {
   const router = useRouter();
   const params = useParams();
   const nav = (path) => router.push(path);
-  const toast = (msg) => alert(msg);
+
 
   const subId = params?.id;
   const [sub, setSub] = useState(null);
