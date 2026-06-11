@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
+import Loading from "@/components/ui/Loading";
 
 function ChecklistItem({ icon, label, sub, tone, action, onClick, active }) {
   const colors = { done: "var(--success)", current: "var(--primary)", todo: "var(--subtle)", locked: "var(--subtle)" };
@@ -41,7 +42,7 @@ function VideoStage({ lesson, nav, gated }) {
             กรุณาทำแบบทดสอบก่อนเรียน (Pre-test) ให้เสร็จก่อน จึงจะสามารถเข้าชมวิดีโอและเนื้อหาบทเรียนได้
           </div>
           <button className="btn btn-primary btn-lg mt-4" onClick={() => nav("/s/test/" + lesson.id + "/pre")}>
-            <Icon name="clipboard" size={17} />เริ่มทำ Pre-test ({lesson.pretest.questions} ข้อ)
+            <Icon name="clipboard" size={17} />เริ่มทำ Pre-test ({lesson.pretest?.questions || 10} ข้อ)
           </button>
         </div>
       </div>
@@ -63,7 +64,7 @@ function VideoStage({ lesson, nav, gated }) {
         <div className="flex items-center justify-between mt-2" style={{ color: "#fff" }}>
           <div className="flex items-center gap-3">
             <Icon name="play" size={16} /><Icon name="refresh" size={15} style={{ opacity: .8 }} />
-            <span className="t-xs mono" style={{ opacity: .85 }}>29:18 / {lesson.duration.replace(" นาที", ":00")}</span>
+            <span className="t-xs mono" style={{ opacity: .85 }}>29:18 / {(lesson.duration || "40 นาที").replace(" นาที", ":00")}</span>
           </div>
           <div className="flex items-center gap-3" style={{ opacity: .85 }}>
             <span className="t-xs">1.0x</span><Icon name="settings" size={15} /><Icon name="grid" size={15} />
@@ -108,7 +109,7 @@ function LessonDocs() {
 
 function LessonAssignTab({ asg, nav }) {
   if (!asg) return <div className="card"><div className="empty"><div className="ec"><Icon name="file" size={22} /></div><div>บทเรียนนี้ไม่มีใบงาน</div></div></div>;
-  const a = DATA.assignments.find((x) => x.id === asg.id);
+  const a = asg;
   return (
     <div className="card card-p flex items-center justify-between gap-3 wrap">
       <div className="flex items-center gap-3">
@@ -132,8 +133,8 @@ function LessonNotes() {
   );
 }
 
-function NextLessonCard({ lesson, nav }) {
-  const all = DATA.lessons.filter((l) => l.courseId === lesson.courseId);
+function NextLessonCard({ lesson, nav, allLessons }) {
+  const all = allLessons;
   const idx = all.findIndex((l) => l.id === lesson.id);
   const next = all[idx + 1];
   if (!next) return null;
@@ -162,12 +163,41 @@ export default function StudentLesson() {
   const mobile = false;
 
   const lessonId = params?.id;
-  const lesson = DATA.lessons.find((l) => l.id === lessonId) || DATA.lessons[0];
-  const course = DATA.courses.find((c) => c.id === lesson.courseId);
-  const gated = lesson.status === "locked-pretest" && !lesson.pretest.taken;
-  const [tab, setTab] = React.useState("overview");
+  const [lesson, setLesson] = useState(null);
+  const [course, setCourse] = useState(null);
+  const [assignment, setAssignment] = useState(null);
+  const [allLessons, setAllLessons] = useState([]);
+  const [tab, setTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
 
-  const pre = lesson.pretest, post = lesson.posttest, asg = lesson.assignment;
+  useEffect(() => {
+    async function load() {
+      if (!lessonId) return;
+      const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
+      if (!lData) { setLoading(false); return; }
+      
+      const [cRes, aRes, allRes] = await Promise.all([
+        supabase.from("courses").select("*").eq("id", lData.course_id).single(),
+        supabase.from("assignments").select("*").eq("lesson_id", lessonId).single(),
+        supabase.from("lessons").select("*").eq("course_id", lData.course_id).order("index", { ascending: true })
+      ]);
+      
+      setLesson(lData);
+      setCourse(cRes.data || { id: "c1", code: "Unknown" });
+      setAssignment(aRes.data);
+      setAllLessons(allRes.data || []);
+      setLoading(false);
+    }
+    load();
+  }, [lessonId]);
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (!lesson) return <div className="container p-5 text-center muted">ไม่พบบทเรียน</div>;
+
+  const pre = lesson.pretest || { required: true, taken: false, questions: 10, total: 10, score: 0 };
+  const post = lesson.posttest || { required: true, taken: false, questions: 10, total: 10, score: 0 };
+  const asg = assignment ? { ...assignment, status: "todo" } : null;
+  const gated = lesson.status === "locked-pretest" && !pre.taken;
 
   const SideRail = (
     <div className="flex col gap-4">
@@ -190,7 +220,7 @@ export default function StudentLesson() {
             action={!gated && !post.taken ? <span className="btn btn-soft btn-sm">ทำเลย</span> : <Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />}
         </div>
       </div>
-      <NextLessonCard lesson={lesson} nav={nav} />
+      <NextLessonCard lesson={lesson} nav={nav} allLessons={allLessons} />
     </div>
   );
 

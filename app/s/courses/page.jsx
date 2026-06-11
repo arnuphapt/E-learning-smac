@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress } from "@/components/ui/Primitives";
+import Loading from "@/components/ui/Loading";
 
 function PageHead({ kicker, title, desc, right }) {
   return (
@@ -71,16 +72,30 @@ export default function StudentCourses() {
   // Use a safe initialization for view
   const [view, setView] = React.useState("grid");
   const [year, setYear] = React.useState("all");
+  const [courses, setCourses] = React.useState([]);
+  const [years, setYears] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     setView(localStorage.getItem(KEY) || "grid");
+    
+    async function loadData() {
+      const { data: cData } = await supabase.from("courses").select("*");
+      const { data: yData } = await supabase.from("academic_years").select("*").order("year", { ascending: false });
+      
+      if (cData) setCourses(cData);
+      if (yData) setYears(yData);
+      setLoading(false);
+    }
+    loadData();
   }, []);
 
-  const years = DATA.academicYears;
   const setV = (v) => { setView(v); try { localStorage.setItem(KEY, v); } catch (e) {} };
-  const list = DATA.courses.filter((c) => year === "all" || c.year === year);
+  const list = courses.filter((c) => year === "all" || c.year === year);
   
   const nav = (path) => router.push(path);
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
 
   return (
     <div className="container">

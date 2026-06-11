@@ -1,11 +1,12 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Avatar, Dialog } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
+import Loading from "@/components/ui/Loading";
 
 function mStatus(s) {
   const m = { active: ["success", "ใช้งาน"], archived: ["muted", "เก็บถาวร"], upcoming: ["info", "กำลังจะมาถึง"] };
@@ -160,18 +161,50 @@ function MasterDataContent() {
 
   const tab = searchParams.get("tab") || "years";
   const [dlg, setDlg] = React.useState(null); // {mode, row}
-  const D = DATA;
+  
+  const [data, setData] = React.useState({
+    academicYears: [],
+    terms: [],
+    subjectGroups: [],
+    sectionList: [],
+    courses: [],
+  });
+  const [usersList, setUsersList] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
 
-  const [usersList, setUsersList] = React.useState([
-    { id: "u1", name: "อ. ดร. สุภาวดี ทองคำ", email: "supawadee.t@smnc.ac.th", role: "instructor", studentId: "อาจารย์ผู้สอน", sec: "ไม่มี", status: "active" },
-    { id: "u2", name: "อ. กมลชนก ศรีวิไล", email: "kamolchanok.s@smnc.ac.th", role: "instructor", studentId: "อาจารย์ผู้สอน", sec: "ไม่มี", status: "active" },
-    { id: "u3", name: "ณัฐนรี วงศ์สวรรค์", email: "65010001@smnc.ac.th", role: "student", studentId: "65010001", sec: "Sec 1", status: "active" },
-    { id: "u4", name: "ธนกฤต อินทรชัย", email: "65010002@smnc.ac.th", role: "student", studentId: "65010002", sec: "Sec 1", status: "active" },
-    { id: "u5", name: "พิมพ์ชนก ดวงแก้ว", email: "65010003@smnc.ac.th", role: "student", studentId: "65010003", sec: "Sec 1", status: "active" },
-    { id: "u6", name: "ศุภวิชญ์ มากมี", email: "65010004@smnc.ac.th", role: "student", studentId: "65010004", sec: "Sec 2", status: "active" },
-    { id: "u7", name: "อรปรียา สุขใจ", email: "65010005@smnc.ac.th", role: "student", studentId: "65010005", sec: "Sec 2", status: "active" },
-    { id: "u8", name: "กิตติพศ เรืองศรี", email: "65010006@smnc.ac.th", role: "student", studentId: "65010006", sec: "Sec 2", status: "suspended" },
-  ]);
+  React.useEffect(() => {
+    async function loadData() {
+      const [yRes, tRes, gRes, sRes, cRes, uRes] = await Promise.all([
+        supabase.from("academic_years").select("*").order("year", { ascending: false }),
+        supabase.from("terms").select("*"),
+        supabase.from("subject_groups").select("*"),
+        supabase.from("sections").select("*"),
+        supabase.from("courses").select("*"),
+        supabase.from("users").select("*")
+      ]);
+      
+      setData({
+        academicYears: yRes.data || [],
+        terms: tRes.data || [],
+        subjectGroups: gRes.data || [],
+        sectionList: sRes.data || [],
+        courses: cRes.data || [],
+      });
+      
+      if (uRes.data) {
+        setUsersList(uRes.data.map(u => ({
+          ...u,
+          studentId: u.student_no,
+          sec: u.section,
+          status: 'active' // Add status if not in DB
+        })));
+      }
+      setLoading(false);
+    }
+    loadData();
+  }, []);
+
+  const D = data;
 
   const tabs = [
     ["years", "ปีการศึกษา", "cal"],
@@ -205,15 +238,17 @@ function MasterDataContent() {
               <button className="btn btn-primary btn-sm" onClick={() => setDlg({ mode: "add" })}><Icon name="plus" size={15} />{meta.add}</button>
             </div>
 
-            {tab === "years" && (
+            {loading ? (
+              <Loading className="p-5 text-center muted" />
+            ) : tab === "years" && (
               <table className="table">
                 <thead><tr><th>ปีการศึกษา</th><th>เริ่ม</th><th>สิ้นสุด</th><th>รายวิชา</th><th>สถานะ</th><th></th></tr></thead>
                 <tbody>
                   {D.academicYears.map((y) => (
                     <tr key={y.id}>
                       <td><div className="flex items-center gap-2"><div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="cal" size={16} /></div><span className="fw-6">{y.label}</span></div></td>
-                      <td className="muted t-sm">{y.start}</td>
-                      <td className="muted t-sm">{y.end}</td>
+                      <td className="muted t-sm">{y.start_date}</td>
+                      <td className="muted t-sm">{y.end_date}</td>
                       <td className="num">{y.courses}</td>
                       <td>{mStatus(y.status)}</td>
                       <td><RowActions onEdit={() => setDlg({ mode: "edit", row: y })} onDelete={() => toast("ลบปีการศึกษาแล้ว")} /></td>
@@ -227,7 +262,7 @@ function MasterDataContent() {
                 <thead><tr><th>ภาคเรียน</th><th>ปีการศึกษา</th><th>เริ่ม</th><th>สิ้นสุด</th><th>สถานะ</th><th></th></tr></thead>
                 <tbody>
                   {D.terms.map((t) => (
-                    <tr key={t.id}><td className="fw-6">{t.name}</td><td className="t-sm">{t.year}</td><td className="muted t-sm">{t.start}</td><td className="muted t-sm">{t.end}</td><td>{mStatus(t.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: t })} onDelete={() => toast("ลบภาคเรียนแล้ว")} /></td></tr>
+                    <tr key={t.id}><td className="fw-6">{t.name}</td><td className="t-sm">{t.year}</td><td className="muted t-sm">{t.start_date}</td><td className="muted t-sm">{t.end_date}</td><td>{mStatus(t.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: t })} onDelete={() => toast("ลบภาคเรียนแล้ว")} /></td></tr>
                   ))}
                 </tbody>
               </table>
@@ -247,7 +282,7 @@ function MasterDataContent() {
                 <thead><tr><th>Section</th><th>กลุ่มวิชา</th><th>จำนวนนักศึกษา</th><th>สถานะ</th><th></th></tr></thead>
                 <tbody>
                   {D.sectionList.map((s) => (
-                    <tr key={s.id}><td><Badge tone="primary">{s.name}</Badge></td><td className="t-sm">{s.group}</td><td className="num">{s.students}</td><td>{mStatus(s.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: s })} onDelete={() => toast("ลบ Section แล้ว")} /></td></tr>
+                    <tr key={s.id}><td><Badge tone="primary">{s.name}</Badge></td><td className="t-sm">{s.group_name}</td><td className="num">{s.students}</td><td>{mStatus(s.status)}</td><td><RowActions onEdit={() => setDlg({ mode: "edit", row: s })} onDelete={() => toast("ลบ Section แล้ว")} /></td></tr>
                   ))}
                 </tbody>
               </table>

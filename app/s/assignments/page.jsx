@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, statusBadge } from "@/components/ui/Primitives";
-import { PageHead } from "@/components/ui/Shared";
+import { PageHead, Crumb } from "@/components/ui/Shared";
+import { Avatar, Badge, statusBadge } from "@/components/ui/Primitives";
+import Loading from "@/components/ui/Loading";
 
 export default function StudentAssignments() {
   const router = useRouter();
@@ -13,12 +14,31 @@ export default function StudentAssignments() {
   const [courseFilter, setCourseFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  const [courses, setCourses] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [lessons, setLessons] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    async function loadData() {
+      const { data: cData } = await supabase.from("courses").select("*");
+      const { data: aData } = await supabase.from("assignments").select("*");
+      const { data: lData } = await supabase.from("lessons").select("*");
+      
+      if (cData) setCourses(cData);
+      if (aData) setAssignments(aData);
+      if (lData) setLessons(lData);
+      setLoading(false);
+    }
+    loadData();
+  }, []);
+
   const nav = (path) => router.push(path);
 
   // 1. Process assignments and combine with course & status information
-  const assignmentsList = DATA.assignments.map((asg) => {
-    const course = DATA.courses.find((c) => c.id === asg.courseId);
-    const lesson = DATA.lessons.find((l) => l.id === asg.lessonId);
+  const assignmentsList = assignments.map((asg) => {
+    const course = courses.find((c) => c.id === asg.course_id);
+    const lesson = lessons.find((l) => l.id === asg.lesson_id);
     
     // Status and score are loaded dynamically from student's progress in lessons
     const status = lesson?.assignment?.status || "not-submitted";
@@ -54,6 +74,8 @@ export default function StudentAssignments() {
   const submittedCount = assignmentsList.filter((a) => a.status === "submitted").length;
   const gradedCount = assignmentsList.filter((a) => a.status === "graded").length;
   const pendingCount = assignmentsList.filter((a) => a.status === "not-submitted" || a.status === "late").length;
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
 
   return (
     <div className="container">
@@ -127,7 +149,7 @@ export default function StudentAssignments() {
             onChange={(e) => setCourseFilter(e.target.value)}
           >
             <option value="all">ทุกรายวิชา</option>
-            {DATA.courses.map((c) => (
+            {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.code}
               </option>

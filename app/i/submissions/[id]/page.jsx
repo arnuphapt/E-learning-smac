@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Avatar, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
+import Loading from "@/components/ui/Loading";
 
 export default function SubmissionList() {
   const router = useRouter();
@@ -13,12 +14,42 @@ export default function SubmissionList() {
   const nav = (path) => router.push(path);
 
   const asgId = params?.id;
-  const a = DATA.assignments.find((x) => x.id === asgId) || DATA.assignments[0];
-  const lesson = DATA.lessons.find((l) => l.id === a.lessonId);
-  const course = DATA.courses.find((c) => c.id === a.courseId);
-  const subs = DATA.submissions;
-  const sById = (id) => DATA.students.find((s) => s.id === id);
-  const [filter, setFilter] = React.useState("all");
+  
+  const [a, setA] = useState(null);
+  const [lesson, setLesson] = useState(null);
+  const [course, setCourse] = useState(null);
+  const [subs, setSubs] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      if (!asgId) return;
+      const { data: aData } = await supabase.from("assignments").select("*").eq("id", asgId).single();
+      if (!aData) { setLoading(false); return; }
+      
+      const [lRes, cRes, subRes, stRes] = await Promise.all([
+        supabase.from("lessons").select("*").eq("id", aData.lesson_id).single(),
+        supabase.from("courses").select("*").eq("id", aData.course_id).single(),
+        supabase.from("submissions").select("*").eq("assignment_id", asgId),
+        supabase.from("users").select("*").eq("role", "student")
+      ]);
+      
+      setA(aData);
+      setLesson(lRes.data || { id: "l1", index: 1 });
+      setCourse(cRes.data || { id: "c1", code: "Unknown" });
+      setSubs(subRes.data || []);
+      setStudents(stRes.data || []);
+      setLoading(false);
+    }
+    load();
+  }, [asgId]);
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (!a) return <div className="container p-5 text-center muted">ไม่พบใบงาน</div>;
+
+  const sById = (id) => students.find((s) => s.id === id) || { name: "Unknown", student_no: "-", section: "-" };
   const counts = { all: subs.length, submitted: subs.filter((s) => s.status === "submitted" || s.status === "late").length, graded: subs.filter((s) => s.status === "graded").length, "not-submitted": subs.filter((s) => s.status === "not-submitted").length };
   const list = filter === "all" ? subs : filter === "submitted" ? subs.filter((s) => s.status === "submitted" || s.status === "late") : subs.filter((s) => s.status === filter);
 
@@ -49,14 +80,14 @@ export default function SubmissionList() {
           <thead><tr><th>นักศึกษา</th><th>สถานะ</th><th className="hide-m">ไฟล์งาน</th><th className="hide-m">ส่งเมื่อ</th><th>คะแนน</th><th></th></tr></thead>
           <tbody>
             {list.map((sub) => {
-              const s = sById(sub.studentId);
+              const s = sById(sub.student_id);
               const can = sub.status !== "not-submitted";
               return (
                 <tr key={sub.id} onClick={() => can && nav("/i/grade/" + sub.id)} style={{ cursor: can ? "pointer" : "default", opacity: can ? 1 : .65 }}>
-                  <td><div className="flex items-center gap-2"><Avatar name={s.name} size={30} /><div><div className="fw-6">{s.name}</div><div className="t-xs muted">{s.no} · {s.sec}</div></div></div></td>
+                  <td><div className="flex items-center gap-2"><Avatar name={s.name} size={30} /><div><div className="fw-6">{s.name}</div><div className="t-xs muted">{s.student_no || "-"} · {s.section || "-"}</div></div></div></td>
                   <td>{statusBadge(sub.status)}</td>
                   <td className="hide-m">{sub.file ? <span className="flex items-center gap-2 t-sm c-primary"><Icon name="file" size={15} />{sub.file}</span> : <span className="muted t-sm">—</span>}</td>
-                  <td className="hide-m muted t-sm">{sub.at || "—"}</td>
+                  <td className="hide-m muted t-sm">{sub.submitted_at || "—"}</td>
                   <td>{sub.score != null ? <span className="num fw-7">{sub.score}/{sub.total}</span> : can ? <span className="muted t-sm">รอตรวจ</span> : <span className="muted t-sm">—</span>}</td>
                   <td>{can && <button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); nav("/i/grade/" + sub.id); }}>{sub.status === "graded" ? "แก้คะแนน" : "ตรวจงาน"}</button>}</td>
                 </tr>

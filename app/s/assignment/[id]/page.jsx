@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge, Avatar } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
+import Loading from "@/components/ui/Loading";
 
 function GradedView({ a, rubric }) {
   const scores = [5, 4, 5, 4];
@@ -43,24 +44,52 @@ export default function AssignmentDetail() {
   const nav = (path) => router.push(path);
 
   const asgId = params?.id;
-  const a = DATA.assignments.find((x) => x.id === asgId) || DATA.assignments[0];
-  const lesson = DATA.lessons.find((l) => l.id === a.lessonId);
-  const course = DATA.courses.find((c) => c.id === a.courseId);
-  const rubric = DATA.rubric;
+  const [a, setA] = React.useState(null);
+  const [lesson, setLesson] = React.useState(null);
+  const [course, setCourse] = React.useState(null);
+  const [rubric, setRubric] = React.useState(null);
   
-  const initial = lesson.assignment.status; // not-submitted | submitted | graded
-  const [status, setStatus] = React.useState(initial);
+  const [status, setStatus] = React.useState("not-submitted");
   const [text, setText] = React.useState("");
-  const [file, setFile] = React.useState(initial !== "not-submitted" ? "case_HF_ของฉัน.pdf" : null);
+  const [file, setFile] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function load() {
+      if (!asgId) return;
+      const { data: aData } = await supabase.from("assignments").select("*").eq("id", asgId).single();
+      if (!aData) { setLoading(false); return; }
+      
+      const { data: lData } = await supabase.from("lessons").select("*").eq("id", aData.lesson_id).single();
+      const { data: cData } = await supabase.from("courses").select("*").eq("id", aData.course_id).single();
+      const { data: rData } = await supabase.from("rubrics").select("*").eq("id", aData.rubric_id).single();
+      
+      setA(aData);
+      setLesson(lData);
+      setCourse(cData);
+      setRubric(rData);
+      
+      if (lData?.assignment?.status) {
+        setStatus(lData.assignment.status);
+        if (lData.assignment.status !== "not-submitted") {
+           setFile("case_HF_ของฉัน.pdf");
+        }
+      }
+      setLoading(false);
+    }
+    load();
+  }, [asgId]);
   
   const mobile = false;
   const graded = status === "graded";
 
   const submit = () => { 
     setStatus("submitted"); 
-    // In real app, toast notification
     alert("ส่งใบงานเรียบร้อยแล้ว"); 
   };
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (!a) return <div className="container p-5 text-center muted">ไม่พบใบงาน</div>;
 
   const Main = (
     <div className="flex-1" style={{ minWidth: 0 }}>
@@ -108,7 +137,7 @@ export default function AssignmentDetail() {
                 <button className="btn btn-outline btn-sm" onClick={() => setStatus("not-submitted")}>ยกเลิกการส่ง</button>
               </div>
             )}
-            {a.allowFile && (
+            {a.allow_file && (
               <div className="field">
                 <label className="label">แนบไฟล์ {status === "submitted" && "(ส่งแล้ว)"}</label>
                 {file ? (
@@ -127,7 +156,7 @@ export default function AssignmentDetail() {
                 )}
               </div>
             )}
-            {a.allowText && (
+            {a.allow_text && (
               <div className="field">
                 <label className="label">คำตอบ / หมายเหตุถึงอาจารย์ <span className="muted fw-4">(ถ้ามี)</span></label>
                 <textarea className="input" rows={4} placeholder="พิมพ์คำตอบหรือคำอธิบายเพิ่มเติม…" value={text} onChange={(e) => setText(e.target.value)} disabled={status === "submitted"} />
@@ -153,7 +182,7 @@ export default function AssignmentDetail() {
       <div className="card card-p">
         <div className="flex items-center justify-between mb-3"><div className="t-sm fw-7">สถานะการส่ง</div>{statusBadge(status)}</div>
         <div className="flex col gap-3 t-sm">
-          <div className="flex items-center justify-between"><span className="muted flex items-center gap-2"><Icon name="cal" size={15} />กำหนดส่ง</span><span className="fw-6">{a.dueShort}</span></div>
+          <div className="flex items-center justify-between"><span className="muted flex items-center gap-2"><Icon name="cal" size={15} />กำหนดส่ง</span><span className="fw-6">{a.due_short}</span></div>
           <div className="flex items-center justify-between"><span className="muted flex items-center gap-2"><Icon name="star" size={15} />คะแนนเต็ม</span><span className="fw-6">{a.points}</span></div>
           <div className="flex items-center justify-between"><span className="muted flex items-center gap-2"><Icon name="clock" size={15} />เหลือเวลา</span><span className="fw-6 c-warning">2 วัน</span></div>
         </div>

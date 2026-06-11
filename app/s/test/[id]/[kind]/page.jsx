@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Dialog } from "@/components/ui/Primitives";
+import Loading from "@/components/ui/Loading";
 
 export default function TestTaking() {
   const router = useRouter();
@@ -14,17 +15,34 @@ export default function TestTaking() {
   const lessonId = params?.id;
   const kind = params?.kind || "pre"; // pre | post
   
-  const lesson = DATA.lessons.find((l) => l.id === lessonId) || DATA.lessons[0];
-  const qs = DATA.questions;
+  const [lesson, setLesson] = useState(null);
+  const [qs, setQs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      if (!lessonId) return;
+      const [lRes, qRes] = await Promise.all([
+        supabase.from("lessons").select("*").eq("id", lessonId).single(),
+        supabase.from("questions").select("*")
+      ]);
+      setLesson(lRes.data);
+      setQs(qRes.data || []);
+      setLoading(false);
+    }
+    load();
+  }, [lessonId]);
+
+  const [cur, setCur] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [flagged, setFlagged] = useState({});
+  const [confirm, setConfirm] = useState(false);
   
-  const [cur, setCur] = React.useState(0);
-  const [answers, setAnswers] = React.useState({});
-  const [flagged, setFlagged] = React.useState({});
-  const [confirm, setConfirm] = React.useState(false);
-  
-  // Default to desktop view
   const mobile = false;
-  
+
+  if (loading) return <Loading text="กำลังโหลดข้อสอบ..." fullHeight />;
+  if (!lesson || qs.length === 0) return <div style={{ background: "#f7f9fb", minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="muted">ไม่พบข้อสอบ</div></div>;
+
   const q = qs[cur];
   const answered = Object.keys(answers).length;
 

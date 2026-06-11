@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { supabase } from "@/lib/supabase";
 
 export const authOptions = {
   providers: [
@@ -10,25 +11,52 @@ export const authOptions = {
   ],
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account.provider === "google") {
+        const { data: dbUser } = await supabase
+          .from("users")
+          .select("id, role, status")
+          .eq("email", user.email)
+          .single();
+
+        if (dbUser) {
+          if (dbUser.status === "suspended") return "/login?error=AccessDenied";
+          user.role = dbUser.role;
+          user.dbId = dbUser.id;
+          return true;
+        } else {
+          // Auto-create as student for testing
+          const newId = "u_" + Date.now();
+          await supabase.from("users").insert({
+            id: newId,
+            name: user.name,
+            email: user.email,
+            role: "student",
+            status: "active",
+          });
+          user.role = "student";
+          user.dbId = newId;
+          return true;
+        }
+      }
+      return true;
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.role;
+        token.dbId = user.dbId;
+      }
+      return token;
+    },
     async session({ session, token }) {
-      // Attach user id from token to session
-      if (token?.sub) {
-        session.user.id = token.sub;
+      if (session?.user) {
+        session.user.role = token.role || "student";
+        session.user.id = token.dbId || token.sub;
       }
       return session;
-    },
-    async redirect({ url, baseUrl }) {
-      // After sign in, redirect to student courses by default
-      if (url === baseUrl || url === `${baseUrl}/login`) {
-        return `${baseUrl}/s/courses`;
-      }
-      // Allow relative callbacks
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allow callbacks on the same origin
-      if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
     },
   },
   secret: process.env.NEXTAUTH_SECRET,

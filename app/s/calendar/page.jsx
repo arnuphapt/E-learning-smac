@@ -1,25 +1,50 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
+import Loading from "@/components/ui/Loading";
 
-const CAL_EVENTS = {
-  13: [{ t: "Pre-test บทที่ 2", course: "NUR301", tone: "warning", kind: "test", to: "/s/lesson/l2" }],
-  18: [{ t: "ใบงานที่ 1 — เริ่มเปิดส่ง", course: "NUR301", tone: "muted", kind: "info", to: "/s/assignment/a1" }],
-  20: [{ t: "ใบงานที่ 1 กรณีศึกษา HF", course: "NUR301", tone: "primary", kind: "assignment", to: "/s/assignment/a1" }],
-  23: [{ t: "Post-test บทที่ 1", course: "NUR301", tone: "info", kind: "test", to: "/s/lesson/l1" }],
-  27: [{ t: "ใบงานที่ 2 COPD", course: "NUR301", tone: "primary", kind: "assignment", to: "/s/lesson/l3" }],
-};
 const TONE_BG = { primary: "var(--primary-soft)", info: "var(--info-soft)", warning: "var(--warning-soft)", muted: "var(--muted)" };
 const TONE_FG = { primary: "var(--primary-soft-fg)", info: "var(--info)", warning: "var(--warning)", muted: "var(--muted-fg)" };
 
 export default function Calendar() {
   const router = useRouter();
   const nav = (path) => router.push(path);
+
+  const [CAL_EVENTS, setEvents] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      const { data: assignments } = await supabase.from("assignments").select("*, course:courses(code)");
+      const evs = {
+        13: [{ t: "Pre-test บทที่ 2", course: "NUR301", tone: "warning", kind: "test", to: "/s/lesson/l2" }],
+        23: [{ t: "Post-test บทที่ 1", course: "NUR301", tone: "info", kind: "test", to: "/s/lesson/l1" }],
+      };
+      if (assignments) {
+        assignments.forEach(a => {
+           const d = new Date(a.due);
+           let day = d.getDate();
+           if (isNaN(day)) day = 20; 
+           if (!evs[day]) evs[day] = [];
+           evs[day].push({
+              t: a.title,
+              course: a.course?.code || "NUR301",
+              tone: "primary",
+              kind: "assignment",
+              to: "/s/lesson/" + a.lesson_id
+           });
+        });
+      }
+      setEvents(evs);
+      setLoading(false);
+    }
+    load();
+  }, []);
 
   const TODAY = 10; // 10 มิ.ย.
   const DOW = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
@@ -31,6 +56,8 @@ export default function Calendar() {
     .flatMap(([d, evs]) => evs.map((e) => ({ ...e, day: +d })))
     .filter((e) => e.day >= TODAY)
     .sort((a, b) => a.day - b.day);
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
 
   return (
     <div className="container">

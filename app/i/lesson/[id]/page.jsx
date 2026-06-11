@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, Avatar, Dialog, Ph, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
+import Loading from "@/components/ui/Loading";
 
 function ToggleRow({ label, on }) {
   const [v, setV] = React.useState(on);
@@ -59,8 +60,8 @@ function VideoManage({ lesson, toast }) {
       <div style={{ width: 300, flex: "0 0 300px" }}>
         <div className="card card-p">
           <div className="t-sm fw-7 mb-3">การตั้งค่าการเข้าถึง</div>
-          <ToggleRow label="ต้องทำ Pre-test ก่อนดูวิดีโอ" on={lesson.pretest.required} />
-          <ToggleRow label="ต้องทำ Post-test หลังเรียน" on={lesson.posttest.required} />
+          <ToggleRow label="ต้องทำ Pre-test ก่อนดูวิดีโอ" on={lesson.pretest?.required || false} />
+          <ToggleRow label="ต้องทำ Post-test หลังเรียน" on={lesson.posttest?.required || false} />
           <ToggleRow label="ดูวิดีโอครบ 80% ก่อนทำ Post-test" on={true} />
           <ToggleRow label="อนุญาตให้ดาวน์โหลดเอกสาร" on={true} />
         </div>
@@ -96,9 +97,9 @@ function QuestionEditor({ q, onClose, onSave }) {
   );
 }
 
-function TestBuilder({ lesson, toast, nav }) {
+function TestBuilder({ lesson, toast, nav, questions }) {
   const [which, setWhich] = React.useState("pre");
-  const [qs, setQs] = React.useState(DATA.questions.slice(0, 3));
+  const [qs, setQs] = React.useState(questions.slice(0, 3) || []);
   const [editing, setEditing] = React.useState(null);
   return (
     <div className="flex gap-5 items-start wrap">
@@ -158,9 +159,10 @@ function TestBuilder({ lesson, toast, nav }) {
   );
 }
 
-function AssignmentBuilder({ lesson, toast, nav }) {
-  const a = DATA.assignments[0];
-  const [criteria, setCriteria] = React.useState(DATA.rubric.criteria);
+function AssignmentBuilder({ lesson, toast, nav, assignments, rubrics }) {
+  const a = assignments[0] || { title: "ใบงานใหม่", instructions: "" };
+  const rubric = rubrics[0] || { criteria: [] };
+  const [criteria, setCriteria] = React.useState(rubric.criteria);
   const total = criteria.reduce((s, c) => s + c.max, 0);
   const setMax = (id, v) => setCriteria((cs) => cs.map((c) => c.id === id ? { ...c, max: Math.max(0, +v || 0) } : c));
   const setName = (id, v) => setCriteria((cs) => cs.map((c) => c.id === id ? { ...c, name: v } : c));
@@ -230,9 +232,9 @@ function AssignmentBuilder({ lesson, toast, nav }) {
   );
 }
 
-function SubmissionMini({ nav }) {
-  const subs = DATA.submissions;
-  const sById = (id) => DATA.students.find((s) => s.id === id);
+function SubmissionMini({ nav, submissions, students }) {
+  const subs = submissions;
+  const sById = (id) => students.find((s) => s.id === id) || { name: "Unknown", student_no: "-" };
   return (
     <div className="card">
       <div className="card-h flex items-center justify-between"><div className="title">ใบงานที่ 1 — กรณีศึกษาผู้ป่วยหัวใจล้มเหลว</div>
@@ -251,9 +253,9 @@ function SubmissionMini({ nav }) {
   );
 }
 
-function LessonScores({ lesson, nav }) {
-  const scores = DATA.testScores;
-  const sById = (id) => DATA.students.find((s) => s.id === id);
+function LessonScores({ lesson, nav, testScores, submissions, students }) {
+  const scores = testScores;
+  const sById = (id) => students.find((s) => s.id === id) || { name: "Unknown", student_no: "-", section: "-" };
   const [view, setView] = React.useState("test");
   return (
     <div>
@@ -295,7 +297,7 @@ function LessonScores({ lesson, nav }) {
             </table>
           </div>
         </>
-      ) : <SubmissionMini nav={nav} />}
+      ) : <SubmissionMini nav={nav} submissions={submissions} students={students} />}
     </div>
   );
 }
@@ -307,9 +309,52 @@ export default function InstructorLesson() {
   const toast = (msg) => alert(msg); // fallback toast
 
   const lessonId = params?.id;
-  const lesson = DATA.lessons.find((l) => l.id === lessonId) || DATA.lessons[0];
-  const course = DATA.courses.find((c) => c.id === lesson.courseId);
-  const [tab, setTab] = React.useState("video");
+  const [lesson, setLesson] = useState(null);
+  const [course, setCourse] = useState(null);
+  const [tab, setTab] = useState("video");
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({ questions: [], assignments: [], rubrics: [], submissions: [], testScores: [], students: [] });
+
+  useEffect(() => {
+    async function load() {
+      if (!lessonId) return;
+      if (lessonId === "new") {
+        setLesson({ title: "บทเรียนใหม่", index: 1, pretest: {}, posttest: {}, duration: "", desc: "" });
+        setCourse({ code: "วิชาใหม่", title: "ไม่มีวิชา" });
+        setLoading(false);
+        return;
+      }
+      const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
+      if (!lData) { setLoading(false); return; }
+      
+      const { data: cData } = await supabase.from("courses").select("*").eq("id", lData.course_id).single();
+      
+      const [qRes, aRes, rRes, subRes, tsRes, stRes] = await Promise.all([
+        supabase.from("questions").select("*"),
+        supabase.from("assignments").select("*").eq("lesson_id", lessonId),
+        supabase.from("rubrics").select("*"),
+        supabase.from("submissions").select("*"),
+        supabase.from("test_scores").select("*"),
+        supabase.from("users").select("*").eq("role", "student")
+      ]);
+      
+      setLesson(lData);
+      setCourse(cData || { code: "", title: "" });
+      setData({
+        questions: qRes.data || [],
+        assignments: aRes.data || [],
+        rubrics: rRes.data || [],
+        submissions: subRes.data || [],
+        testScores: tsRes.data || [],
+        students: stRes.data || []
+      });
+      setLoading(false);
+    }
+    load();
+  }, [lessonId]);
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (!lesson) return <div className="container p-5 text-center muted">ไม่พบบทเรียน</div>;
 
   return (
     <div className="container-wide">
@@ -324,9 +369,9 @@ export default function InstructorLesson() {
       </div>
 
       {tab === "video" && <VideoManage lesson={lesson} toast={toast} />}
-      {tab === "test" && <TestBuilder lesson={lesson} toast={toast} nav={nav} />}
-      {tab === "assign" && <AssignmentBuilder lesson={lesson} toast={toast} nav={nav} />}
-      {tab === "scores" && <LessonScores lesson={lesson} nav={nav} />}
+      {tab === "test" && <TestBuilder lesson={lesson} toast={toast} nav={nav} questions={data.questions} />}
+      {tab === "assign" && <AssignmentBuilder lesson={lesson} toast={toast} nav={nav} assignments={data.assignments} rubrics={data.rubrics} />}
+      {tab === "scores" && <LessonScores lesson={lesson} nav={nav} testScores={data.testScores} submissions={data.submissions} students={data.students} />}
     </div>
   );
 }

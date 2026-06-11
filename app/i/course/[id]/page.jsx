@@ -1,14 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { DATA } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, Avatar } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
+import Loading from "@/components/ui/Loading";
 
-function StudentRoster() {
-  const students = DATA.students;
+function StudentRoster({ students }) {
   return (
     <div className="card">
       <div className="card-h flex items-center justify-between"><div className="title">รายชื่อนักศึกษา ({students.length})</div>
@@ -19,9 +19,9 @@ function StudentRoster() {
         <tbody>
           {students.map((s) => (
             <tr key={s.id}>
-              <td className="num">{s.no}</td>
+              <td className="num">{s.student_no || "-"}</td>
               <td><div className="flex items-center gap-2"><Avatar name={s.name} size={28} />{s.name}</div></td>
-              <td><Badge tone="outline">{s.sec}</Badge></td>
+              <td><Badge tone="outline">{s.section || "-"}</Badge></td>
               <td className="hide-m" style={{ width: 180 }}><div className="flex items-center gap-2"><Progress value={40 + Math.random() * 50} h={6} /></div></td>
             </tr>
           ))}
@@ -37,15 +37,37 @@ export default function InstructorCourse() {
   const nav = (path) => router.push(path);
 
   const courseId = params?.id;
-  const course = DATA.courses.find((c) => c.id === courseId) || DATA.courses[0];
-  const lessons = DATA.lessons.filter((l) => l.courseId === course.id);
-  const [tab, setTab] = React.useState("lessons");
+  const [course, setCourse] = useState(null);
+  const [lessons, setLessons] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [tab, setTab] = useState("lessons");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      if (!courseId) return;
+      const [cRes, lRes, sRes] = await Promise.all([
+        supabase.from("courses").select("*").eq("id", courseId).single(),
+        supabase.from("lessons").select("*").eq("course_id", courseId).order("index", { ascending: true }),
+        supabase.from("users").select("*").eq("role", "student")
+      ]);
+      
+      if (cRes.data) setCourse(cRes.data);
+      if (lRes.data) setLessons(lRes.data);
+      if (sRes.data) setStudents(sRes.data);
+      setLoading(false);
+    }
+    load();
+  }, [courseId]);
+
+  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (!course) return <div className="container p-5 text-center muted">ไม่พบข้อมูลรายวิชา</div>;
 
   return (
     <div className="container">
       <Crumb nav={nav} items={[{ label: "รายวิชา", to: "/i/courses" }, { label: course.code }]} />
       <PageHead kicker={course.term} title={course.title}
-        right={<div className="flex gap-2"><button className="btn btn-outline"><Icon name="settings" size={16} />ตั้งค่า</button><button className="btn btn-primary" onClick={() => nav("/i/lesson/l1")}><Icon name="plus" size={16} />เพิ่มบทเรียน</button></div>} />
+        right={<div className="flex gap-2"><button className="btn btn-outline"><Icon name="settings" size={16} />ตั้งค่า</button><button className="btn btn-primary" onClick={() => nav("/i/lesson/new")}><Icon name="plus" size={16} />เพิ่มบทเรียน</button></div>} />
 
       <div className="grid grid-4 gap-3 mb-5">
         {[["บทเรียน", lessons.length, "book"], ["นักศึกษา", course.students, "users"], ["รอตรวจใบงาน", 3, "file"], ["คะแนนเฉลี่ย Post-test", "8.4", "chart"]].map((s, i) => (
@@ -80,12 +102,12 @@ export default function InstructorCourse() {
               <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); nav("/i/lesson/" + l.id); }}><Icon name="pencil" size={14} />จัดการ</button>
             </div>
           ))}
-          <button className="card card-p flex items-center justify-center gap-2 pointer muted" style={{ borderStyle: "dashed", background: "#fbfcfd" }} onClick={() => nav("/i/lesson/l1")}>
+          <button className="card card-p flex items-center justify-center gap-2 pointer muted" style={{ borderStyle: "dashed", background: "#fbfcfd" }} onClick={() => nav("/i/lesson/new")}>
             <Icon name="plus" size={17} />เพิ่มบทเรียนใหม่
           </button>
         </div>
       )}
-      {tab === "students" && <StudentRoster />}
+      {tab === "students" && <StudentRoster students={students} />}
       {tab === "settings" && <div className="card card-p"><div className="empty"><div className="ec"><Icon name="settings" size={22} /></div><div>ตั้งค่ารายวิชา — ชื่อ, รหัส, ภาคเรียน, สิทธิ์การเข้าถึง</div></div></div>}
     </div>
   );
