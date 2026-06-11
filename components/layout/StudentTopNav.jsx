@@ -10,6 +10,12 @@ import { Avatar } from "../ui/Primitives";
 export default function StudentTopNav() {
   const pathname = usePathname() || "";
   const { data: session } = useSession();
+  const roleLabels = {
+    admin: "ผู้ดูแลระบบ",
+    instructor: "อาจารย์ผู้สอน",
+    student: "นักศึกษา",
+  };
+  const displayRole = roleLabels[session?.user?.role] || session?.user?.role || "นักศึกษา";
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
   const onCal = pathname === "/s/calendar";
@@ -48,10 +54,10 @@ export default function StudentTopNav() {
       
       <div className="rel" ref={menuRef}>
         <div className="flex items-center gap-2 pointer" onClick={() => setMenuOpen(!menuOpen)} style={{ padding: "4px 8px", borderRadius: 8, transition: ".15s", background: menuOpen ? "var(--muted)" : "transparent" }}>
-          <Avatar name={session?.user?.name || "นักศึกษา"} size={34} />
+          <Avatar name={session?.user?.name || "นักศึกษา"} src={session?.user?.image} size={34} />
           <div style={{ lineHeight: 1.2 }}>
             <div className="t-sm fw-6">{session?.user?.name || "กำลังโหลด..."}</div>
-            <div className="t-xs muted">นักศึกษา</div>
+            <div className="t-xs muted">{displayRole}</div>
           </div>
           <Icon name="chevD" size={16} className="muted" />
         </div>

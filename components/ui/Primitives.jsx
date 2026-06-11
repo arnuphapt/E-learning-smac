@@ -2,11 +2,15 @@
 
 import Icon from "./Icon";
 
-export function Avatar({ name, size = 34, color }) {
+export function Avatar({ name, size = 34, color, src }) {
   const initials = (name || "?").trim().slice(0, 1);
   return (
-    <div className="avatar" style={{ width: size, height: size, fontSize: size * 0.42, background: color }}>
-      {initials}
+    <div className="avatar" style={{ width: size, height: size, fontSize: size * 0.42, background: color, display: "inline-flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: "50%" }}>
+      {src ? (
+        <img src={src} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        initials
+      )}
     </div>
   );
 }

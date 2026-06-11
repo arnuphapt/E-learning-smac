@@ -5,8 +5,16 @@ import { usePathname, useSearchParams } from "next/navigation";
 import Icon from "../ui/Icon";
 import { Avatar } from "../ui/Primitives";
 import React, { Suspense } from "react";
+import { useSession, signOut } from "next-auth/react";
 
 function InstructorSidebarContent() {
+  const { data: session } = useSession();
+  const roleLabels = {
+    admin: "ผู้ดูแลระบบ",
+    instructor: "อาจารย์ผู้สอน",
+    student: "นักศึกษา",
+  };
+  const displayRole = roleLabels[session?.user?.role] || session?.user?.role || "อาจารย์ผู้สอน";
   const pathname = usePathname() || "";
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") || "years";
@@ -57,14 +65,19 @@ function InstructorSidebarContent() {
       <Link href="/i/courses" className="sb-item" style={{ textDecoration: 'none' }}><Icon name="settings" size={18} className="ic" />ตั้งค่าระบบ</Link>
       
       <div className="sb-foot">
-        <Avatar name="สุภาวดี" size={36} />
+        <Avatar name={session?.user?.name || "สุภาวดี"} src={session?.user?.image} size={36} />
         <div className="flex-1" style={{ minWidth: 0 }}>
-          <div className="t-sm fw-6 truncate">อ. ดร. สุภาวดี ทองคำ</div>
-          <div className="t-xs muted">อาจารย์ผู้สอน</div>
+          <div className="t-sm fw-6 truncate">{session?.user?.name || "อ. ดร. สุภาวดี ทองคำ"}</div>
+          <div className="t-xs muted">{displayRole}</div>
         </div>
-        <Link href="/" className="iconbtn ghost" title="ออกจากระบบ" style={{ textDecoration: 'none' }}>
+        <button 
+          className="iconbtn ghost pointer" 
+          title="ออกจากระบบ" 
+          style={{ background: "transparent", border: 0, padding: 0, cursor: "pointer", color: "inherit" }}
+          onClick={() => signOut({ callbackUrl: "/login" })}
+        >
           <Icon name="logout" size={17} />
-        </Link>
+        </button>
       </div>
     </div>
   );
