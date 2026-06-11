@@ -9,7 +9,7 @@ import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 
-function StudentRoster({ students, courseSubmissions, enrolledScores, lessons }) {
+function StudentRoster({ students, courseSubmissions, enrolledScores, lessons, assignments }) {
   return (
     <div className="card">
       <div className="card-h flex items-center justify-between"><div className="title">รายชื่อนักศึกษา ({students.length})</div>
@@ -33,7 +33,7 @@ function StudentRoster({ students, courseSubmissions, enrolledScores, lessons })
           const studentScore = enrolledScores.find(ts => ts.student_id === studentId);
           const testCompleted = studentScore && studentScore.post !== null ? 1 : 0;
           
-          const totalItems = lessons.filter(l => l.assignment).length + lessons.filter(l => l.posttest?.required).length;
+          const totalItems = assignments.length + lessons.filter(l => l.posttest?.required).length;
           const progressVal = totalItems > 0 ? Math.round(((submittedCount + testCompleted) / totalItems) * 100) : 0;
 
           return (
@@ -66,29 +66,140 @@ export default function InstructorCourse() {
   const [tab, setTab] = useState("lessons");
   const [loading, setLoading] = useState(true);
 
+  const loadData = async () => {
+    if (!courseId) return;
+    const [cRes, lRes, sRes, subRes, tsRes, aRes] = await Promise.all([
+      supabase.from("courses").select("*").eq("id", courseId).single(),
+      supabase.from("lessons").select("*").eq("course_id", courseId).order("index", { ascending: true }),
+      supabase.from("users").select("*").eq("role", "student"),
+      supabase.from("submissions").select("*"),
+      supabase.from("test_scores").select("*"),
+      supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId)
+    ]);
+    
+    if (cRes.data) setCourse(cRes.data);
+    if (lRes.data) setLessons(lRes.data);
+    if (sRes.data) setStudents(sRes.data);
+    if (subRes.data) setSubmissions(subRes.data);
+    if (tsRes.data) setTestScores(tsRes.data);
+    if (aRes.data) setAssignments(aRes.data);
+    
+    setLoading(false);
+  };
+
   useEffect(() => {
-    async function load() {
-      if (!courseId) return;
-      const [cRes, lRes, sRes, subRes, tsRes, aRes] = await Promise.all([
-        supabase.from("courses").select("*").eq("id", courseId).single(),
-        supabase.from("lessons").select("*").eq("course_id", courseId).order("index", { ascending: true }),
-        supabase.from("users").select("*").eq("role", "student"),
-        supabase.from("submissions").select("*"),
-        supabase.from("test_scores").select("*"),
-        supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId)
-      ]);
-      
-      if (cRes.data) setCourse(cRes.data);
-      if (lRes.data) setLessons(lRes.data);
-      if (sRes.data) setStudents(sRes.data);
-      if (subRes.data) setSubmissions(subRes.data);
-      if (tsRes.data) setTestScores(tsRes.data);
-      if (aRes.data) setAssignments(aRes.data);
-      
-      setLoading(false);
-    }
-    load();
+    loadData();
   }, [courseId]);
+
+  const handleDeleteLesson = async (lId, lTitle) => {
+    if (
+      !confirm(
+        `คุณต้องการลบบทเรียน "${lTitle}" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของบทเรียนนี้อย่างถาวร!`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      // 1. Get assignments
+      const { data: assignments } = await supabase.from("assignments").select("id, rubric_id").eq("lesson_id", lId);
+      const assignmentIds = assignments?.map((a) => a.id) || [];
+      const rubricIds = assignments?.map((a) => a.rubric_id).filter(Boolean) || [];
+
+      // 2. Delete submissions
+      if (assignmentIds.length > 0) {
+        const { error: subErr } = await supabase.from("submissions").delete().in("assignment_id", assignmentIds);
+        if (subErr) throw subErr;
+      }
+
+      // 3. Delete assignments
+      if (assignmentIds.length > 0) {
+        const { error: asgErr } = await supabase.from("assignments").delete().in("id", assignmentIds);
+        if (asgErr) throw asgErr;
+      }
+
+      // 4. Delete rubrics
+      if (rubricIds.length > 0) {
+        const { error: rubErr } = await supabase.from("rubrics").delete().in("id", rubricIds);
+        if (rubErr) throw rubErr;
+      }
+
+      // 5. Delete questions
+      const { error: qErr } = await supabase.from("questions").delete().eq("lesson_id", lId);
+      if (qErr) throw qErr;
+
+      // 6. Delete lesson
+      const { error: lesErr } = await supabase.from("lessons").delete().eq("id", lId);
+      if (lesErr) throw lesErr;
+
+      alert("ลบบทเรียนเรียบร้อยแล้ว");
+      loadData();
+    } catch (error) {
+      console.error("Error deleting lesson:", error);
+      alert("เกิดข้อผิดพลาดในการลบบทเรียน: " + error.message);
+    }
+  };
+
+  const handleDeleteCourse = async () => {
+    if (
+      !confirm(
+        `คุณต้องการลบรายวิชา "${course.title} (${course.code})" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบบทเรียน, ข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของรายวิชานี้อย่างถาวรและไม่สามารถกู้คืนได้!`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      // 1. Get assignments
+      const { data: assignments } = await supabase.from("assignments").select("id, rubric_id").eq("course_id", course.id);
+      const assignmentIds = assignments?.map((a) => a.id) || [];
+      const rubricIds = assignments?.map((a) => a.rubric_id).filter(Boolean) || [];
+
+      // 2. Get lessons
+      const { data: lessons } = await supabase.from("lessons").select("id").eq("course_id", course.id);
+      const lessonIds = lessons?.map((l) => l.id) || [];
+
+      // 3. Delete submissions
+      if (assignmentIds.length > 0) {
+        const { error: subErr } = await supabase.from("submissions").delete().in("assignment_id", assignmentIds);
+        if (subErr) throw subErr;
+      }
+
+      // 4. Delete assignments
+      if (assignmentIds.length > 0) {
+        const { error: asgErr } = await supabase.from("assignments").delete().in("id", assignmentIds);
+        if (asgErr) throw asgErr;
+      }
+
+      // 5. Delete rubrics
+      if (rubricIds.length > 0) {
+        const { error: rubErr } = await supabase.from("rubrics").delete().in("id", rubricIds);
+        if (rubErr) throw rubErr;
+      }
+
+      // 6. Delete questions
+      if (lessonIds.length > 0) {
+        const { error: qErr } = await supabase.from("questions").delete().in("lesson_id", lessonIds);
+        if (qErr) throw qErr;
+      }
+
+      // 7. Delete lessons
+      if (lessonIds.length > 0) {
+        const { error: lesErr } = await supabase.from("lessons").delete().in("id", lessonIds);
+        if (lesErr) throw lesErr;
+      }
+
+      // 8. Delete course
+      const { error: cErr } = await supabase.from("courses").delete().eq("id", course.id);
+      if (cErr) throw cErr;
+
+      alert("ลบรายวิชาเรียบร้อยแล้ว");
+      nav("/i/courses");
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      alert("เกิดข้อผิดพลาดในการลบรายวิชา: " + error.message);
+    }
+  };
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
   if (!course) {
@@ -135,7 +246,7 @@ export default function InstructorCourse() {
     <div className="container">
       <Crumb nav={nav} items={[{ label: "รายวิชา", to: "/i/courses" }, { label: course.code }]} />
       <PageHead kicker={course.term} title={course.title}
-        right={<div className="flex gap-2"><button className="btn btn-outline"><Icon name="settings" size={16} />ตั้งค่า</button><button className="btn btn-primary" onClick={() => nav("/i/lesson/new?course_id=" + course.id)}><Icon name="plus" size={16} />เพิ่มบทเรียน</button></div>} />
+        right={<div className="flex gap-2"><button className="btn btn-outline" onClick={() => setTab("settings")}><Icon name="settings" size={16} />ตั้งค่า</button><button className="btn btn-primary" onClick={() => nav("/i/lesson/new?course_id=" + course.id)}><Icon name="plus" size={16} />เพิ่มบทเรียน</button></div>} />
 
       <div className="grid grid-4 gap-3 mb-5">
         {[
@@ -168,15 +279,23 @@ export default function InstructorCourse() {
                 <div className="flex items-center gap-2 t-xs muted mt-1 wrap">
                   <span className="flex items-center gap-1"><Icon name="video" size={13} />{l.video ? "มีวิดีโอ" : "ไม่มีวิดีโอ"}</span><i className="dot-sep" />
                   <span className="flex items-center gap-1"><Icon name="clipboard" size={13} />Pre/Post-test</span><i className="dot-sep" />
-                  <span className="flex items-center gap-1"><Icon name="file" size={13} />{l.assignment ? "1 ใบงาน" : "ไม่มีใบงาน"}</span>
+                  <span className="flex items-center gap-1"><Icon name="file" size={13} />{
+                    (() => {
+                      const count = assignments.filter(a => a.lesson_id === l.id).length;
+                      return count > 0 ? `${count} ใบงาน` : "ไม่มีใบงาน";
+                    })()
+                  }</span>
                 </div>
               </div>
-              {l.assignment && (() => {
-                const lessonAssignment = assignments.find(a => a.lesson_id === l.id);
-                const pendingCount = lessonAssignment ? submissions.filter(sub => sub.assignment_id === lessonAssignment.id && sub.status === "submitted").length : 0;
+              {(() => {
+                const lessonAsgIds = assignments.filter(a => a.lesson_id === l.id).map(a => a.id);
+                const pendingCount = submissions.filter(sub => lessonAsgIds.includes(sub.assignment_id) && sub.status === "submitted").length;
                 return pendingCount > 0 ? <Badge tone="warning" dot>{pendingCount} รอตรวจ</Badge> : null;
               })()}
-              <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); nav("/i/lesson/" + l.id); }}><Icon name="pencil" size={14} />จัดการ</button>
+              <div className="flex items-center gap-2">
+                <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); nav("/i/lesson/" + l.id); }} style={{ height: 32, padding: "0 12px", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="pencil" size={14} />จัดการ</button>
+                <button className="iconbtn ghost c-danger" onClick={(e) => { e.stopPropagation(); handleDeleteLesson(l.id, l.title); }} style={{ height: 32, width: 32 }}><Icon name="trash" size={15} /></button>
+              </div>
             </div>
           ))}
           <button className="card card-p flex items-center justify-center gap-2 pointer muted" style={{ borderStyle: "dashed", background: "#fbfcfd" }} onClick={() => nav("/i/lesson/new?course_id=" + course.id)}>
@@ -190,9 +309,18 @@ export default function InstructorCourse() {
           courseSubmissions={courseSubmissions} 
           enrolledScores={enrolledScores} 
           lessons={lessons} 
+          assignments={assignments}
         />
       )}
-      {tab === "settings" && <div className="card card-p"><div className="empty"><div className="ec"><Icon name="settings" size={22} /></div><div>ตั้งค่ารายวิชา — ชื่อ, รหัส, ภาคเรียน, สิทธิ์การเข้าถึง</div></div></div>}
+      {tab === "settings" && (
+        <div className="card card-p">
+          <div className="t-base fw-7 c-danger mb-2">พื้นที่อันตราย (Danger Zone)</div>
+          <p className="t-sm muted mb-4">การลบรายวิชานี้จะทำให้บทเรียน ข้อสอบ ใบงาน และรายการส่งงานทั้งหมดของรายวิชาถูกลบอย่างถาวรและไม่สามารถกู้คืนได้</p>
+          <button className="btn btn-outline c-danger" onClick={handleDeleteCourse}>
+            <Icon name="trash" size={15} /> ลบรายวิชานี้
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { supabase } from "@/lib/supabase";
 
 export const authOptions = {
@@ -7,6 +8,33 @@ export const authOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
+    CredentialsProvider({
+      id: "credentials",
+      name: "Mock Account",
+      credentials: {
+        userId: { label: "User ID", type: "text" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.userId) return null;
+
+        const { data: dbUser } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", credentials.userId)
+          .single();
+
+        if (dbUser) {
+          return {
+            id: dbUser.id,
+            name: dbUser.name,
+            email: dbUser.email || `${dbUser.id}@smnc.ac.th`,
+            role: dbUser.role,
+            dbId: dbUser.id,
+          };
+        }
+        return null;
+      },
     }),
   ],
   pages: {
@@ -67,7 +95,7 @@ export const authOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role;
-        token.dbId = user.dbId;
+        token.dbId = user.dbId || user.id;
       }
       return token;
     },

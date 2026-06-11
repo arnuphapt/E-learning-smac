@@ -83,6 +83,69 @@ function LoginContent() {
           {loading ? "กำลังดำเนินการ…" : "เข้าสู่ระบบด้วย Google"}
         </button>
 
+        {/* Developer Bypass (Visible for testing) */}
+        <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px dashed #e2e8f0" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#64748b", textAlign: "center", marginBottom: 12 }}>
+            Developer Bypass / บัญชีทดสอบ
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button
+              onClick={async () => {
+                setLoading(true);
+                await signIn("credentials", { userId: "inst1", callbackUrl: "/i/courses" });
+              }}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+                background: "#f8fafc",
+                color: "#334155",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                transition: "all 0.2s"
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.borderColor = "#94a3b8"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.borderColor = "#cbd5e1"; }}
+            >
+              💼 อาจารย์ (อ. ดร. สุภาวดี)
+            </button>
+            <button
+              onClick={async () => {
+                setLoading(true);
+                await signIn("credentials", { userId: "s1", callbackUrl: "/s/courses" });
+              }}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+                background: "#f8fafc",
+                color: "#334155",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                transition: "all 0.2s"
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.borderColor = "#94a3b8"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.borderColor = "#cbd5e1"; }}
+            >
+              🎓 นักศึกษา (ณัฐนรี)
+            </button>
+          </div>
+        </div>
+
         {/* Footer */}
         <div className="login-footer">
           <Link href="/">← กลับหน้าหลัก</Link>

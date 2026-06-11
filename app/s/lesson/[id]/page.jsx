@@ -49,6 +49,13 @@ function VideoStage({ lesson, nav, gated }) {
       </div>
     );
   }
+  if (lesson.video_url) {
+    return (
+      <div style={{ position: "relative", aspectRatio: "16/9", background: "#000", borderRadius: 14, overflow: "hidden" }}>
+        <video src={lesson.video_url} controls className="w-full h-full" style={{ display: "block", outline: "none" }} />
+      </div>
+    );
+  }
   return (
     <div style={{ position: "relative", aspectRatio: "16/9", background: "#0b1220", borderRadius: 14, overflow: "hidden" }}>
       <div className="ph" style={{ position: "absolute", inset: 0, borderRadius: 0, opacity: .14, border: 0 }} />
@@ -123,19 +130,47 @@ function LessonDocs({ lesson, allowDownload = true }) {
   );
 }
 
-function LessonAssignTab({ asg, nav }) {
-  if (!asg) return <div className="card"><div className="empty"><div className="ec"><Icon name="file" size={22} /></div><div>บทเรียนนี้ไม่มีใบงาน</div></div></div>;
-  const a = asg;
-  return (
-    <div className="card card-p flex items-center justify-between gap-3 wrap">
-      <div className="flex items-center gap-3">
-        <div style={{ width: 42, height: 42, borderRadius: 10, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="file" size={20} /></div>
-        <div>
-          <div className="fw-6">{a.title}</div>
-          <div className="t-xs muted flex items-center gap-2 mt-1"><Icon name="cal" size={13} />กำหนดส่ง {a.due} <i className="dot-sep" /> {a.points} คะแนน</div>
+function LessonAssignTab({ assignments, submissions, nav }) {
+  if (!assignments || assignments.length === 0) {
+    return (
+      <div className="card">
+        <div className="empty">
+          <div className="ec"><Icon name="file" size={22} style={{ color: "var(--subtle)" }} /></div>
+          <div className="t-sm muted">บทเรียนนี้ไม่มีใบงาน</div>
         </div>
       </div>
-      <div className="flex items-center gap-2">{statusBadge(asg.status)}<button className="btn btn-primary btn-sm" onClick={() => nav("/s/assignment/" + a.id)}>เปิดใบงาน<Icon name="arrR" size={15} /></button></div>
+    );
+  }
+
+  const getStatus = (asgId) => {
+    const sub = submissions.find(s => s.assignment_id === asgId);
+    return sub ? sub.status : "not-submitted";
+  };
+
+  return (
+    <div className="flex col gap-3">
+      {assignments.map((a) => {
+        const status = getStatus(a.id);
+        return (
+          <div key={a.id} className="card card-p flex items-center justify-between gap-3 wrap" style={{ padding: "16px 20px" }}>
+            <div className="flex items-center gap-3">
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="file" size={20} /></div>
+              <div>
+                <div className="fw-6">{a.title}</div>
+                <div className="t-xs muted flex items-center gap-2 mt-1">
+                  <Icon name="cal" size={13} />กำหนดส่ง {a.due} {a.due_time} <i className="dot-sep" /> {a.points} คะแนน
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {statusBadge(status)}
+              <button className="btn btn-primary btn-sm" onClick={() => nav("/s/assignment/" + a.id)}>
+                เปิดใบงาน<Icon name="arrR" size={15} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -219,12 +254,12 @@ export default function StudentLesson() {
 
   const [lesson, setLesson] = useState(null);
   const [course, setCourse] = useState(null);
-  const [assignment, setAssignment] = useState(null);
+  const [assignments, setAssignments] = useState([]);
   const [allLessons, setAllLessons] = useState([]);
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [testScore, setTestScore] = useState(null);
-  const [submission, setSubmission] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
 
   useEffect(() => {
     async function load() {
@@ -241,7 +276,7 @@ export default function StudentLesson() {
       
       const queries = [
         supabase.from("courses").select("*").eq("id", lData.course_id).single(),
-        supabase.from("assignments").select("*").eq("lesson_id", lessonId).single(),
+        supabase.from("assignments").select("*").eq("lesson_id", lessonId),
         supabase.from("lessons").select("*").eq("course_id", lData.course_id).order("index", { ascending: true })
       ];
 
@@ -257,7 +292,9 @@ export default function StudentLesson() {
 
       setLesson(lData);
       setCourse(cRes.data || { id: "c1", code: "Unknown" });
-      setAssignment(aRes.data);
+      
+      const fetchedAssignments = aRes.data || [];
+      setAssignments(fetchedAssignments);
 
       let fetchedAllLessons = allRes.data || [];
       if (!isStaff) {
@@ -268,9 +305,12 @@ export default function StudentLesson() {
         setTestScore(tsRes.data);
       }
 
-      if (studentId && aRes.data) {
-        const { data: subData } = await supabase.from("submissions").select("*").eq("student_id", studentId).eq("assignment_id", aRes.data.id).maybeSingle();
-        setSubmission(subData);
+      if (studentId && fetchedAssignments.length > 0) {
+        const assignmentIds = fetchedAssignments.map(a => a.id);
+        const { data: subData } = await supabase.from("submissions").select("*").eq("student_id", studentId).in("assignment_id", assignmentIds);
+        setSubmissions(subData || []);
+      } else {
+        setSubmissions([]);
       }
 
       setLoading(false);
@@ -295,7 +335,6 @@ export default function StudentLesson() {
 
   const pre = lesson.pretest || { required: true, taken: false, questions: 10, total: 10, score: 0 };
   const post = lesson.posttest || { required: true, taken: false, questions: 10, total: 10, score: 0 };
-  const asg = assignment ? { ...assignment, status: "todo" } : null;
   const gated = lesson.status === "locked-pretest" && !pre.taken;
 
   const watchProgress = lesson.progress || 0;
@@ -312,10 +351,18 @@ export default function StudentLesson() {
             action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
           <ChecklistItem icon="playC" tone={gated ? "locked" : "current"}
             label="วิดีโอบทเรียน" sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
-          {asg && <ChecklistItem icon="file" tone={asg.status === "graded" ? "done" : asg.status === "submitted" ? "current" : "todo"}
-            label="ใบงาน" sub={asg.status === "graded" ? `ตรวจแล้ว · ${asg.score}/${asg.total}` : asg.status === "submitted" ? "ส่งแล้ว · รอตรวจ" : "ยังไม่ส่ง"}
-            onClick={() => nav("/s/assignment/" + asg.id)}
-            action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />}
+          {assignments.map((a) => {
+            const sub = submissions.find((s) => s.assignment_id === a.id);
+            const status = sub ? sub.status : "not-submitted";
+            const tone = status === "graded" ? "done" : status === "submitted" ? "current" : "todo";
+            const subText = status === "graded" ? `ตรวจแล้ว · ${sub.score}/${sub.total}` : status === "submitted" ? "ส่งแล้ว · รอตรวจ" : "ยังไม่ส่ง";
+            return (
+              <ChecklistItem key={a.id} icon="file" tone={tone}
+                label={a.title} sub={subText}
+                onClick={() => nav("/s/assignment/" + a.id)}
+                action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
+            );
+          })}
           {post.required && <ChecklistItem icon={post.taken ? "checkC" : "clipboard"} tone={post.taken ? "done" : (gated || isPostGated) ? "locked" : "todo"}
             label="Post-test" sub={post.taken ? `ทำแล้ว · ${post.score}/${post.total}` : gated ? "ปลดล็อกหลังเรียนจบ" : isPostGated ? `ต้องดูวิดีโอให้ครบ 80% (ขณะนี้ ${watchProgress}%)` : "พร้อมให้ทำแล้ว"}
             onClick={() => !(gated || isPostGated) && nav("/s/test/" + lesson.id + "/post")}
@@ -353,7 +400,7 @@ export default function StudentLesson() {
           <div className="mt-4">
             {tab === "overview" && <LessonOverview lesson={lesson} />}
             {tab === "docs" && <LessonDocs lesson={lesson} allowDownload={lesson.allow_download ?? true} />}
-            {tab === "assign" && <LessonAssignTab asg={asg} nav={nav} />}
+            {tab === "assign" && <LessonAssignTab assignments={assignments} submissions={submissions} nav={nav} />}
           </div>
           {mobile && <div className="mt-5">{SideRail}</div>}
         </div>

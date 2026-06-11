@@ -14,7 +14,12 @@ function LessonRow({ l, nav }) {
   const chips = [];
   if (l.pretest) chips.push(["Pre-test", l.pretest.taken ? "success" : "warning", l.pretest.taken ? "checkC" : "clipboard"]);
   if (l.posttest && l.posttest.required) chips.push(["Post-test", l.posttest.taken ? "success" : "muted", l.posttest.taken ? "checkC" : "clipboard"]);
-  if (l.assignment) chips.push(["ใบงาน", l.assignment.status === "graded" ? "success" : l.assignment.status === "submitted" ? "info" : "muted", "file"]);
+  if (l.assignments && l.assignments.length > 0) {
+    const completedCount = l.assignments.filter(a => a.status === "graded" || a.status === "submitted").length;
+    const allGraded = l.assignments.every(a => a.status === "graded");
+    const tone = allGraded ? "success" : (completedCount > 0 ? "info" : "muted");
+    chips.push([`ใบงาน (${completedCount}/${l.assignments.length})`, tone, "file"]);
+  }
   
   return (
     <div className="card pointer" style={{ display: "flex", alignItems: "stretch", overflow: "hidden" }}
@@ -109,15 +114,14 @@ export default function StudentCourse() {
             status = "locked-pretest";
           }
 
-          const asg = assignments.find((a) => a.lesson_id === l.id);
-          let assignmentObj = null;
-          if (asg) {
+          const lessonAssignments = assignments.filter((a) => a.lesson_id === l.id);
+          const mappedAssignments = lessonAssignments.map(asg => {
             const sub = submissions.find((s) => s.assignment_id === asg.id);
-            assignmentObj = {
+            return {
               id: asg.id,
               status: sub ? sub.status : "todo"
             };
-          }
+          });
 
           return {
             ...l,
@@ -130,7 +134,7 @@ export default function StudentCourse() {
               ...l.posttest,
               taken: postTaken
             } : null,
-            assignment: assignmentObj
+            assignments: mappedAssignments
           };
         });
       }
