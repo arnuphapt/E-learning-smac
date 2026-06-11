@@ -103,8 +103,8 @@ a{color:inherit;text-decoration:none;}
 .app{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--bg);}
 .app-body{flex:1;min-height:0;display:flex;}
 .app-main{flex:1;min-width:0;overflow:auto;}
-.container{max-width:1180px;margin:0 auto;padding:30px 34px 64px;}
-.container-wide{max-width:1320px;margin:0 auto;padding:26px 34px 64px;}
+.container{max-width:1440px;margin:0 auto;padding:30px 34px 64px;}
+.container-wide{max-width:1600px;margin:0 auto;padding:26px 34px 64px;}
 
 /* top nav (student desktop) */
 .topnav{height:64px;flex:0 0 64px;display:flex;align-items:center;gap:20px;padding:0 30px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.82);backdrop-filter:saturate(1.4) blur(10px);position:sticky;top:0;z-index:30;}

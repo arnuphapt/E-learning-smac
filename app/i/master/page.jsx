@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DATA } from "@/lib/data";
 import Icon from "@/components/ui/Icon";
 import { Badge, Avatar, Dialog } from "@/components/ui/Primitives";
@@ -53,12 +53,33 @@ function GenericDialog({ title, mode, onClose, onSave }) {
   );
 }
 
-export default function MasterData() {
+function CourseAccessDialog({ mode, row, onClose, onSave }) {
+  const [allowedYears, setAllowedYears] = React.useState(row?.access?.allowedYears?.join(", ") || "");
+  const [allowedEmails, setAllowedEmails] = React.useState(row?.access?.allowedEmails?.join("\n") || "");
+
+  return (
+    <Dialog title="ตั้งค่าสิทธิ์การเข้าถึงรายวิชา" desc={`ตั้งค่าผู้ที่มีสิทธิ์เข้าถึงวิชา ${row?.code || ""}`} onClose={onClose}
+      footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={onSave}><Icon name="check" size={15} />บันทึก</button></>}>
+      <div className="field">
+        <label className="label">ชั้นปีนักศึกษาที่อนุญาต (คั่นด้วยลูกน้ำ)</label>
+        <input className="input" value={allowedYears} onChange={(e) => setAllowedYears(e.target.value)} placeholder="เช่น 65, 66, 67" />
+        <div className="t-sm muted mt-1">นักศึกษาที่มีอีเมลขึ้นต้นด้วยเลขเหล่านี้จะสามารถเข้าถึงได้</div>
+      </div>
+      <div className="field">
+        <label className="label">อีเมลพิเศษที่อนุญาต (บรรทัดละ 1 อีเมล)</label>
+        <textarea className="input" rows={4} value={allowedEmails} onChange={(e) => setAllowedEmails(e.target.value)} placeholder="student@smnc.ac.th" />
+      </div>
+    </Dialog>
+  );
+}
+
+function MasterDataContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const nav = (path) => router.push(path);
   const toast = (msg) => alert(msg);
 
-  const [tab, setTab] = React.useState("years");
+  const tab = searchParams.get("tab") || "years";
   const [dlg, setDlg] = React.useState(null); // {mode, row}
   const D = DATA;
 
@@ -67,12 +88,14 @@ export default function MasterData() {
     ["terms", "ภาคเรียน", "layers"],
     ["groups", "กลุ่มวิชา", "folder"],
     ["sections", "Section / กลุ่มเรียน", "users"],
+    ["course_access", "สิทธิ์การเข้าถึง", "lock"],
   ];
   const meta = {
     years: { title: "ปีการศึกษา", add: "เพิ่มปีการศึกษา", desc: "กำหนดปีการศึกษาและช่วงเวลา ปีที่ตั้งเป็น “ใช้งาน” จะเป็นค่าเริ่มต้นของระบบ" },
     terms: { title: "ภาคเรียน", add: "เพิ่มภาคเรียน", desc: "ภาคการศึกษาภายใต้แต่ละปีการศึกษา" },
     groups: { title: "กลุ่มวิชา", add: "เพิ่มกลุ่มวิชา", desc: "กลุ่มสาขาวิชาและหัวหน้ากลุ่มผู้รับผิดชอบ" },
     sections: { title: "Section / กลุ่มเรียน", add: "เพิ่ม Section", desc: "กลุ่มเรียนของนักศึกษาในแต่ละกลุ่มวิชา" },
+    course_access: { title: "สิทธิ์การเข้าถึงรายวิชา", add: "ตั้งค่าสิทธิ์", desc: "กำหนดรหัสนักศึกษา/อีเมล ที่สามารถเข้าถึงรายวิชานั้นๆ ได้" },
   }[tab];
 
   return (
@@ -81,15 +104,6 @@ export default function MasterData() {
         desc="ตั้งค่าข้อมูลพื้นฐานของระบบที่ใช้ร่วมกันทุกรายวิชา" />
 
       <div className="flex gap-5 items-start">
-        {/* left nav */}
-        <div style={{ width: 220, flex: "0 0 220px" }} className="hide-m">
-          <div className="card" style={{ padding: 8 }}>
-            {tabs.map(([k, t, ic]) => (
-              <div key={k} className={"sb-item" + (tab === k ? " on" : "")} onClick={() => setTab(k)}><Icon name={ic} size={17} className="ic" />{t}</div>
-            ))}
-          </div>
-        </div>
-
         <div className="flex-1" style={{ minWidth: 0 }}>
           {/* mobile/inline tabs fallback */}
           <div className="tabs pill mb-4 only-m" style={{ display: "none" }} />
@@ -146,12 +160,37 @@ export default function MasterData() {
                 </tbody>
               </table>
             )}
+            {tab === "course_access" && (
+              <table className="table">
+                <thead><tr><th>รหัสวิชา</th><th>ชื่อวิชา</th><th>ปีนักศึกษาที่เข้าได้</th><th>อีเมลพิเศษ</th><th></th></tr></thead>
+                <tbody>
+                  {D.courses.map((c) => (
+                    <tr key={c.id}>
+                      <td><Badge tone="primary">{c.code}</Badge></td>
+                      <td className="fw-6">{c.title}</td>
+                      <td>{c.access?.allowedYears?.join(", ") || "-"}</td>
+                      <td className="t-sm muted">{c.access?.allowedEmails?.length ? `${c.access.allowedEmails.length} อีเมล` : "-"}</td>
+                      <td><RowActions onEdit={() => setDlg({ mode: "edit", row: c })} onDelete={() => toast("ลบสิทธิ์แล้ว")} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
 
       {dlg && tab === "years" && <YearDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast(dlg.mode === "add" ? "เพิ่มปีการศึกษาแล้ว" : "บันทึกการแก้ไขแล้ว"); }} />}
-      {dlg && tab !== "years" && <GenericDialog title={meta.add} mode={dlg.mode} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast("บันทึกข้อมูลแล้ว"); }} />}
+      {dlg && tab === "course_access" && <CourseAccessDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast("บันทึกการแก้ไขสิทธิ์แล้ว"); }} />}
+      {dlg && tab !== "years" && tab !== "course_access" && <GenericDialog title={meta.add} mode={dlg.mode} onClose={() => setDlg(null)} onSave={() => { setDlg(null); toast("บันทึกข้อมูลแล้ว"); }} />}
     </div>
+  );
+}
+
+export default function MasterData() {
+  return (
+    <Suspense fallback={<div className="container" />}>
+      <MasterDataContent />
+    </Suspense>
   );
 }

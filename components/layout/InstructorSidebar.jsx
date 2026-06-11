@@ -1,20 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Icon from "../ui/Icon";
 import { Avatar } from "../ui/Primitives";
+import React, { Suspense } from "react";
 
-export default function InstructorSidebar() {
+function InstructorSidebarContent() {
   const pathname = usePathname() || "";
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") || "years";
 
   const items1 = [["/i/courses", "grid", "ภาพรวม / รายวิชา", pathname.startsWith("/i/course") || pathname === "/i/courses" || pathname.startsWith("/i/lesson")]];
   const items2 = [
     ["/i/submissions/a1", "file", "ตรวจใบงาน", pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade")],
     ["/i/reports", "chart", "รายงาน / ส่งออก Excel", pathname.startsWith("/i/reports")],
   ];
+  
+  const isMaster = pathname.startsWith("/i/master");
   const items3 = [
-    ["/i/master", "settings", "ข้อมูลหลัก (Master)", pathname.startsWith("/i/master")],
+    ["/i/master?tab=years", "cal", "ปีการศึกษา", isMaster && tab === "years"],
+    ["/i/master?tab=terms", "layers", "ภาคเรียน", isMaster && tab === "terms"],
+    ["/i/master?tab=groups", "folder", "กลุ่มวิชา", isMaster && tab === "groups"],
+    ["/i/master?tab=sections", "users", "Section / กลุ่มเรียน", isMaster && tab === "sections"],
+    ["/i/master?tab=course_access", "lock", "สิทธิ์การเข้าถึง", isMaster && tab === "course_access"],
   ];
 
   const Item = ([to, ic, label, active]) => (
@@ -39,12 +48,12 @@ export default function InstructorSidebar() {
       <div className="sb-label">งานและคะแนน</div>
       {items2.map(Item)}
       
-      <div className="sb-label">ตั้งค่าระบบ</div>
+      <div className="sb-label">ตั้งค่าข้อมูลหลัก (Master)</div>
       {items3.map(Item)}
       
       <div className="sb-label">อื่นๆ</div>
       <Link href="/i/courses" className="sb-item" style={{ textDecoration: 'none' }}><Icon name="msg" size={18} className="ic" />ข้อความนักศึกษา</Link>
-      <Link href="/i/courses" className="sb-item" style={{ textDecoration: 'none' }}><Icon name="settings" size={18} className="ic" />ตั้งค่า</Link>
+      <Link href="/i/courses" className="sb-item" style={{ textDecoration: 'none' }}><Icon name="settings" size={18} className="ic" />ตั้งค่าระบบ</Link>
       
       <div className="sb-foot">
         <Avatar name="สุภาวดี" size={36} />
@@ -57,5 +66,13 @@ export default function InstructorSidebar() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function InstructorSidebar() {
+  return (
+    <Suspense fallback={<div className="sidebar app-scroll" />}>
+      <InstructorSidebarContent />
+    </Suspense>
   );
 }
