@@ -7,7 +7,7 @@ import { Avatar } from "../ui/Primitives";
 import React, { Suspense } from "react";
 import { useSession, signOut } from "next-auth/react";
 
-function InstructorSidebarContent() {
+function InstructorSidebarContent({ open, onClose }) {
   const { data: session } = useSession();
   const roleLabels = {
     admin: "ผู้ดูแลระบบ",
@@ -36,18 +36,27 @@ function InstructorSidebarContent() {
   ];
 
   const Item = ([to, ic, label, active]) => (
-    <Link href={to} key={to + label} className={"sb-item" + (active ? " on" : "")} style={{ textDecoration: 'none' }}>
+    <Link href={to} key={to + label} className={"sb-item" + (active ? " on" : "")} style={{ textDecoration: 'none' }} onClick={onClose}>
       <Icon name={ic} size={18} className="ic" />{label}
     </Link>
   );
 
   return (
-    <div className="sidebar app-scroll">
-      <Link href="/i/courses" className="logo pointer" style={{ textDecoration: 'none' }}>
-        <span className="mark"><Icon name="grad" size={17} /></span>
-        <div>E-learning<small>พื้นที่อาจารย์ผู้สอน</small></div>
-      </Link>
-      <Link href="/i/course/new" className="btn btn-primary btn-block" style={{ margin: "0 2px 6px", textDecoration: 'none' }}>
+    <div className={`sidebar app-scroll ${open ? "open" : ""}`}>
+      <div className="flex items-center justify-between" style={{ padding: "0 0 14px" }}>
+        <Link href="/i/courses" className="logo pointer" style={{ textDecoration: 'none', padding: "6px 8px" }} onClick={onClose}>
+          <span className="mark"><Icon name="grad" size={17} /></span>
+          <div>E-learning<small>พื้นที่อาจารย์ผู้สอน</small></div>
+        </Link>
+        <button 
+          className="iconbtn ghost sidebar-close-btn" 
+          onClick={onClose}
+          style={{ width: 32, height: 32, marginRight: 8 }}
+        >
+          <Icon name="x" size={16} />
+        </button>
+      </div>
+      <Link href="/i/course/new" className="btn btn-primary btn-block" style={{ margin: "0 2px 6px", textDecoration: 'none' }} onClick={onClose}>
         <Icon name="plus" size={16} />สร้างรายวิชา
       </Link>
       
@@ -79,10 +88,10 @@ function InstructorSidebarContent() {
   );
 }
 
-export default function InstructorSidebar() {
+export default function InstructorSidebar({ open, onClose }) {
   return (
-    <Suspense fallback={<div className="sidebar app-scroll" />}>
-      <InstructorSidebarContent />
+    <Suspense fallback={<div className={`sidebar app-scroll ${open ? "open" : ""}`} />}>
+      <InstructorSidebarContent open={open} onClose={onClose} />
     </Suspense>
   );
 }

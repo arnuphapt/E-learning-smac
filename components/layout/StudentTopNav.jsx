@@ -37,16 +37,16 @@ export default function StudentTopNav() {
     <div className="topnav">
       <Link href="/s/courses" className="logo pointer" style={{ textDecoration: 'none' }}>
         <span className="mark"><Icon name="grad" size={17} /></span>
-        <div>E-learning<small>การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></div>
+        <div>E-learning<small className="hide-m">การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></div>
       </Link>
-      <nav>
+      <nav className="hide-m">
         <Link href="/s/courses" className={onCourses ? "on" : ""} style={{ textDecoration: 'none' }}>รายวิชา</Link>
         <Link href="/s/assignments" className={onAssignments ? "on" : ""} style={{ textDecoration: 'none' }}>ใบงาน</Link>
         <Link href="/s/calendar" className={onCal ? "on" : ""} style={{ textDecoration: 'none' }}>ปฏิทิน</Link>
         <Link href="/s/courses" style={{ textDecoration: 'none' }}>ความคืบหน้า</Link>
       </nav>
       <div className="proto-spacer" />
-      <div className="rel">
+      <div className="rel hide-m">
         <Icon name="search" size={16} style={{ position: "absolute", left: 11, top: 10, color: "var(--subtle)" }} />
         <input className="input" style={{ width: 220, paddingLeft: 34, height: 38 }} placeholder="ค้นหารายวิชา บทเรียน…" />
       </div>
@@ -55,11 +55,11 @@ export default function StudentTopNav() {
       <div className="rel" ref={menuRef}>
         <div className="flex items-center gap-2 pointer" onClick={() => setMenuOpen(!menuOpen)} style={{ padding: "4px 8px", borderRadius: 8, transition: ".15s", background: menuOpen ? "var(--muted)" : "transparent" }}>
           <Avatar name={session?.user?.name || "นักศึกษา"} src={session?.user?.image} size={34} />
-          <div style={{ lineHeight: 1.2 }}>
+          <div style={{ lineHeight: 1.2 }} className="hide-m">
             <div className="t-sm fw-6">{session?.user?.name || "กำลังโหลด..."}</div>
             <div className="t-xs muted">{displayRole}</div>
           </div>
-          <Icon name="chevD" size={16} className="muted" />
+          <Icon name="chevD" size={16} className="muted hide-m" />
         </div>
 
         {menuOpen && (

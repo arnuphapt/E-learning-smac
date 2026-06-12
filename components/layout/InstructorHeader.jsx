@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import Icon from "../ui/Icon";
 import { Avatar } from "../ui/Primitives";
 
-export default function InstructorHeader() {
+export default function InstructorHeader({ onMenuClick }) {
   const { data: session } = useSession();
   const roleLabels = {
     admin: "ผู้ดูแลระบบ",
@@ -27,13 +27,24 @@ export default function InstructorHeader() {
   }, []);
 
   return (
-    <div className="topnav" style={{ borderBottom: "1px solid var(--border)", background: "rgba(255,255,255,0.82)", backdropFilter: "saturate(1.4) blur(10px)", position: "sticky", top: 0, zIndex: 30, height: 64, display: "flex", alignItems: "center", padding: "0 30px" }}>
-      <div className="flex-1">
+    <div className="topnav">
+      <button 
+        className="only-m iconbtn hamburger-btn" 
+        onClick={onMenuClick}
+        aria-label="เมนูหลัก"
+        style={{ marginRight: 12 }}
+      >
+        <Icon name="menu" size={18} />
+      </button>
+
+      <div className="flex-1 hide-m">
         <div className="rel" style={{ width: 280 }}>
           <Icon name="search" size={16} style={{ position: "absolute", left: 11, top: 10, color: "var(--subtle)" }} />
           <input className="input" style={{ width: "100%", paddingLeft: 34, height: 38 }} placeholder="ค้นหารายวิชา, นักศึกษา…" />
         </div>
       </div>
+      
+      <div className="only-m flex-1" />
       
       <div className="flex items-center gap-3">
         <div className="rel" ref={menuRef}>

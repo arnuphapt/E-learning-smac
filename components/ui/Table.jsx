@@ -17,13 +17,21 @@ function ChevRight() {
   );
 }
 
-function injectRowNum(element, index) {
+function getHeaderText(node) {
+  if (node == null) return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(getHeaderText).join("");
+  if (React.isValidElement(node)) return getHeaderText(node.props.children);
+  return "";
+}
+
+function makeResponsiveRow(element, index, headers) {
   if (!React.isValidElement(element)) return element;
 
   if (element.type === React.Fragment) {
     const mappedChildren = React.Children.map(element.props.children, (child, idx) => {
       if (idx === 0) {
-        return injectRowNum(child, index);
+        return makeResponsiveRow(child, index, headers);
       } else {
         if (React.isValidElement(child) && child.type === "tr") {
           const trChildren = React.Children.map(child.props.children, td => {
@@ -45,12 +53,23 @@ function injectRowNum(element, index) {
     const childrenArray = React.Children.toArray(originalChildren);
     
     const rowNumCell = (
-      <td key="row-num" className="tnum" style={{ width: 55, textAlign: "center", color: "#64748b", fontWeight: 500, borderBottom: "1px solid #e2e8f0" }}>
+      <td key="row-num" className="tnum" data-label="No." style={{ width: 55, textAlign: "center", color: "#64748b", fontWeight: 500, borderBottom: "1px solid #e2e8f0" }}>
         {index}
       </td>
     );
     
-    return React.cloneElement(element, {}, [rowNumCell, ...childrenArray]);
+    const cellsWithLabels = childrenArray.map((td, i) => {
+      if (!React.isValidElement(td) || td.type !== "td") return td;
+      
+      const headerObj = headers[i];
+      const label = getHeaderText(headerObj);
+      
+      return React.cloneElement(td, {
+        "data-label": label || undefined
+      });
+    });
+    
+    return React.cloneElement(element, {}, [rowNumCell, ...cellsWithLabels]);
   }
 
   return element;
@@ -237,6 +256,75 @@ export default function Table({
           color: #94a3b8 !important;
           padding: 0 4px !important;
         }
+
+        /* === Mobile responsive table === */
+        @media (max-width: 767px) {
+          .table-wrap {
+            overflow-x: unset;
+          }
+          .table-filters {
+            padding: 12px 16px !important;
+            gap: 10px !important;
+          }
+          table.table thead {
+            display: none !important;
+          }
+          table.table,
+          table.table tbody,
+          table.table tr,
+          table.table td {
+            display: block !important;
+            width: 100% !important;
+          }
+          table.table tbody tr {
+            border-bottom: 2px solid #e2e8f0 !important;
+            padding: 12px 0 4px !important;
+            background: #fff;
+          }
+          table.table tbody tr:last-child {
+            border-bottom: none !important;
+          }
+          table.table tbody tr:hover {
+            background-color: #f8fafc !important;
+          }
+          table.table td {
+            padding: 6px 16px !important;
+            border-bottom: none !important;
+            font-size: 13.5px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            min-height: 32px !important;
+          }
+          table.table td[data-label]::before {
+            content: attr(data-label);
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            color: #94a3b8 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.4px !important;
+            min-width: 90px !important;
+            flex: 0 0 90px !important;
+          }
+          table.table td[data-label="No."] {
+            display: none !important;
+          }
+          table.table td[data-label=""] {
+            justify-content: flex-end !important;
+            padding-right: 16px !important;
+            padding-bottom: 10px !important;
+          }
+          table.table td[data-label=""]::before {
+            display: none !important;
+          }
+          .table-footer {
+            padding: 12px 16px !important;
+            justify-content: center !important;
+          }
+          .table-count {
+            display: none !important;
+          }
+        }
       `}</style>
       {loading ? (
         <Loading className="p-5 text-center muted" />
@@ -296,7 +384,7 @@ export default function Table({
                   </td>
                 </tr>
               ) : (
-                pageData.map((row, i) => injectRowNum(renderRow(row, start + i), start + i + 1))
+                pageData.map((row, i) => makeResponsiveRow(renderRow(row, start + i), start + i + 1, headers))
               )}
             </tbody>
           </table>

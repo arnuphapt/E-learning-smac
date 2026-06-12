@@ -129,8 +129,8 @@ a{color:inherit;text-decoration:none;}
 .sb-foot{margin-top:auto;border-top:1px solid var(--border);padding-top:12px;display:flex;align-items:center;gap:10px;}
 
 /* mobile bottom tab */
-.tabbar{flex:0 0 64px;height:64px;display:flex;border-top:1px solid var(--border);background:#fff;padding-bottom:env(safe-area-inset-bottom);}
-.tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;font-weight:500;color:var(--subtle);cursor:pointer;}
+.tabbar{flex:0 0 60px;height:60px;display:flex;border-top:1px solid var(--border);background:rgba(255,255,255,.92);backdrop-filter:saturate(1.4) blur(12px);padding-bottom:env(safe-area-inset-bottom);}
+.tabbar a,.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;font-weight:500;color:var(--subtle);cursor:pointer;transition:.12s;}
 .tabbar a.on{color:var(--primary);}
 .mtop{flex:0 0 54px;height:54px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border);background:#fff;position:sticky;top:0;z-index:20;}
 .mtop .t{font-weight:600;font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -298,16 +298,123 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 
 /* responsive — container queries so layouts reflow inside the phone frame too */
 .app-main{container-type:inline-size;}
-@container (max-width:680px){
+
+.only-m{display:none;}
+/* Both tabbars hidden on desktop by default */
+.tabbar{display:none !important;}
+.i-tabbar{display:none !important;}
+
+@container (max-width:768px){
   .container,.container-wide{padding:18px 16px 90px;}
   .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
   .hide-m{display:none!important;}
   .only-m{display:initial;}
+
+  /* Mobile table: card-per-row layout */
+  .table-wrap { overflow-x: unset; }
+  table.table thead { display: none !important; }
+  table.table,
+  table.table tbody,
+  table.table tr,
+  table.table td { display: block !important; width: 100% !important; }
+  table.table tbody tr {
+    border-bottom: 2px solid var(--border) !important;
+    padding: 10px 0 4px !important;
+    background: var(--card);
+  }
+  table.table tbody tr:last-child { border-bottom: none !important; }
+  table.table td {
+    padding: 5px 16px !important;
+    border-bottom: none !important;
+    font-size: 13.5px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 30px !important;
+  }
+  table.table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--subtle) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    min-width: 88px !important;
+    flex: 0 0 88px !important;
+  }
+  table.table td[data-label="No."] { display: none !important; }
+  table.table td[data-label=""] {
+    justify-content: flex-end !important;
+    padding-right: 16px !important;
+    padding-bottom: 10px !important;
+  }
+  table.table td[data-label=""]::before { display: none !important; }
+  .table-footer { padding: 12px 16px !important; justify-content: center !important; }
+  .table-count { display: none !important; }
+  .table-filters { padding: 12px 16px !important; gap: 10px !important; }
+
+  /* Hide top nav inside phone frame, show bottom tabbars */
+  .topnav { display: none !important; }
+  .tabbar, .i-tabbar {
+    display: flex !important;
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    box-shadow: 0 -1px 0 var(--border), 0 -4px 20px rgba(11,46,58,.06);
+    height: 60px;
+  }
 }
-@media(max-width:640px){
+
+@media(max-width:767px){
   .container,.container-wide{padding:18px 16px 90px;}
   .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
   .hide-m{display:none!important;}
+  .only-m{display:initial!important;}
+
+  /* Hide top nav, show bottom tab bars on mobile */
+  .topnav {
+    display: none !important;
+  }
+  .tabbar, .i-tabbar {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    box-shadow: 0 -1px 0 var(--border), 0 -4px 20px rgba(11,46,58,.06);
+    height: 60px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
-.only-m{display:none;}
-@media(max-width:640px){.only-m{display:initial;}}
+
+/* Mobile Sidebar & Drawer styles for Instructor Dashboard */
+@media(max-width:1023px){
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 46, 58, 0.4);
+    backdrop-filter: blur(1px);
+    z-index: 95;
+    animation: fade 0.2s ease;
+  }
+  .topnav {
+    padding: 0 16px !important;
+  }
+}
+
