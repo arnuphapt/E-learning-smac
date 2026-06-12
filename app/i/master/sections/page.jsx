@@ -117,22 +117,16 @@ export default function MasterSectionsPage() {
       <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="Section / กลุ่มเรียน"
         desc="จัดการข้อมูลห้องเรียนและกลุ่มเรียนของนักศึกษา" />
 
-      <div className="card">
-        <div className="card-h flex items-center justify-between">
-          <div>
-            <div className="title">Section / กลุ่มเรียน</div>
-            <div className="desc pretty">กลุ่มเรียนของนักศึกษาในระบบ</div>
-          </div>
+      <Table
+        title="Section / กลุ่มเรียน"
+        description="กลุ่มเรียนของนักศึกษาในระบบ"
+        addButton={
           <button className="btn btn-primary btn-sm" onClick={() => setDlg({ mode: "add" })}>
             <Icon name="plus" size={15} />เพิ่ม Section
           </button>
-        </div>
-
-        {loading ? (
-          <Loading className="p-5 text-center muted" />
-        ) : (
-          <Table
-            className="table"
+        }
+        loading={loading}
+        className="table"
             headers={["Section", "จำนวนนักศึกษา", "สถานะ", ""]}
             data={sectionList}
             colSpan={4}
@@ -156,8 +150,6 @@ export default function MasterSectionsPage() {
               </tr>
             )}
           />
-        )}
-      </div>
 
       {dlg && <SectionDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={handleSaveSection} />}
       {confirmDlg && <ConfirmDialog title={confirmDlg.title} desc={confirmDlg.desc} onConfirm={confirmDlg.onConfirm} onClose={() => setConfirmDlg(null)} />}

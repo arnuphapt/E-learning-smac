@@ -11,42 +11,39 @@ import Table from "@/components/ui/Table";
 
 function StudentRoster({ students, courseSubmissions, enrolledScores, lessons, assignments }) {
   return (
-    <div className="card">
-      <div className="card-h flex items-center justify-between"><div className="title">รายชื่อนักศึกษา ({students.length})</div>
-        <div className="flex gap-2"><div className="rel"><Icon name="search" size={15} style={{ position: "absolute", left: 10, top: 9, color: "var(--subtle)" }} /><input className="input btn-sm" style={{ paddingLeft: 32, width: 200, height: 34 }} placeholder="ค้นหา…" /></div></div>
-      </div>
-      <Table
-        className="table"
-        headers={[
-          "รหัสนักศึกษา",
-          "ชื่อ-นามสกุล",
-          "Section",
-          <span className="hide-m" key="progress">ความคืบหน้า</span>
-        ]}
-        data={students}
-        colSpan={4}
-        renderRow={(s) => {
-          const studentId = s.id;
-          const studentSubs = courseSubmissions.filter(sub => sub.student_id === studentId);
-          const submittedCount = studentSubs.length;
-          
-          const studentScore = enrolledScores.find(ts => ts.student_id === studentId);
-          const testCompleted = studentScore && studentScore.post !== null ? 1 : 0;
-          
-          const totalItems = assignments.length + lessons.filter(l => l.posttest?.required).length;
-          const progressVal = totalItems > 0 ? Math.round(((submittedCount + testCompleted) / totalItems) * 100) : 0;
+    <Table
+      title={`รายชื่อนักศึกษา (${students.length})`}
+      className="table"
+      searchPlaceholder="ค้นหาชื่อ หรือรหัสนักศึกษา..."
+      headers={[
+        "รหัสนักศึกษา",
+        "ชื่อ-นามสกุล",
+        "Section",
+        <span className="hide-m" key="progress">ความคืบหน้า</span>
+      ]}
+      data={students}
+      colSpan={4}
+      renderRow={(s) => {
+        const studentId = s.id;
+        const studentSubs = courseSubmissions.filter(sub => sub.student_id === studentId);
+        const submittedCount = studentSubs.length;
+        
+        const studentScore = enrolledScores.find(ts => ts.student_id === studentId);
+        const testCompleted = studentScore && studentScore.post !== null ? 1 : 0;
+        
+        const totalItems = assignments.length + lessons.filter(l => l.posttest?.required).length;
+        const progressVal = totalItems > 0 ? Math.round(((submittedCount + testCompleted) / totalItems) * 100) : 0;
 
-          return (
-            <tr key={s.id}>
-              <td className="num">{s.student_no || "-"}</td>
-              <td><div className="flex items-center gap-2"><Avatar name={s.name} size={28} />{s.name}</div></td>
-              <td><Badge tone="outline">{s.section || "-"}</Badge></td>
-              <td className="hide-m" style={{ width: 180 }}><div className="flex items-center gap-2"><Progress value={progressVal} h={6} /></div></td>
-            </tr>
-          );
-        }}
-      />
-    </div>
+        return (
+          <tr key={s.id}>
+            <td className="num">{s.student_no || "-"}</td>
+            <td><div className="flex items-center gap-2"><Avatar name={s.name} size={28} />{s.name}</div></td>
+            <td><Badge tone="outline">{s.section || "-"}</Badge></td>
+            <td className="hide-m" style={{ width: 180 }}><div className="flex items-center gap-2"><Progress value={progressVal} h={6} /></div></td>
+          </tr>
+        );
+      }}
+    />
   );
 }
 

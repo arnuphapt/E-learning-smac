@@ -197,28 +197,45 @@ export default function InstructorCourses() {
   return (
     <div className="container">
       <PageHead kicker="พื้นที่อาจารย์ผู้สอน" title="จัดการรายวิชา"
-        desc="กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ"
-        right={<button className="btn btn-primary" onClick={() => nav("/i/course/new")}><Icon name="plus" size={16} />สร้างรายวิชา</button>} />
-      <div className="card">
-        {loading ? (
-           <Loading className="p-5 text-center muted" />
-        ) : (
-          <Table 
-            className="table hover"
+        desc="กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ" />
+
+      <Table
+        title="รายวิชาทั้งหมด"
+        description="รายชื่อวิชาในกลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ"
+        addButton={
+          <button className="btn btn-primary btn-sm" onClick={() => nav("/i/course/new")}>
+            <Icon name="plus" size={15} />สร้างรายวิชา
+          </button>
+        }
+        loading={loading}
+        className="table hover"
             headers={[
+              "",
               "รายวิชา", 
               <span className="hide-m" key="term">ภาคเรียน</span>, 
               "บทเรียน", 
               "นักศึกษา", 
               <span className="hide-m" key="needsGrading">รอตรวจ</span>, 
-              "การจัดการ",
-              ""
+              "การจัดการ"
             ]}
             colSpan={7}
             data={courses}
             renderRow={(c, i) => (
               <React.Fragment key={c.id}>
-                <tr onClick={() => nav("/i/course/" + c.id)} style={{ cursor: "pointer" }}>
+                <tr onClick={() => toggleExpand(c.id)} style={{ cursor: "pointer" }}>
+                  <td style={{ width: 40, paddingLeft: 16 }}>
+                    <div style={{ display: "grid", placeItems: "center" }}>
+                      <Icon 
+                        name="chevD" 
+                        size={17} 
+                        style={{ 
+                          color: "var(--subtle)", 
+                          transform: expandedCourses[c.id] ? "rotate(180deg)" : "none", 
+                          transition: "transform 0.2s" 
+                        }} 
+                      />
+                    </div>
+                  </td>
                   <td>
                     <div className="flex items-center gap-3">
                       <div style={{ width: 38, height: 38, borderRadius: 9, background: c.hero || "var(--primary)", color: "#fff", display: "grid", placeItems: "center", flex: "0 0 38px", fontWeight: 700, fontSize: 12 }}>{c.code.slice(-3)}</div>
@@ -237,16 +254,14 @@ export default function InstructorCourses() {
                   </td>
                   <td>
                     <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-                      <button className="btn btn-outline btn-sm" onClick={() => toggleExpand(c.id)} style={{ display: "flex", alignItems: "center", gap: 4, height: 32 }}>
-                        <Icon name="chevD" size={14} style={{ transform: expandedCourses[c.id] ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
-                        {expandedCourses[c.id] ? "ซ่อน" : "ดูบทเรียน"}
+                      <button className="btn btn-outline btn-sm" onClick={() => nav("/i/course/" + c.id)} style={{ display: "flex", alignItems: "center", gap: 4, height: 32 }}>
+                        <Icon name="pencil" size={13} /> จัดการรายวิชา
                       </button>
                       <button className="iconbtn ghost c-danger" onClick={() => handleDeleteCourse(c)} style={{ height: 32, width: 32 }}>
                         <Icon name="trash" size={15} />
                       </button>
                     </div>
                   </td>
-                  <td><Icon name="chevR" size={17} style={{ color: "var(--subtle)" }} /></td>
                 </tr>
                 {expandedCourses[c.id] && (
                   <tr>
@@ -292,8 +307,6 @@ export default function InstructorCourses() {
               </React.Fragment>
             )}
           />
-        )}
-      </div>
     </div>
   );
 }

@@ -185,22 +185,16 @@ export default function MasterTermsPage() {
       <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="ภาคเรียน"
         desc="จัดการภาคเรียนในแต่ละปีการศึกษา" />
 
-      <div className="card">
-        <div className="card-h flex items-center justify-between">
-          <div>
-            <div className="title">ภาคเรียน</div>
-            <div className="desc pretty">ภาคการศึกษาภายใต้แต่ละปีการศึกษา</div>
-          </div>
+      <Table
+        title="ภาคเรียน"
+        description="ภาคการศึกษาภายใต้แต่ละปีการศึกษา"
+        addButton={
           <button className="btn btn-primary btn-sm" onClick={() => setDlg({ mode: "add" })}>
             <Icon name="plus" size={15} />เพิ่มภาคเรียน
           </button>
-        </div>
-
-        {loading ? (
-          <Loading className="p-5 text-center muted" />
-        ) : (
-          <Table
-            className="table"
+        }
+        loading={loading}
+        className="table"
             headers={["ภาคเรียน", "ปีการศึกษา", "เริ่ม", "สิ้นสุด", "สถานะ", ""]}
             data={terms}
             colSpan={6}
@@ -226,8 +220,6 @@ export default function MasterTermsPage() {
               </tr>
             )}
           />
-        )}
-      </div>
 
       {dlg && <TermDialog mode={dlg.mode} row={dlg.row} academicYears={academicYears} onClose={() => setDlg(null)} onSave={handleSaveTerm} />}
       {confirmDlg && <ConfirmDialog title={confirmDlg.title} desc={confirmDlg.desc} onConfirm={confirmDlg.onConfirm} onClose={() => setConfirmDlg(null)} />}

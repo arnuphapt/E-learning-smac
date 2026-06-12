@@ -9,6 +9,49 @@ import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
 
+function distributeScore(totalScore, criteria, totalPoints) {
+  if (totalScore == null) {
+    return Object.fromEntries(criteria.map(c => [c.id, 0]));
+  }
+  
+  const rawScores = criteria.map(c => {
+    return {
+      id: c.id,
+      max: c.max,
+      val: (totalScore / totalPoints) * c.max
+    };
+  });
+  
+  const scores = {};
+  let currentSum = 0;
+  
+  rawScores.forEach(c => {
+    const floored = Math.floor(c.val);
+    scores[c.id] = floored;
+    currentSum += floored;
+  });
+  
+  let remainder = totalScore - currentSum;
+  if (remainder > 0) {
+    const sortedByFraction = rawScores
+      .map(c => ({
+        id: c.id,
+        fraction: c.val - Math.floor(c.val),
+        max: c.max
+      }))
+      .sort((a, b) => b.fraction - a.fraction);
+      
+    for (let i = 0; i < remainder; i++) {
+      const item = sortedByFraction[i % sortedByFraction.length];
+      if (scores[item.id] < item.max) {
+        scores[item.id] += 1;
+      }
+    }
+  }
+  
+  return scores;
+}
+
 export default function Grader() {
   const router = useRouter();
   const params = useParams();
@@ -50,7 +93,7 @@ export default function Grader() {
       setGradable(subsRes.data || []);
       
       if (rubData) {
-         setScores(Object.fromEntries(rubData.criteria.map((c) => [c.id, sData.score != null ? Math.round(sData.score / (aRes.data?.points || 100) * c.max) : 0])));
+         setScores(distributeScore(sData.score, rubData.criteria, aRes.data?.points || 100));
       }
       if (sData.score != null) {
          setFeedback("งานเขียนกระบวนการพยาบาลครบถ้วน จัดลำดับความสำคัญได้ดี ควรเพิ่มการอ้างอิงหลักฐานเชิงประจักษ์ที่ทันสมัย");
@@ -78,6 +121,33 @@ export default function Grader() {
   const total = Object.values(scores).reduce((s, v) => s + v, 0);
   const mobile = false;
   const idx = gradable.findIndex((s) => s.id === sub.id);
+
+  const handleSaveScore = async (statusToSet) => {
+    try {
+      const { error } = await supabase
+        .from("submissions")
+        .update({
+          score: total,
+          status: statusToSet,
+        })
+        .eq("id", sub.id);
+        
+      if (error) throw error;
+      
+      toast(statusToSet === "graded" ? "ส่งคะแนนและข้อเสนอแนะแล้ว" : "บันทึกฉบับร่างแล้ว");
+      
+      setTimeout(() => {
+        if (statusToSet === "graded" && idx !== -1 && idx < gradable.length - 1) {
+          nav("/i/grade/" + gradable[idx + 1].id);
+        } else {
+          nav("/i/submissions/" + a.id);
+        }
+      }, 700);
+    } catch (err) {
+      console.error("Error saving score:", err);
+      toast("เกิดข้อผิดพลาดในการบันทึกคะแนน: " + err.message);
+    }
+  };
 
   return (
     <div style={{ background: "#f4f6f8", minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -154,8 +224,8 @@ export default function Grader() {
             </div>
 
             <div className="flex gap-2 mt-4">
-              <button className="btn btn-outline flex-1" onClick={() => toast("บันทึกฉบับร่างแล้ว")}>บันทึกร่าง</button>
-              <button className="btn btn-primary flex-1" onClick={() => { toast("ส่งคะแนนและข้อเสนอแนะแล้ว"); setTimeout(() => idx !== -1 && idx < gradable.length - 1 ? nav("/i/grade/" + gradable[idx + 1].id) : nav("/i/submissions/" + a.id), 700); }}><Icon name="check" size={15} />ให้คะแนน</button>
+              <button className="btn btn-outline flex-1" onClick={() => handleSaveScore(sub.status)}>บันทึกร่าง</button>
+              <button className="btn btn-primary flex-1" onClick={() => handleSaveScore("graded")}><Icon name="check" size={15} />ให้คะแนน</button>
             </div>
           </div>
         </div>

@@ -218,7 +218,7 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .dot-sep{width:3px;height:3px;border-radius:99px;background:var(--subtle);display:inline-block;}
 
 /* overlay / dialog / drawer / toast */
-.overlay{position:absolute;inset:0;background:rgba(11,46,58,.45);backdrop-filter:blur(2px);z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;animation:fade .15s ease;}
+.overlay{position:fixed;inset:0;background:rgba(11,46,58,.45);backdrop-filter:blur(2px);z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;animation:fade .15s ease;}
 .dialog{background:var(--card);border-radius:18px;box-shadow:var(--shadow-lg);width:100%;max-width:520px;max-height:88%;overflow:auto;animation:pop .16s cubic-bezier(.2,.9,.3,1.2);}
 .dialog.lg{max-width:760px;}
 .dialog-h{padding:20px 22px 0;}

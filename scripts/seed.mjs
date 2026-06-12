@@ -23,7 +23,8 @@ async function seed() {
     name: s.name,
     student_no: s.no,
     section: s.sec,
-    role: 'student'
+    role: 'student',
+    email: `${s.no}@smnc.ac.th`
   }));
   
   // Also add an instructor user manually for testing
@@ -31,11 +32,13 @@ async function seed() {
     id: "inst1",
     name: "อ. ดร. สุภาวดี ทองคำ",
     role: "instructor",
+    email: "supawadee@smnc.ac.th"
   });
   users.push({
     id: "inst2",
     name: "อ. กมลชนก ศรีวิไล",
     role: "instructor",
+    email: "kamolchanok@smnc.ac.th"
   });
   // Add admin user
   users.push({

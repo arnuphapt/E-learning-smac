@@ -184,22 +184,16 @@ export default function MasterYearsPage() {
       <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="ปีการศึกษา"
         desc="จัดการปีการศึกษาและช่วงเวลาเปิดเรียนในระบบ" />
 
-      <div className="card">
-        <div className="card-h flex items-center justify-between">
-          <div>
-            <div className="title">ปีการศึกษา</div>
-            <div className="desc pretty">กำหนดปีการศึกษาและช่วงเวลา ปีที่ตั้งเป็น “ใช้งาน” จะเป็นค่าเริ่มต้นของระบบ</div>
-          </div>
+      <Table
+        title="ปีการศึกษา"
+        description="กำหนดปีการศึกษาและช่วงเวลา ปีที่ตั้งเป็น “ใช้งาน” จะเป็นค่าเริ่มต้นของระบบ"
+        addButton={
           <button className="btn btn-primary btn-sm" onClick={() => setDlg({ mode: "add" })}>
             <Icon name="plus" size={15} />เพิ่มปีการศึกษา
           </button>
-        </div>
-
-        {loading ? (
-          <Loading className="p-5 text-center muted" />
-        ) : (
-          <Table
-            className="table"
+        }
+        loading={loading}
+        className="table"
             headers={["ปีการศึกษา", "เริ่ม", "สิ้นสุด", "รายวิชา", "สถานะ", ""]}
             data={academicYears}
             colSpan={6}
@@ -232,8 +226,6 @@ export default function MasterYearsPage() {
               </tr>
             )}
           />
-        )}
-      </div>
 
       {dlg && <YearDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={handleSaveYear} />}
       {confirmDlg && <ConfirmDialog title={confirmDlg.title} desc={confirmDlg.desc} onConfirm={confirmDlg.onConfirm} onClose={() => setConfirmDlg(null)} />}

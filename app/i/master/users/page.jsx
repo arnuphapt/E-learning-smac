@@ -24,7 +24,7 @@ function UserDialog({ mode, row, onClose, onSave }) {
   const [email, setEmail] = React.useState(row ? row.email : "");
   const [role, setRole] = React.useState(row ? row.role : "student");
   const [studentId, setStudentId] = React.useState(row ? (row.role === "student" ? row.studentId : "") : "");
-  const [sec, setSec] = React.useState(row ? row.sec : "Sec 1");
+  const [sec, setSec] = React.useState(row ? row.sec : "ไม่มี");
   const [status, setStatus] = React.useState(row ? row.status : "active");
 
   const handleSave = () => {
@@ -74,7 +74,7 @@ function UserDialog({ mode, row, onClose, onSave }) {
           </div>
         )}
       </div>
-      
+
       <div className="grid grid-2 gap-3">
         {role === "student" && (
           <div className="field">
@@ -112,15 +112,26 @@ function ConfirmDialog({ title, desc, onConfirm, onClose }) {
 
 export default function MasterUsersPage() {
   const [usersList, setUsersList] = useState([]);
+  const [gradesList, setGradesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState(null); // {mode, row}
   const [confirmDlg, setConfirmDlg] = useState(null); // {title, desc, onConfirm}
+  const [filterRole, setFilterRole] = useState("all");
+  const [filterGrade, setFilterGrade] = useState("all");
 
   const loadData = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("users").select("*");
-    if (!error && data) {
-      setUsersList(data.map(u => ({
+    const [uRes, gRes] = await Promise.all([
+      supabase.from("users").select("*"),
+      supabase.from("student_grades").select("*")
+    ]);
+
+    if (gRes.data) {
+      setGradesList(gRes.data);
+    }
+
+    if (uRes.data) {
+      setUsersList(uRes.data.map(u => ({
         ...u,
         studentId: u.student_no,
         sec: u.section,
@@ -179,77 +190,126 @@ export default function MasterUsersPage() {
       <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="จัดการผู้ใช้งาน"
         desc="จัดการบัญชีผู้ใช้ในระบบ สิทธิ์บทบาทหน้าที่ และข้อมูลกลุ่มเรียนของนักศึกษา" />
 
-      <div className="card">
-        <div className="card-h flex items-center justify-between">
-          <div>
-            <div className="title">จัดการผู้ใช้งาน</div>
-            <div className="desc pretty">จัดการข้อมูลผู้สอน นักศึกษา และสิทธิ์การใช้งานระบบ</div>
-          </div>
+      <Table
+        title="จัดการผู้ใช้งาน"
+        description="จัดการข้อมูลผู้สอน นักศึกษา และสิทธิ์การใช้งานระบบ"
+        addButton={
           <button className="btn btn-primary btn-sm" onClick={() => setDlg({ mode: "add" })}>
             <Icon name="plus" size={15} />เพิ่มผู้ใช้
           </button>
-        </div>
+        }
+        loading={loading}
+        className="table"
+        enableSearch={true}
+        searchKeys={["name", "email", "studentId"]}
+        searchPlaceholder="ค้นหาชื่อ, อีเมล หรือรหัส..."
+        headers={[
+          "ชื่อ-นามสกุล",
+          "อีเมล",
+          "บทบาท",
+          "รหัสประจำตัว / ตำแหน่ง",
+          "กลุ่มเรียน",
+          "สถานะ",
+          ""
+        ]}
+        data={usersList.filter((u) => {
+          if (filterRole !== "all" && u.role !== filterRole) return false;
+          if (filterGrade !== "all") {
+            if (u.role !== "student" || !u.studentId) return false;
+            const prefix = String(u.studentId).slice(0, 2);
+            const gradeMapping = gradesList.find(g => g.prefix === prefix);
+            if (!gradeMapping || gradeMapping.year_label !== filterGrade) return false;
+          }
+          return true;
+        })}
+        colSpan={7}
+        filter={
+          <>
+            <select
+              className="input"
+              value={filterRole}
+              onChange={(e) => {
+                setFilterRole(e.target.value);
+                if (e.target.value !== "all" && e.target.value !== "student") {
+                  setFilterGrade("all");
+                }
+              }}
+              style={{ width: 160, height: 38, padding: "0 12px", fontSize: 13, background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8 }}
+            >
+              <option value="all">บทบาท: ทั้งหมด</option>
+              <option value="student">นักศึกษา</option>
+              <option value="instructor">อาจารย์ผู้สอน</option>
+              <option value="admin">ผู้ดูแลระบบ</option>
+            </select>
 
-        {loading ? (
-          <Loading className="p-5 text-center muted" />
-        ) : (
-          <Table
-            className="table"
-            headers={[
-              "ชื่อ-นามสกุล",
-              "อีเมล",
-              "บทบาท",
-              "รหัสประจำตัว / ตำแหน่ง",
-              "กลุ่มเรียน",
-              "สถานะ",
-              ""
-            ]}
-            data={usersList}
-            colSpan={7}
-            renderRow={(u) => (
-              <tr key={u.id}>
-                <td>
-                  <div className="flex items-center gap-2">
-                    <Avatar name={u.name ? u.name.replace(/^อ\. (ดร\. )?/, "") : "?"} size={28} />
-                    <span className="fw-6">{u.name}</span>
-                  </div>
-                </td>
-                <td className="t-sm muted">{u.email}</td>
-                <td>
-                  {u.role === "admin" ? (
-                    <Badge tone="danger">ผู้ดูแลระบบ</Badge>
-                  ) : u.role === "instructor" ? (
-                    <Badge tone="primary">อาจารย์ผู้สอน</Badge>
-                  ) : (
-                    <Badge tone="info">นักศึกษา</Badge>
-                  )}
-                </td>
-                <td className="tnum t-sm">{u.studentId || "-"}</td>
-                <td>{u.sec && u.sec !== "ไม่มี" ? <Badge tone="outline">{u.sec}</Badge> : <span className="muted t-sm">-</span>}</td>
-                <td>
-                  {u.status === "active" ? (
-                    <Badge tone="success" dot>ใช้งาน</Badge>
-                  ) : (
-                    <Badge tone="warning" dot>ระงับ</Badge>
-                  )}
-                </td>
-                <td>
-                  <RowActions
-                    onEdit={() => setDlg({ mode: "edit", row: u })}
-                    onDelete={() => {
-                      setConfirmDlg({
-                        title: "ลบผู้ใช้งาน",
-                        desc: `ต้องการลบ "${u.name}" ออกจากระบบ?`,
-                        onConfirm: () => handleDeleteUser(u.id)
-                      });
-                    }}
-                  />
-                </td>
-              </tr>
+            {(filterRole === "all" || filterRole === "student") && (
+              <select
+                className="input"
+                value={filterGrade}
+                onChange={(e) => setFilterGrade(e.target.value)}
+                style={{ width: 160, height: 38, padding: "0 12px", fontSize: 13, background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8 }}
+              >
+                <option value="all">ชั้นปี: ทั้งหมด</option>
+                {Array.from(new Set(gradesList.map(g => g.year_label))).sort().map(lbl => (
+                  <option key={lbl} value={lbl}>{lbl}</option>
+                ))}
+              </select>
             )}
-          />
+          </>
+        }
+        renderRow={(u) => (
+          <tr key={u.id}>
+            <td>
+              <div className="flex items-center gap-2">
+                <Avatar name={u.name ? u.name.replace(/^อ\. (ดร\. )?/, "") : "?"} size={28} />
+                <span className="fw-6">{u.name}</span>
+              </div>
+            </td>
+            <td className="t-sm muted">{u.email}</td>
+            <td>
+              {u.role === "admin" ? (
+                <Badge tone="danger">ผู้ดูแลระบบ</Badge>
+              ) : u.role === "instructor" ? (
+                <Badge tone="primary">อาจารย์ผู้สอน</Badge>
+              ) : (
+                <Badge tone="info">นักศึกษา</Badge>
+              )}
+            </td>
+            <td className="tnum t-sm">
+              <div>{u.studentId || "-"}</div>
+              {u.role === "student" && u.studentId && (
+                <div className="t-xs muted" style={{ fontSize: "11px", marginTop: "2px" }}>
+                  {(() => {
+                    const prefix = String(u.studentId).slice(0, 2);
+                    const mapping = gradesList.find(g => g.prefix === prefix);
+                    return mapping ? mapping.year_label : "";
+                  })()}
+                </div>
+              )}
+            </td>
+            <td>{u.sec && u.sec !== "ไม่มี" ? <Badge tone="outline">{u.sec}</Badge> : <span className="muted t-sm">-</span>}</td>
+            <td>
+              {u.status === "active" ? (
+                <Badge tone="success" dot>ใช้งาน</Badge>
+              ) : (
+                <Badge tone="warning" dot>ระงับ</Badge>
+              )}
+            </td>
+            <td>
+              <RowActions
+                onEdit={() => setDlg({ mode: "edit", row: u })}
+                onDelete={() => {
+                  setConfirmDlg({
+                    title: "ลบผู้ใช้งาน",
+                    desc: `ต้องการลบ "${u.name}" ออกจากระบบ?`,
+                    onConfirm: () => handleDeleteUser(u.id)
+                  });
+                }}
+              />
+            </td>
+          </tr>
         )}
-      </div>
+      />
 
       {dlg && <UserDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={handleSaveUser} />}
       {confirmDlg && <ConfirmDialog title={confirmDlg.title} desc={confirmDlg.desc} onConfirm={confirmDlg.onConfirm} onClose={() => setConfirmDlg(null)} />}

@@ -133,22 +133,16 @@ export default function MasterGroupsPage() {
       <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="กลุ่มวิชา"
         desc="จัดการข้อมูลสาขาวิชาและคณาจารย์ผู้รับผิดชอบ" />
 
-      <div className="card">
-        <div className="card-h flex items-center justify-between">
-          <div>
-            <div className="title">กลุ่มวิชา</div>
-            <div className="desc pretty">กลุ่มสาขาวิชาและหัวหน้ากลุ่มผู้รับผิดชอบ</div>
-          </div>
+      <Table
+        title="กลุ่มวิชา"
+        description="กลุ่มสาขาวิชาและหัวหน้ากลุ่มผู้รับผิดชอบ"
+        addButton={
           <button className="btn btn-primary btn-sm" onClick={() => setDlg({ mode: "add" })}>
             <Icon name="plus" size={15} />เพิ่มกลุ่มวิชา
           </button>
-        </div>
-
-        {loading ? (
-          <Loading className="p-5 text-center muted" />
-        ) : (
-          <Table
-            className="table"
+        }
+        loading={loading}
+        className="table"
             headers={["กลุ่มวิชา", "หัวหน้ากลุ่ม", "รายวิชา", "สถานะ", ""]}
             data={subjectGroups}
             colSpan={5}
@@ -176,8 +170,6 @@ export default function MasterGroupsPage() {
               </tr>
             )}
           />
-        )}
-      </div>
 
       {dlg && <GroupDialog mode={dlg.mode} row={dlg.row} instructors={instructors} onClose={() => setDlg(null)} onSave={handleSaveGroup} />}
       {confirmDlg && <ConfirmDialog title={confirmDlg.title} desc={confirmDlg.desc} onConfirm={confirmDlg.onConfirm} onClose={() => setConfirmDlg(null)} />}

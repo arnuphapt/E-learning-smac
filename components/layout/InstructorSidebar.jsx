@@ -32,6 +32,7 @@ function InstructorSidebarContent() {
     ["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"],
     ["/i/master/sections", "users", "Section / กลุ่มเรียน", pathname === "/i/master/sections"],
     ["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"],
+    ["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา", pathname === "/i/master/studentgrade"],
   ];
 
   const Item = ([to, ic, label, active]) => (
