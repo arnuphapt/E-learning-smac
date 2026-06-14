@@ -247,12 +247,20 @@ export default function MasterGroupsPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [gRes, uRes, sgmRes] = await Promise.all([
+    const [gRes, uRes, sgmRes, cRes] = await Promise.all([
       supabase.from("subject_groups").select("*"),
-      supabase.from("users").select("*").in("role", ["instructor", "admin", "course_manager"]),
-      supabase.from("subject_group_managers").select("*")
+      supabase.from("users").select("*"),
+      supabase.from("subject_group_managers").select("*"),
+      supabase.from("courses").select("id, group_id")
     ]);
-    if (!gRes.error) setSubjectGroups(gRes.data || []);
+    if (!gRes.error) {
+      const courses = cRes.data || [];
+      const groups = (gRes.data || []).map(g => ({
+        ...g,
+        courses: courses.filter(c => c.group_id === g.id).length
+      }));
+      setSubjectGroups(groups);
+    }
     if (!uRes.error) setInstructors(uRes.data || []);
     if (!sgmRes.error) setGroupManagers(sgmRes.data || []);
     setLoading(false);

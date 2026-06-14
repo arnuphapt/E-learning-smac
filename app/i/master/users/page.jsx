@@ -9,14 +9,69 @@ import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 import { toast } from "@/components/ui/Toast";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
+import { hasPermission, PERMISSIONS } from "@/lib/rbac";
 
-function RowActions({ onEdit, onDelete, onImpersonate }) {
+function RowActions({ onEdit, onDelete, onImpersonate, canImpersonate }) {
   return (
     <div className="flex items-center gap-1 justify-end">
-      <button className="iconbtn ghost c-primary" onClick={onImpersonate} title="ดูมุมมองผู้ใช้ (Impersonate)"><Icon name="eye" size={15} /></button>
+      {canImpersonate && (
+        <button className="iconbtn ghost c-primary" onClick={onImpersonate} title="ดูมุมมองผู้ใช้ (Impersonate)"><Icon name="eye" size={15} /></button>
+      )}
       <button className="iconbtn ghost" onClick={onEdit}><Icon name="pencil" size={15} /></button>
       <button className="iconbtn ghost c-danger" onClick={onDelete}><Icon name="trash" size={15} /></button>
+    </div>
+  );
+}
+
+function RoleMultiSelect({ options, selectedValues, onChange }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selected = options.filter(o => selectedValues.includes(o.id));
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <div
+        onClick={() => setOpen(!open)}
+        className="input"
+        style={{ cursor: "pointer", minHeight: 40, height: "auto", padding: "6px 12px", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}
+      >
+        {selected.length === 0 ? (
+          <span className="muted t-sm">เลือกบทบาท...</span>
+        ) : (
+          selected.map(o => (
+            <span key={o.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: "var(--primary-soft, #eef6ff)", color: "var(--primary)", border: "1px solid var(--border, #bfdbfe)", fontSize: 12, fontWeight: 600 }}>
+              {o.name}
+              <span onClick={(e) => { e.stopPropagation(); onChange(selectedValues.filter(id => id !== o.id)); }} style={{ cursor: "pointer", marginLeft: 2, fontSize: 11 }}>✕</span>
+            </span>
+          ))
+        )}
+        <Icon name="chevD" size={14} className="muted" style={{ marginLeft: "auto", transform: open ? "rotate(180deg)" : "none", transition: ".15s" }} />
+      </div>
+      {open && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#fff", border: "1px solid var(--border-strong, #cbd5e1)", borderRadius: 8, boxShadow: "0 10px 15px -3px rgba(0,0,0,.1)", marginTop: 4, padding: 6 }}>
+          {options.map(o => {
+            const checked = selectedValues.includes(o.id);
+            return (
+              <div key={o.id} onClick={() => onChange(checked ? selectedValues.filter(id => id !== o.id) : [...selectedValues, o.id])}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 6, cursor: "pointer", background: checked ? "var(--primary-soft, #eef6ff)" : "transparent", color: checked ? "var(--primary)" : "var(--fg)", userSelect: "none" }}>
+                <input type="checkbox" checked={checked} onChange={() => {}} style={{ pointerEvents: "none" }} />
+                <div>
+                  <div className="t-sm fw-6">{o.name}</div>
+                  <div className="t-xs muted">{o.id}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -28,7 +83,7 @@ function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
   const [studentId, setStudentId] = React.useState(row ? (row.role?.split(",")[0] === "student" ? row.studentId : "") : "");
   const [sec, setSec] = React.useState(row ? row.sec : "ไม่มี");
   const [status, setStatus] = React.useState(row ? row.status : "active");
-  const [groupId, setGroupId] = React.useState(row ? row.group_id : "");
+  const [groupId, setGroupId] = React.useState(row ? (row.group_id ?? "") : "");
 
   const isStudent = selectedRoles.includes("student");
 
@@ -62,31 +117,14 @@ function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
       
       <div className="field mb-3">
         <label className="label">บทบาท <span className="t-xs muted fw-4">(เลือกได้หลายบทบาท)</span></label>
-        <div className="flex gap-4 flex-wrap" style={{ paddingTop: 6 }}>
-          {rolesList.map(r => {
-            const checked = selectedRoles.includes(r.id);
-            return (
-              <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
-                <input 
-                  type="checkbox" 
-                  checked={checked}
-                  onChange={() => {
-                    if (checked) {
-                      if (selectedRoles.length > 1) {
-                        setSelectedRoles(selectedRoles.filter(id => id !== r.id));
-                      } else {
-                        toast("ต้องเลือกอย่างน้อย 1 บทบาท");
-                      }
-                    } else {
-                      setSelectedRoles([...selectedRoles, r.id]);
-                    }
-                  }}
-                />
-                <span className="t-sm">{r.name} ({r.id})</span>
-              </label>
-            );
-          })}
-        </div>
+        <RoleMultiSelect
+          options={rolesList}
+          selectedValues={selectedRoles}
+          onChange={(next) => {
+            if (next.length === 0) { toast("ต้องเลือกอย่างน้อย 1 บทบาท"); return; }
+            setSelectedRoles(next);
+          }}
+        />
       </div>
 
       <div className="grid grid-2 gap-3">
@@ -150,6 +188,8 @@ function ConfirmDialog({ title, desc, onConfirm, onClose }) {
 }
 
 export default function MasterUsersPage() {
+  const { data: session } = useSession();
+  const canImpersonate = hasPermission(session?.user, PERMISSIONS.USERS_IMPERSONATE);
   const [usersList, setUsersList] = useState([]);
   const [gradesList, setGradesList] = useState([]);
   const [rolesList, setRolesList] = useState([]);
@@ -403,6 +443,7 @@ export default function MasterUsersPage() {
                   });
                 }}
                 onImpersonate={() => handleImpersonate(u)}
+                canImpersonate={canImpersonate}
               />
             </td>
           </tr>

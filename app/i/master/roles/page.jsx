@@ -58,7 +58,8 @@ const RESOURCES = [
     key: "users",
     label: "ผู้ใช้งานและสิทธิ์ (Users/Roles)",
     actions: [
-      { id: "users:manage", label: "จัดการทั้งหมด" }
+      { id: "users:manage", label: "จัดการทั้งหมด" },
+      { id: "users:impersonate", label: "ดูมุมมองผู้ใช้ (Impersonate)" }
     ]
   }
 ];
@@ -248,55 +249,48 @@ export default function RolesPage() {
     }
   };
 
-  if (loading) return <Loading />;
-
   return (
     <div className="container">
-      <PageHead 
-        title="จัดการสิทธิ์ (Roles)" 
-        desc="กำหนด Role และสิทธิ์การเข้าถึงเมนูต่างๆ ในระบบ" 
-        actions={
-          <button className="btn btn-primary" onClick={() => setDialog({ mode: "add", row: null })}>
-            <Icon name="plus" size={16} />เพิ่ม Role
+      <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="จัดการสิทธิ์ (Roles)"
+        desc="กำหนด Role และสิทธิ์การเข้าถึงเมนูต่างๆ ในระบบ" />
+
+      <Table
+        title="จัดการสิทธิ์ (Roles)"
+        description="กำหนด Role และสิทธิ์การเข้าถึงสำหรับผู้ใช้แต่ละประเภท"
+        addButton={
+          <button className="btn btn-primary btn-sm" onClick={() => setDialog({ mode: "add", row: null })}>
+            <Icon name="plus" size={15} />เพิ่ม Role
           </button>
         }
+        loading={loading}
+        className="table"
+        headers={["รหัส", "ชื่อ Role", "จำนวนสิทธิ์", ""]}
+        data={data}
+        colSpan={4}
+        renderRow={(row) => (
+          <tr key={row.id}>
+            <td><span className="t-mono">{row.id}</span></td>
+            <td>
+              <div>
+                <div className="fw-5">{row.name}</div>
+                {row.description && <div className="t-xs muted mt-1">{row.description}</div>}
+              </div>
+            </td>
+            <td>
+              <Badge tone={row.permissions?.length > 0 ? "primary" : "outline"}>
+                {row.permissions?.length || 0} สิทธิ์
+              </Badge>
+            </td>
+            <td>
+              <RowActions
+                onEdit={() => setDialog({ mode: "edit", row })}
+                onDelete={() => handleDelete(row)}
+                disableDelete={["admin", "instructor", "student"].includes(row.id)}
+              />
+            </td>
+          </tr>
+        )}
       />
-      
-      <div className="card no-pad mt-4">
-        <Table 
-          headers={[
-            "รหัส",
-            "ชื่อ Role",
-            "จำนวนสิทธิ์",
-            ""
-          ]}
-          data={data}
-          colSpan={4}
-          renderRow={(row) => (
-            <tr key={row.id}>
-              <td><span className="t-mono">{row.id}</span></td>
-              <td>
-                <div>
-                  <div className="fw-5">{row.name}</div>
-                  {row.description && <div className="t-xs muted mt-1">{row.description}</div>}
-                </div>
-              </td>
-              <td>
-                <Badge tone={row.permissions?.length > 0 ? "primary" : "outline"}>
-                  {row.permissions?.length || 0} สิทธิ์
-                </Badge>
-              </td>
-              <td>
-                <RowActions 
-                  onEdit={() => setDialog({ mode: "edit", row })} 
-                  onDelete={() => handleDelete(row)}
-                  disableDelete={["admin", "instructor", "student"].includes(row.id)}
-                />
-              </td>
-            </tr>
-          )}
-        />
-      </div>
 
       {dialog && (
         <RoleDialog 

@@ -130,12 +130,17 @@ export default function MasterYearsPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("academic_years")
-      .select("*")
-      .order("year", { ascending: false });
-    if (!error) {
-      setAcademicYears(data || []);
+    const [yRes, cRes] = await Promise.all([
+      supabase.from("academic_years").select("*").order("year", { ascending: false }),
+      supabase.from("courses").select("id, year")
+    ]);
+    if (!yRes.error) {
+      const courses = cRes.data || [];
+      const years = (yRes.data || []).map(y => ({
+        ...y,
+        courses: courses.filter(c => String(c.year) === String(y.year)).length
+      }));
+      setAcademicYears(years);
     }
     setLoading(false);
   };

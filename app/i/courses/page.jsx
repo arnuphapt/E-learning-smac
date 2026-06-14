@@ -29,7 +29,7 @@ export default function InstructorCourses() {
     const [cRes, lRes, sRes, aRes, subRes, ciRes] = await Promise.all([
       supabase.from("courses").select("*"),
       supabase.from("lessons").select("id, course_id, title, index, status").order("index", { ascending: true }),
-      supabase.from("users").select("id, student_no, section, email").eq("role", "student"),
+      supabase.from("users").select("id, student_no, section, email").like("role", "%student%"),
       supabase.from("assignments").select("id, course_id"),
       supabase.from("submissions").select("id, assignment_id, status"),
       supabase.from("course_instructors").select("course_id").eq("user_id", user.id)
@@ -265,10 +265,10 @@ export default function InstructorCourses() {
                   </td>
                   <td className="hide-m muted">{c.term}</td>
                   <td className="num">{c.lessonsCount}</td>
-                  <td className="num">{c.studentsCount}</td>
+                  <td className="num">{c.studentCount}</td>
                   <td className="hide-m">
-                    {c.pendingGradingCount > 0 ? (
-                      <Badge tone="warning" dot>{c.pendingGradingCount} ชิ้น</Badge>
+                    {c.pendingGrading > 0 ? (
+                      <Badge tone="warning" dot>{c.pendingGrading} ชิ้น</Badge>
                     ) : (
                       <span className="muted t-sm">—</span>
                     )}
