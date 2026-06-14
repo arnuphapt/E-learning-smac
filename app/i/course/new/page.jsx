@@ -34,6 +34,7 @@ export default function CreateCourse() {
   const [credits, setCredits] = React.useState("3 (2-2-5)");
   const [subjectGroup, setSubjectGroup] = React.useState("");
   const [section, setSection] = React.useState("");
+  const [yearLevels, setYearLevels] = React.useState([]);
 
   const [terms, setTerms] = React.useState([]);
   const [instructors, setInstructors] = React.useState([]);
@@ -108,6 +109,7 @@ export default function CreateCourse() {
       students: 0,
       progress: 0,
       hero: color,
+      year_level: yearLevels,
       access: { allowedYears: [], allowedEmails: [] }
     };
 
@@ -202,6 +204,36 @@ export default function CreateCourse() {
                   <label className="label">หน่วยกิต</label>
                   <input className="input" value={credits} onChange={(e) => setCredits(e.target.value)} placeholder="เช่น 3 (2-2-5)" />
                 </div>
+              </div>
+
+              {/* Year Level Access */}
+              <div className="field" style={{ marginTop: 4 }}>
+                <label className="label">ชั้นปีที่เข้าถึงได้ <span className="t-xs muted fw-4">(ไม่เลือก = ทุกชั้นปี)</span></label>
+                <div className="flex items-center gap-3 flex-wrap" style={{ paddingTop: 6 }}>
+                  {[1, 2, 3, 4].map((yr) => {
+                    const checked = yearLevels.includes(yr);
+                    return (
+                      <label key={yr} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
+                        padding: "7px 14px", borderRadius: 9, border: `1.5px solid ${checked ? "var(--primary)" : "var(--border)"}`,
+                        background: checked ? "var(--primary-bg, #eef6ff)" : "var(--surface)", transition: ".15s", fontWeight: checked ? 700 : 400,
+                        color: checked ? "var(--primary)" : "var(--fg)" }}>
+                        <input type="checkbox" style={{ display: "none" }} checked={checked}
+                          onChange={() => setYearLevels(prev => checked ? prev.filter(y => y !== yr) : [...prev, yr].sort())} />
+                        <span style={{ width: 16, height: 16, borderRadius: 5, border: `2px solid ${checked ? "var(--primary)" : "var(--border-strong)"}`,
+                          background: checked ? "var(--primary)" : "transparent", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                          {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                        </span>
+                        ชั้นปี {yr}
+                      </label>
+                    );
+                  })}
+                </div>
+                {yearLevels.length === 0 && (
+                  <div className="t-xs muted mt-2" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M10 9v5M10 7v.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                    นักศึกษาทุกชั้นปีจะมองเห็นรายวิชานี้
+                  </div>
+                )}
               </div>
             </div>
           </div>

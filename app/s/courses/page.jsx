@@ -71,6 +71,7 @@ export default function StudentCourses() {
   const { data: session } = useSession();
   const studentId = session?.dbId;
   const role = session?.user?.role;
+  const studentYear = session?.user?.study_year ? Number(session.user.study_year) : null;
   const KEY = "nl_course_view";
   
   // Use a safe initialization for view
@@ -113,7 +114,15 @@ export default function StudentCourses() {
           };
         });
 
-        setCourses(mappedCourses);
+        // Filter by year_level access control (staff sees all)
+        const filtered = isStaff ? mappedCourses : mappedCourses.filter(c => {
+          const allowed = c.year_level;
+          if (!allowed || allowed.length === 0) return true; // no restriction
+          if (!studentYear) return false; // student has no year set
+          return allowed.includes(studentYear);
+        });
+
+        setCourses(filtered);
       }
       if (yData) setYears(yData);
       setLoading(false);

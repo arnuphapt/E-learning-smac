@@ -57,6 +57,7 @@ export const authOptions = {
         if (dbUser) {
           user.role = dbUser.role;
           user.dbId = dbUser.id;
+          user.study_year = dbUser.study_year ?? null;
           return true;
         }
 
@@ -88,6 +89,7 @@ export const authOptions = {
 
         user.role = role;
         user.dbId = newId;
+        user.study_year = null;
         return true;
       }
       return true;
@@ -96,6 +98,7 @@ export const authOptions = {
       if (user) {
         token.role = user.role;
         token.dbId = user.dbId || user.id;
+        token.study_year = user.study_year ?? null;
       }
       return token;
     },
@@ -103,6 +106,7 @@ export const authOptions = {
       if (session?.user) {
         session.user.role = token.role || "student";
         session.user.id = token.dbId || token.sub;
+        session.user.study_year = token.study_year ?? null;
       }
       session.dbId = token.dbId || token.sub;
       return session;
