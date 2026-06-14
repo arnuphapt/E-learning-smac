@@ -297,7 +297,7 @@ export default function CreateCourse() {
     : subjectGroups.filter(g => myManagedGroupIds.includes(g.id));
 
   const availableInstructors = instructors.filter(u =>
-    u.role === "instructor" && !mainManagers.includes(u.id)
+    !mainManagers.includes(u.id)
   );
 
   const create = async () => {
