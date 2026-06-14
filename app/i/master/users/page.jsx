@@ -250,7 +250,7 @@ export default function MasterUsersPage() {
       role: updatedUser.role,
       student_no: updatedUser.role === "student" ? updatedUser.studentId : updatedUser.studentId || "อาจารย์ผู้สอน",
       section: updatedUser.role === "student" ? updatedUser.sec : "ไม่มี",
-      group_id: updatedUser.groupId
+      group_id: updatedUser.groupId || null
     };
 
     if (dlg.mode === "add") {

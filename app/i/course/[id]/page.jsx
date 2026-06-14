@@ -175,16 +175,15 @@ export default function InstructorCourse() {
 
       const assignedIds = instructorsList.map(ci => ci.user_id);
       
-      // Find matching user for c.instructor name
-      const matchingUser = allInstructorsInDb.find(u => u.name === c.instructor);
-      if (matchingUser) {
-        setEditMainManagers([matchingUser.id]);
-      } else {
-        const groupCM = allInstructorsInDb.find(u => u.group_id === c.group_id && u.role === "course_manager");
-        setEditMainManagers(groupCM ? [groupCM.id] : []);
+      // Find matching users for c.instructor (comma-separated names)
+      const instructorNames = (c.instructor || "").split(",").map(n => n.trim()).filter(Boolean);
+      const matchingUsers = allInstructorsInDb.filter(u => instructorNames.includes(u.name));
+      let mainManagerIds = matchingUsers.map(u => u.id);
+      if (mainManagerIds.length === 0) {
+        const groupCM = allInstructorsInDb.find(u => u.group_id === c.group_id && u.role?.split(",").map(r => r.trim()).includes("course_manager"));
+        mainManagerIds = groupCM ? [groupCM.id] : [];
       }
-
-      const mainManagerIds = matchingUser ? [matchingUser.id] : [];
+      setEditMainManagers(mainManagerIds);
 
       // Exclude Main Manager from Assigned Instructors
       const assigned = allInstructorsInDb.filter(inst =>
@@ -193,11 +192,10 @@ export default function InstructorCourse() {
       );
       setCourseInstructors(assigned);
 
-      // Exclude Main Manager from Available Instructors
+      // Exclude already-assigned and main managers
       const available = allInstructorsInDb.filter(inst =>
         !assignedIds.includes(inst.id) &&
-        !mainManagerIds.includes(inst.id) &&
-        inst.role?.split(",").map(r => r.trim()).includes("instructor")
+        !mainManagerIds.includes(inst.id)
       );
       setAvailableInstructors(available);
     }
