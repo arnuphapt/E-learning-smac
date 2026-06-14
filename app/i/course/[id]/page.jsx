@@ -62,6 +62,8 @@ export default function InstructorCourse() {
   
   const [tab, setTab] = useState("lessons");
   const [loading, setLoading] = useState(true);
+  const [editTitle, setEditTitle] = useState("");
+  const [savingTitle, setSavingTitle] = useState(false);
 
   const loadData = async () => {
     if (!courseId) return;
@@ -74,7 +76,10 @@ export default function InstructorCourse() {
       supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId)
     ]);
     
-    if (cRes.data) setCourse(cRes.data);
+    if (cRes.data) {
+      setCourse(cRes.data);
+      setEditTitle(cRes.data.title);
+    }
     if (lRes.data) setLessons(lRes.data);
     if (sRes.data) setStudents(sRes.data);
     if (subRes.data) setSubmissions(subRes.data);
@@ -134,6 +139,22 @@ export default function InstructorCourse() {
     } catch (error) {
       console.error("Error deleting lesson:", error);
       alert("เกิดข้อผิดพลาดในการลบบทเรียน: " + error.message);
+    }
+  };
+
+  const handleUpdateCourse = async () => {
+    if (!editTitle) return alert("กรุณากรอกชื่อรายวิชา");
+    setSavingTitle(true);
+    try {
+      const { error } = await supabase.from("courses").update({ title: editTitle }).eq("id", course.id);
+      if (error) throw error;
+      setCourse({ ...course, title: editTitle });
+      alert("บันทึกชื่อรายวิชาเรียบร้อยแล้ว");
+    } catch (error) {
+      console.error("Error updating course:", error);
+      alert("เกิดข้อผิดพลาดในการบันทึกชื่อรายวิชา: " + error.message);
+    } finally {
+      setSavingTitle(false);
     }
   };
 
@@ -310,12 +331,37 @@ export default function InstructorCourse() {
         />
       )}
       {tab === "settings" && (
-        <div className="card card-p">
-          <div className="t-base fw-7 c-danger mb-2">พื้นที่อันตราย (Danger Zone)</div>
-          <p className="t-sm muted mb-4">การลบรายวิชานี้จะทำให้บทเรียน ข้อสอบ ใบงาน และรายการส่งงานทั้งหมดของรายวิชาถูกลบอย่างถาวรและไม่สามารถกู้คืนได้</p>
-          <button className="btn btn-outline c-danger" onClick={handleDeleteCourse}>
-            <Icon name="trash" size={15} /> ลบรายวิชานี้
-          </button>
+        <div className="flex col gap-4">
+          <div className="card card-p">
+            <div className="t-base fw-7 mb-3">แก้ไขข้อมูลรายวิชา</div>
+            <div className="field">
+              <label className="label">ชื่อรายวิชา</label>
+              <div className="flex gap-2">
+                <input 
+                  className="input flex-1" 
+                  value={editTitle} 
+                  onChange={(e) => setEditTitle(e.target.value)} 
+                  placeholder="เช่น สังคมศึกษา พื้นฐาน" 
+                />
+                <button 
+                  className={`btn btn-primary ${savingTitle ? "disabled" : ""}`} 
+                  onClick={handleUpdateCourse} 
+                  disabled={savingTitle || editTitle === course.title}
+                >
+                  <Icon name={savingTitle ? "loader" : "check"} size={15} className={savingTitle ? "spin" : ""} />
+                  {savingTitle ? "กำลังบันทึก..." : "บันทึก"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="card card-p">
+            <div className="t-base fw-7 c-danger mb-2">พื้นที่อันตราย (Danger Zone)</div>
+            <p className="t-sm muted mb-4">การลบรายวิชานี้จะทำให้บทเรียน ข้อสอบ ใบงาน และรายการส่งงานทั้งหมดของรายวิชาถูกลบอย่างถาวรและไม่สามารถกู้คืนได้</p>
+            <button className="btn btn-outline c-danger" onClick={handleDeleteCourse}>
+              <Icon name="trash" size={15} /> ลบรายวิชานี้
+            </button>
+          </div>
         </div>
       )}
     </div>

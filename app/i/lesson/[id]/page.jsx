@@ -44,95 +44,107 @@ function Chk({ label, on, onChange }) {
   );
 }
 
-function VideoManage({ lesson, onSave, toast }) {
+function VideoManage({ lesson, onSave, toast, isNew, onLessonChange }) {
   const [title, setTitle] = useState(lesson.title || "");
   const [desc, setDesc] = useState(lesson.description || "");
   const [duration, setDuration] = useState(lesson.duration || "");
   const [status, setStatus] = useState(lesson.status || "draft");
-  const [preReq, setPreReq] = useState(lesson.pretest?.required || false);
-  const [postReq, setPostReq] = useState(lesson.posttest?.required || false);
-  const [watchLimit, setWatchLimit] = useState(lesson.watch_limit ?? true);
+  const [preReq, setPreReq] = useState(lesson.pretest?.required ?? true);
+  const [postReq, setPostReq] = useState(lesson.posttest?.required ?? true);
   const [allowDownload, setAllowDownload] = useState(lesson.allow_download ?? true);
 
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoProgress, setVideoProgress] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
 
-  const handleSave = () => {
+  React.useEffect(() => {
+    if (!selectedFile) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(selectedFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [selectedFile]);
+
+  const handleSave = async () => {
     if (!title) {
       toast("กรุณากรอกชื่อบทเรียน");
       return;
     }
-    onSave({
+
+    let payload = {
       title,
       description: desc,
       duration,
       status,
       pretest: { ...lesson.pretest, required: preReq },
       posttest: { ...lesson.posttest, required: postReq },
-      watch_limit: watchLimit,
-      allow_download: allowDownload
-    });
-  };
+      allow_download: allowDownload,
+      video: lesson.video,
+      video_url: lesson.video_url,
+      video_path: lesson.video_path
+    };
 
-  const handleVideoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setVideoUploading(true);
-    setVideoProgress("กำลังเตรียมการอัปโหลด...");
-    try {
-      const presignRes = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          filetype: file.type,
-          folder: `lessons/${lesson.id}/video`
-        })
-      });
-      if (!presignRes.ok) throw new Error("Failed to get upload signature");
-      
-      const { uploadUrl, publicUrl, key } = await presignRes.json();
-
-      setVideoProgress("กำลังอัปโหลดไฟล์วิดีโอไปยัง Cloudflare R2...");
-      
-      if (uploadUrl) {
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file
+    if (selectedFile) {
+      setVideoUploading(true);
+      setVideoProgress("กำลังเตรียมการอัปโหลด...");
+      try {
+        const presignRes = await fetch("/api/upload/presign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: selectedFile.name,
+            filetype: selectedFile.type,
+            folder: `lessons/${lesson.id}/video`
+          })
         });
-        if (!uploadRes.ok) throw new Error("Failed to upload video to Cloudflare R2");
+        if (!presignRes.ok) throw new Error("Failed to get upload signature");
+
+        const { uploadUrl, publicUrl, key } = await presignRes.json();
+        setVideoProgress("กำลังอัปโหลดไฟล์วิดีโอ...");
+
+        if (uploadUrl) {
+          const uploadRes = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": selectedFile.type },
+            body: selectedFile
+          });
+          if (!uploadRes.ok) throw new Error("Failed to upload video please upload agian or change name of video ");
+        }
+
+        payload.video = true;
+        payload.video_url = publicUrl;
+        payload.video_path = key;
+
+        setVideoProgress("อัปโหลดเสร็จสมบูรณ์");
+        setSelectedFile(null);
+      } catch (error) {
+        console.error(error);
+        toast("เกิดข้อผิดพลาดในการอัปโหลดวิดีโอ: " + error.message);
+        setVideoUploading(false);
+        setVideoProgress("");
+        return; // Halt save if upload fails
       }
+    }
 
-      setVideoProgress("บันทึกข้อมูล...");
-
-      await onSave({
-        title: title || "บทเรียนใหม่",
-        description: desc,
-        duration,
-        status,
-        pretest: { ...lesson.pretest, required: preReq },
-        posttest: { ...lesson.posttest, required: postReq },
-        watch_limit: watchLimit,
-        allow_download: allowDownload,
-        video: true,
-        video_url: publicUrl,
-        video_path: key
-      });
-      
-      toast("อัปโหลดวิดีโอบทเรียนสำเร็จ");
-    } catch (error) {
-      console.error(error);
-      toast("เกิดข้อผิดพลาดในการอัปโหลดวิดีโอ: " + error.message);
-    } finally {
+    onSave(payload);
+    
+    // Clear uploading states after save is completed
+    if (selectedFile) {
       setVideoUploading(false);
       setVideoProgress("");
     }
   };
 
-  const videoFileName = lesson.video ? (lesson.video_path ? lesson.video_path.split("/").pop() : `${lesson.title.toLowerCase().replace(/[^a-z0-9]/g, "_")}_lecture.mp4`) : "ยังไม่ได้อัปโหลดวิดีโอ";
-  const videoDetails = lesson.video ? `${lesson.duration || "30"} นาที · อัปโหลดแล้ว` : "ไม่มีวิดีโอการเรียนการสอน";
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) setSelectedFile(file);
+  };
+
+  const displayFileName = selectedFile ? selectedFile.name : (lesson.video ? (lesson.video_path ? lesson.video_path.split("/").pop() : `${(lesson.title || "").toLowerCase().replace(/[^a-z0-9]/g, "_")}_lecture.mp4`) : "ยังไม่ได้อัปโหลดวิดีโอ");
+  const displayDetails = selectedFile ? "รอการบันทึกเพื่ออัปโหลด" : (lesson.video ? `${lesson.duration || "30"} นาที · อัปโหลดแล้ว` : "ไม่มีวิดีโอการเรียนการสอน");
 
   return (
     <div className="flex gap-5 items-start wrap">
@@ -140,20 +152,20 @@ function VideoManage({ lesson, onSave, toast }) {
         <div className="card mb-4">
           <div className="card-h"><div className="title">คลิปการสอน</div><div className="desc">อัปโหลดหรือลิงก์วิดีโอบทเรียน</div></div>
           <div className="card-p">
-            {lesson.video_url ? (
-              <video src={lesson.video_url} controls style={{ width: "100%", aspectRatio: "16/9", borderRadius: 14, background: "#000", marginBottom: 16 }} />
+            {previewUrl || lesson.video_url ? (
+              <video src={previewUrl || lesson.video_url} controls style={{ width: "100%", aspectRatio: "16/9", borderRadius: 14, background: "#000", marginBottom: 16 }} />
             ) : (
               <Ph label="วิดีโอบทเรียน · 16:9" h={200} style={{ marginBottom: 16 }} />
             )}
             <div className="flex items-center justify-between gap-3" style={{ padding: 12, border: "1px solid var(--border)", borderRadius: 11 }}>
               <div className="flex items-center gap-3 flex-1" style={{ minWidth: 0 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center", flex: "0 0 36px" }}><Icon name="video" size={17} /></div>
-                <div className="flex-1" style={{ minWidth: 0 }}><div className="t-sm fw-6 truncate">{videoFileName}</div><div className="t-xs muted">{videoDetails}</div></div>
+                <div className="flex-1" style={{ minWidth: 0 }}><div className="t-sm fw-6 truncate">{displayFileName}</div><div className="t-xs muted">{displayDetails}</div></div>
               </div>
               <label className={`btn btn-outline btn-sm ${videoUploading ? "disabled" : ""}`} style={{ cursor: "pointer", position: "relative" }}>
                 <Icon name="upload" size={14} />
-                {videoUploading ? "กำลังอัปโหลด..." : "อัปโหลดวิดีโอ"}
-                <input type="file" accept="video/mp4,video/webm" onChange={handleVideoUpload} style={{ display: "none" }} disabled={videoUploading} />
+                {selectedFile ? "เปลี่ยนวิดีโอ" : "เลือกไฟล์วิดีโอ"}
+                <input type="file" accept="video/mp4,video/webm" onChange={handleFileChange} style={{ display: "none" }} disabled={videoUploading} />
               </label>
             </div>
             {videoProgress && (
@@ -180,15 +192,17 @@ function VideoManage({ lesson, onSave, toast }) {
             </div>
           </div>
         </div>
+        
+        <button className={`btn btn-primary btn-block mt-4 ${videoUploading ? "disabled" : ""}`} onClick={handleSave} style={{ padding: "12px", fontSize: "15px" }} disabled={videoUploading}>
+          <Icon name={videoUploading ? "loader" : "check"} size={18} className={videoUploading ? "spin" : ""} /> {videoUploading ? "กำลังบันทึกและอัปโหลด..." : (isNew ? "สร้างบทเรียน" : "บันทึกรายละเอียด")}
+        </button>
       </div>
       <div style={{ width: 300, flex: "0 0 300px" }}>
         <div className="card card-p">
           <div className="t-sm fw-7 mb-3">การตั้งค่าการเข้าถึง</div>
           <ToggleRow label="ต้องทำ Pre-test ก่อนดูวิดีโอ" on={preReq} onChange={setPreReq} />
           <ToggleRow label="ต้องทำ Post-test หลังเรียน" on={postReq} onChange={setPostReq} />
-          <ToggleRow label="ดูวิดีโอครบ 80% ก่อนทำ Post-test" on={watchLimit} onChange={setWatchLimit} />
           <ToggleRow label="อนุญาตให้ดาวน์โหลดเอกสาร" on={allowDownload} onChange={setAllowDownload} />
-          <button className="btn btn-primary btn-block mt-4" onClick={handleSave}><Icon name="check" size={15} />บันทึกรายละเอียด</button>
         </div>
       </div>
     </div>
@@ -734,9 +748,9 @@ function LessonScores({ enrolledStudents, testScores, submissions }) {
         <>
           <div className="grid grid-4 gap-3 mb-4">
             {[
-              ["ทำ Pre-test แล้ว", `${preTaken}/${enrolledStudents.length}`, "clipboard"], 
-              ["ทำ Post-test แล้ว", `${postTaken}/${enrolledStudents.length}`, "checkC"], 
-              ["คะแนนเฉลี่ย Pre", avgPre, "chart"], 
+              ["ทำ Pre-test แล้ว", `${preTaken}/${enrolledStudents.length}`, "clipboard"],
+              ["ทำ Post-test แล้ว", `${postTaken}/${enrolledStudents.length}`, "checkC"],
+              ["คะแนนเฉลี่ย Pre", avgPre, "chart"],
               ["คะแนนเฉลี่ย Post", avgPost, "chart"]
             ].map((s, i) => (
               <div key={i} className="card card-p">
@@ -804,7 +818,7 @@ function DocsManage({ lesson, onSave, toast }) {
         })
       });
       if (!presignRes.ok) throw new Error("Failed to get upload signature");
-      
+
       const { uploadUrl, publicUrl, key } = await presignRes.json();
 
       if (uploadUrl) {
@@ -882,7 +896,7 @@ function DocsManage({ lesson, onSave, toast }) {
               <input type="file" onChange={handleUpload} style={{ display: "none" }} disabled={uploading} />
             </label>
           </div>
-          
+
           <div style={{ padding: 8 }}>
             {docs.length === 0 ? (
               <div className="empty" style={{ padding: "40px 0" }}>
@@ -944,7 +958,7 @@ function InstructorLessonContent() {
 
   const loadData = async () => {
     if (!lessonId) return;
-    
+
     if (lessonId === "new") {
       const { data: cData } = await supabase.from("courses").select("*").eq("id", queryCourseId).single();
       const { data: existingLessons } = await supabase.from("lessons").select("id").eq("course_id", queryCourseId);
@@ -959,10 +973,10 @@ function InstructorLessonContent() {
         status: "draft",
         index: nextIndex,
         video: false,
-        pretest: { required: false },
-        posttest: { required: false },
+        pretest: { required: true },
+        posttest: { required: true },
         assignment: null,
-        watch_limit: true,
+        watch_limit: false,
         allow_download: true
       });
       setCourse(cData || { code: "วิชาใหม่", title: "ไม่มีวิชา" });
@@ -972,9 +986,9 @@ function InstructorLessonContent() {
 
     const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
     if (!lData) { setLoading(false); return; }
-    
+
     const { data: cData } = await supabase.from("courses").select("*").eq("id", lData.course_id).single();
-    
+
     const [qRes, aRes, rRes, subRes, tsRes, stRes] = await Promise.all([
       supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),
       supabase.from("assignments").select("*").eq("lesson_id", lessonId),
@@ -983,12 +997,12 @@ function InstructorLessonContent() {
       supabase.from("test_scores").select("*"),
       supabase.from("users").select("*").eq("role", "student")
     ]);
-    
+
     // Filter submissions by assignment if exists
     let finalSubmissions = subRes.data || [];
     const assignmentIds = aRes.data?.map(a => a.id) || [];
     finalSubmissions = finalSubmissions.filter(sub => assignmentIds.includes(sub.assignment_id));
-    
+
     setLesson(lData);
     setCourse(cData || { code: "", title: "" });
     setData({
@@ -1155,7 +1169,7 @@ function InstructorLessonContent() {
         )} />
 
       {isNew ? (
-        <VideoManage lesson={lesson} onSave={handleSaveLessonDetails} toast={toast} />
+        <VideoManage lesson={lesson} onSave={handleSaveLessonDetails} toast={toast} isNew={isNew} onLessonChange={(fields) => setLesson(prev => ({ ...prev, ...fields }))} />
       ) : (
         <>
           <div className="tabs mb-5">
@@ -1170,25 +1184,25 @@ function InstructorLessonContent() {
             ))}
           </div>
 
-          {tab === "video" && <VideoManage lesson={lesson} onSave={handleSaveLessonDetails} toast={toast} />}
+          {tab === "video" && <VideoManage lesson={lesson} onSave={handleSaveLessonDetails} toast={toast} isNew={isNew} onLessonChange={(fields) => setLesson(prev => ({ ...prev, ...fields }))} />}
           {tab === "docs" && <DocsManage lesson={lesson} onSave={handleSaveLessonDetails} toast={toast} />}
           {tab === "test" && <TestBuilder lesson={lesson} toast={toast} questions={data.questions} onLoad={loadData} onSaveSettings={handleSaveLessonDetails} />}
           {tab === "assign" && (
             activeAssignment ? (
-              <AssignmentBuilder 
-                lesson={lesson} 
-                toast={toast} 
-                assignment={activeAssignment.id ? activeAssignment : null} 
-                rubric={activeAssignment.rubric_id ? data.rubrics.find(r => r.id === activeAssignment.rubric_id) : null} 
+              <AssignmentBuilder
+                lesson={lesson}
+                toast={toast}
+                assignment={activeAssignment.id ? activeAssignment : null}
+                rubric={activeAssignment.rubric_id ? data.rubrics.find(r => r.id === activeAssignment.rubric_id) : null}
                 onBack={() => setActiveAssignment(null)}
-                onLoad={loadData} 
+                onLoad={loadData}
               />
             ) : (
-              <AssignmentList 
-                assignments={data.assignments} 
-                onSelect={(a) => setActiveAssignment(a)} 
+              <AssignmentList
+                assignments={data.assignments}
+                onSelect={(a) => setActiveAssignment(a)}
                 onDelete={handleDeleteAssignmentFromList}
-                onAdd={() => setActiveAssignment({})} 
+                onAdd={() => setActiveAssignment({})}
               />
             )
           )}

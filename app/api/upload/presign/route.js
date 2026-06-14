@@ -32,6 +32,7 @@ export async function POST(req) {
         secretAccessKey,
       },
       region: "auto",
+      requestChecksumCalculation: "WHEN_REQUIRED",
     });
 
     const key = folder ? `${folder}/${Date.now()}_${filename}` : `${Date.now()}_${filename}`;

@@ -335,20 +335,22 @@ export default function StudentLesson() {
 
   const pre = lesson.pretest || { required: true, taken: false, questions: 10, total: 10, score: 0 };
   const post = lesson.posttest || { required: true, taken: false, questions: 10, total: 10, score: 0 };
-  const gated = lesson.status === "locked-pretest" && !pre.taken;
+  const gated = pre.required && !pre.taken;
 
   const watchProgress = lesson.progress || 0;
-  const isPostGated = post.required && (lesson.watch_limit ?? true) && watchProgress < 80;
+  const isPostGated = false;
 
   const SideRail = (
     <div className="flex col gap-4">
       <div className="card">
         <div className="card-h"><div className="title t-base">ความคืบหน้าบทเรียน</div></div>
         <div style={{ padding: 8 }}>
-          <ChecklistItem icon={pre.taken ? "checkC" : "clipboard"} tone={pre.taken ? "done" : "current"}
-            label="Pre-test" sub={pre.taken ? `ทำแล้ว · ${pre.score}/${pre.total} คะแนน` : "ต้องทำก่อนเข้าเรียน"}
-            onClick={() => nav("/s/test/" + lesson.id + "/pre")}
-            action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
+          {pre.required && (
+            <ChecklistItem icon={pre.taken ? "checkC" : "clipboard"} tone={pre.taken ? "done" : "current"}
+              label="Pre-test" sub={pre.taken ? `ทำแล้ว · ${pre.score}/${pre.total} คะแนน` : "ต้องทำก่อนเข้าเรียน"}
+              onClick={() => nav("/s/test/" + lesson.id + "/pre")}
+              action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
+          )}
           <ChecklistItem icon="playC" tone={gated ? "locked" : "current"}
             label="วิดีโอบทเรียน" sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
           {assignments.map((a) => {
