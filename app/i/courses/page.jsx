@@ -43,20 +43,15 @@ export default function InstructorCourses() {
       const allSubmissions = subRes.data || [];
       const myCourseIds = (ciRes?.data || []).map(ci => ci.course_id);
 
+      const userRoles = user?.role?.split(",").map(r => r.trim()) || [];
       const filteredCourses = coursesList.filter((c) => {
-        // 1. Admin sees everything
-        if (user?.role === "admin") return true;
-
-        // 2. Course Manager sees all courses in their department (group_id / group_ids)
-        if (user?.role === "course_manager") {
+        if (userRoles.includes("admin")) return true;
+        if (userRoles.includes("course_manager")) {
           return c.group_id === user.group_id || user.group_ids?.includes(c.group_id);
         }
-
-        // 3. Instructor sees courses assigned to them
-        if (user?.role === "instructor") {
+        if (userRoles.includes("instructor")) {
           return myCourseIds.includes(c.id);
         }
-
         return false;
       });
 
