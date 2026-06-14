@@ -3,6 +3,7 @@
 import { SessionProvider as NextAuthSessionProvider, useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { ConfirmProvider } from "./ui/ConfirmDialog";
 
 function SupabaseSync() {
   const { data: session } = useSession();
@@ -44,8 +45,10 @@ function SupabaseSync() {
 export default function SessionProvider({ children }) {
   return (
     <NextAuthSessionProvider>
-      <SupabaseSync />
-      {children}
+      <ConfirmProvider>
+        <SupabaseSync />
+        {children}
+      </ConfirmProvider>
     </NextAuthSessionProvider>
   );
 }

@@ -8,10 +8,13 @@ import { Badge } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { toast } from "@/components/ui/Toast";
 
 export default function InstructorCourses() {
   const router = useRouter();
   const nav = (path) => router.push(path);
+  const confirm = useConfirm();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedCourses, setExpandedCourses] = useState({});
@@ -38,33 +41,29 @@ export default function InstructorCourses() {
 
         const courseSection = c.section;
         const allowedYears = c.access?.allowedYears || [];
-        const allowedEmails = c.access?.allowedEmails || [];
-        const enrolledStudents = allStudents.filter((s) => {
-          if (courseSection && courseSection !== "ไม่ระบุ Section" && s.section !== courseSection) {
-            return false;
-          }
+
+        const courseStudents = allStudents.filter((s) => {
           if (allowedYears.length > 0) {
-            const studentYear = s.student_no ? s.student_no.slice(0, 2) : "";
-            if (!allowedYears.includes(studentYear) && !allowedEmails.includes(s.email)) {
-              return false;
-            }
+            const matchesYear = allowedYears.some((year) => s.student_no?.startsWith(year));
+            if (!matchesYear) return false;
+          }
+          if (courseSection) {
+            return s.section === courseSection;
           }
           return true;
         });
 
-        const courseAssignmentIds = allAssignments
-          .filter((a) => a.course_id === c.id)
-          .map((a) => a.id);
-        const pendingGradingCount = allSubmissions.filter(
-          (sub) => courseAssignmentIds.includes(sub.assignment_id) && sub.status === "submitted"
-        ).length;
+        const courseAssignments = allAssignments.filter((a) => a.course_id === c.id);
+        const courseAssignmentIds = courseAssignments.map((a) => a.id);
+        const courseSubmissions = allSubmissions.filter((s) => courseAssignmentIds.includes(s.assignment_id));
+        const pendingCount = courseSubmissions.filter((s) => s.status === "submitted").length;
 
         return {
           ...c,
           lessons: courseLessons,
           lessonsCount: courseLessons.length,
-          studentsCount: enrolledStudents.length,
-          pendingGradingCount: pendingGradingCount
+          studentCount: courseStudents.length,
+          pendingGrading: pendingCount,
         };
       });
 
@@ -85,112 +84,106 @@ export default function InstructorCourses() {
   };
 
   const handleDeleteCourse = async (c) => {
-    if (
-      !confirm(
-        `คุณต้องการลบรายวิชา "${c.title} (${c.code})" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบบทเรียน, ข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของรายวิชานี้อย่างถาวรและไม่สามารถกู้คืนได้!`
-      )
-    ) {
+    const confirmed = await confirm({
+      title: "ลบรายวิชา",
+      message: `คุณต้องการลบรายวิชา "${c.title} (${c.code})" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบบทเรียน, ข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของรายวิชานี้อย่างถาวรและไม่สามารถกู้คืนได้!`,
+      danger: true,
+      confirmText: "ลบรายวิชา",
+      cancelText: "ยกเลิก"
+    });
+
+    if (!confirmed) {
       return;
     }
 
     try {
-      // 1. Get assignments
       const { data: assignments } = await supabase.from("assignments").select("id, rubric_id").eq("course_id", c.id);
       const assignmentIds = assignments?.map((a) => a.id) || [];
       const rubricIds = assignments?.map((a) => a.rubric_id).filter(Boolean) || [];
 
-      // 2. Get lessons
       const { data: lessons } = await supabase.from("lessons").select("id").eq("course_id", c.id);
       const lessonIds = lessons?.map((l) => l.id) || [];
 
-      // 3. Delete submissions
       if (assignmentIds.length > 0) {
         const { error: subErr } = await supabase.from("submissions").delete().in("assignment_id", assignmentIds);
         if (subErr) throw subErr;
       }
 
-      // 4. Delete assignments
       if (assignmentIds.length > 0) {
         const { error: asgErr } = await supabase.from("assignments").delete().in("id", assignmentIds);
         if (asgErr) throw asgErr;
       }
 
-      // 5. Delete rubrics
       if (rubricIds.length > 0) {
         const { error: rubErr } = await supabase.from("rubrics").delete().in("id", rubricIds);
         if (rubErr) throw rubErr;
       }
 
-      // 6. Delete questions
       if (lessonIds.length > 0) {
         const { error: qErr } = await supabase.from("questions").delete().in("lesson_id", lessonIds);
         if (qErr) throw qErr;
       }
 
-      // 7. Delete lessons
       if (lessonIds.length > 0) {
         const { error: lesErr } = await supabase.from("lessons").delete().in("id", lessonIds);
         if (lesErr) throw lesErr;
       }
 
-      // 8. Delete course
       const { error: cErr } = await supabase.from("courses").delete().eq("id", c.id);
       if (cErr) throw cErr;
 
-      alert("ลบรายวิชาเรียบร้อยแล้ว");
+      toast("ลบรายวิชาเรียบร้อยแล้ว");
       load();
     } catch (error) {
       console.error("Error deleting course:", error);
-      alert("เกิดข้อผิดพลาดในการลบรายวิชา: " + error.message);
+      toast("เกิดข้อผิดพลาดในการลบรายวิชา: " + error.message, "error");
     }
   };
 
   const handleDeleteLesson = async (l, courseId) => {
-    if (
-      !confirm(
-        `คุณต้องการลบบทเรียน "บทที่ ${l.index}: ${l.title}" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของบทเรียนนี้อย่างถาวร!`
-      )
-    ) {
+    const confirmed = await confirm({
+      title: "ลบบทเรียน",
+      message: `คุณต้องการลบบทเรียน "บทที่ ${l.index}: ${l.title}" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของบทเรียนนี้อย่างถาวร!`,
+      danger: true,
+      confirmText: "ลบบทเรียน",
+      cancelText: "ยกเลิก"
+    });
+
+    if (!confirmed) {
       return;
     }
 
     try {
-      // 1. Get assignments
       const { data: assignments } = await supabase.from("assignments").select("id, rubric_id").eq("lesson_id", l.id);
       const assignmentIds = assignments?.map((a) => a.id) || [];
       const rubricIds = assignments?.map((a) => a.rubric_id).filter(Boolean) || [];
 
-      // 2. Delete submissions
       if (assignmentIds.length > 0) {
         const { error: subErr } = await supabase.from("submissions").delete().in("assignment_id", assignmentIds);
         if (subErr) throw subErr;
       }
 
-      // 3. Delete assignments
       if (assignmentIds.length > 0) {
         const { error: asgErr } = await supabase.from("assignments").delete().in("id", assignmentIds);
         if (asgErr) throw asgErr;
       }
 
-      // 4. Delete rubrics
       if (rubricIds.length > 0) {
         const { error: rubErr } = await supabase.from("rubrics").delete().in("id", rubricIds);
         if (rubErr) throw rubErr;
       }
 
-      // 5. Delete questions
       const { error: qErr } = await supabase.from("questions").delete().eq("lesson_id", l.id);
       if (qErr) throw qErr;
 
-      // 6. Delete lesson
       const { error: lesErr } = await supabase.from("lessons").delete().eq("id", l.id);
       if (lesErr) throw lesErr;
 
-      alert("ลบบทเรียนเรียบร้อยแล้ว");
+      toast("ลบบทเรียนเรียบร้อยแล้ว");
       load();
     } catch (error) {
       console.error("Error deleting lesson:", error);
-      alert("เกิดข้อผิดพลาดในการลบบทเรียน: " + error.message);
+      toast("เกิดข้อผิดพลาดในการลบบทเรียน: " + error.message, "error");
     }
   };
 

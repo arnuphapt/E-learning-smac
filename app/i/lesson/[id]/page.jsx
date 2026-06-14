@@ -9,6 +9,7 @@ import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 import { toast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 function ToggleRow({ label, on, onChange }) {
   const [v, setV] = React.useState(on);
@@ -492,6 +493,7 @@ function AssignmentList({ assignments, onSelect, onDelete, onAdd }) {
 }
 
 function AssignmentBuilder({ lesson, toast, assignment, rubric, onBack, onLoad }) {
+  const confirm = useConfirm();
   const a = assignment || { title: "", instructions: "", due: "", due_time: "23:59", allow_late: false, points: 10, allow_file: true, allow_text: true };
   const r = rubric || { criteria: [] };
 
@@ -575,7 +577,15 @@ function AssignmentBuilder({ lesson, toast, assignment, rubric, onBack, onLoad }
   };
 
   const handleDeleteAssignment = async () => {
-    if (!confirm(`คุณต้องการลบใบงาน "${title}" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบรายการส่งงานและคะแนนของนักศึกษาทั้งหมดในใบงานนี้อย่างถาวร!`)) {
+    const confirmed = await confirm({
+      title: "ลบใบงาน",
+      message: `คุณต้องการลบใบงาน "${title}" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบรายการส่งงานและคะแนนของนักศึกษาทั้งหมดในใบงานนี้อย่างถาวร!`,
+      danger: true,
+      confirmText: "ลบใบงาน",
+      cancelText: "ยกเลิก"
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -795,6 +805,7 @@ function LessonScores({ enrolledStudents, testScores, submissions }) {
 }
 
 function DocsManage({ lesson, onSave, toast }) {
+  const confirm = useConfirm();
   const [docs, setDocs] = useState(lesson.documents || []);
   const [uploading, setUploading] = useState(false);
 
@@ -850,7 +861,15 @@ function DocsManage({ lesson, onSave, toast }) {
   };
 
   const handleDelete = async (docToDelete) => {
-    if (!confirm(`คุณต้องการลบเอกสาร "${docToDelete.name}" ใช่หรือไม่?`)) return;
+    const confirmed = await confirm({
+      title: "ลบเอกสารประกอบการเรียน",
+      message: `คุณต้องการลบเอกสาร "${docToDelete.name}" ใช่หรือไม่?`,
+      danger: true,
+      confirmText: "ลบเอกสาร",
+      cancelText: "ยกเลิก"
+    });
+
+    if (!confirmed) return;
 
     try {
       if (docToDelete.path) {
@@ -945,6 +964,7 @@ function InstructorLessonContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const nav = (path) => router.push(path);
+  const confirm = useConfirm();
 
   const lessonId = params?.id;
   const queryCourseId = searchParams.get("course_id");
@@ -1046,11 +1066,15 @@ function InstructorLessonContent() {
   };
 
   const handleDeleteLesson = async () => {
-    if (
-      !confirm(
-        `คุณต้องการลบบทเรียน "บทที่ ${lesson.index}: ${lesson.title}" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของบทเรียนนี้อย่างถาวร!`
-      )
-    ) {
+    const confirmed = await confirm({
+      title: "ลบบทเรียน",
+      message: `คุณต้องการลบบทเรียน "บทที่ ${lesson.index}: ${lesson.title}" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของบทเรียนนี้อย่างถาวร!`,
+      danger: true,
+      confirmText: "ลบบทเรียน",
+      cancelText: "ยกเลิก"
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -1086,16 +1110,24 @@ function InstructorLessonContent() {
       const { error: lesErr } = await supabase.from("lessons").delete().eq("id", lesson.id);
       if (lesErr) throw lesErr;
 
-      alert("ลบบทเรียนเรียบร้อยแล้ว");
+      toast("ลบบทเรียนเรียบร้อยแล้ว");
       router.replace(`/i/course/${course.id}`);
     } catch (error) {
       console.error("Error deleting lesson:", error);
-      alert("เกิดข้อผิดพลาดในการลบบทเรียน: " + error.message);
+      toast("เกิดข้อผิดพลาดในการลบบทเรียน: " + error.message, "error");
     }
   };
 
   const handleDeleteAssignmentFromList = async (a) => {
-    if (!confirm(`คุณต้องการลบใบงาน "${a.title}" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบรายการส่งงานและคะแนนของนักศึกษาทั้งหมดในใบงานนี้อย่างถาวร!`)) {
+    const confirmed = await confirm({
+      title: "ลบใบงาน",
+      message: `คุณต้องการลบใบงาน "${a.title}" ใช่หรือไม่?\n\nคำเตือน: การดำเนินการนี้จะลบรายการส่งงานและคะแนนของนักศึกษาทั้งหมดในใบงานนี้อย่างถาวร!`,
+      danger: true,
+      confirmText: "ลบใบงาน",
+      cancelText: "ยกเลิก"
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -1115,7 +1147,7 @@ function InstructorLessonContent() {
       loadData();
     } catch (error) {
       console.error("Error deleting assignment:", error);
-      toast("เกิดข้อผิดพลาดในการลบใบงาน: " + error.message);
+      toast("เกิดข้อผิดพลาดในการลบใบงาน: " + error.message, "error");
     }
   };
 
