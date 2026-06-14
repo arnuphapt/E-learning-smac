@@ -13,9 +13,11 @@ export default function StudentTopNav() {
   const roleLabels = {
     admin: "ผู้ดูแลระบบ",
     instructor: "อาจารย์ผู้สอน",
+    course_manager: "อาจารย์ผู้รับผิดชอบรายวิชา",
     student: "นักศึกษา",
   };
-  const displayRole = roleLabels[session?.user?.role] || session?.user?.role || "นักศึกษา";
+  const roles = session?.user?.role ? session.user.role.split(",").map(r => r.trim()) : [];
+  const displayRole = roles.map(r => roleLabels[r] || r).join(", ") || "นักศึกษา";
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
   const onCal = pathname === "/s/calendar";
@@ -68,7 +70,7 @@ export default function StudentTopNav() {
               <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="user" size={16} /></div>
               <div><div className="t-sm fw-6">โปรไฟล์ส่วนตัว</div><div className="t-xs muted">ข้อมูลและการตั้งค่า</div></div>
             </Link>
-            {(session?.user?.role === "admin" || session?.user?.role === "instructor") && (
+            {(roles.includes("admin") || roles.includes("instructor") || roles.includes("course_manager")) && (
               <Link href="/i/courses" className="flex items-center gap-3 p-2 pointer mt-1" style={{ borderRadius: 8, textDecoration: 'none', color: "var(--fg)" }} onClick={() => setMenuOpen(false)}>
                 <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="settings" size={16} /></div>
                 <div><div className="t-sm fw-6">ระบบจัดการผู้สอน</div><div className="t-xs muted">เข้าสู่หน้ารายวิชาของอาจารย์</div></div>

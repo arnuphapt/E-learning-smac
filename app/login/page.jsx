@@ -116,7 +116,7 @@ function LoginContent() {
               disabled={loading}
             >
               <option value="">-- เลือกสิทธิ์เพื่อทดสอบระบบ --</option>
-              <option value="student_y2">นักศึกษา ชั้นปีที่ 2 (นายสมชาย - Sec 1)</option>
+<option value="student_y2">นักศึกษา ชั้นปีที่ 2 (นายสมชาย - Sec 1)</option>
               <option value="student_y3">นักศึกษา ชั้นปีที่ 3 (นางสาวสมหญิง - Sec 1)</option>
               <option value="student_y4">นักศึกษา ชั้นปีที่ 4 (นายสมศักดิ์ - Sec 2)</option>
               <option value="admin2">ผู้ดูแลระบบ / แอดมิน (ผศ.ดร.อนุชา)</option>

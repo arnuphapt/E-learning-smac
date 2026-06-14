@@ -13,9 +13,11 @@ function InstructorSidebarContent({ open, onClose }) {
   const roleLabels = {
     admin: "ผู้ดูแลระบบ",
     instructor: "อาจารย์ผู้สอน",
+    course_manager: "อาจารย์ผู้รับผิดชอบรายวิชา",
     student: "นักศึกษา",
   };
-  const displayRole = roleLabels[session?.user?.role] || session?.user?.role || "อาจารย์ผู้สอน";
+  const roles = session?.user?.role ? session.user.role.split(",").map(r => r.trim()) : [];
+  const displayRole = roles.map(r => roleLabels[r] || r).join(", ") || "อาจารย์ผู้สอน";
   const pathname = usePathname() || "";
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") || "years";

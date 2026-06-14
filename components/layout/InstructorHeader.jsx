@@ -11,9 +11,11 @@ export default function InstructorHeader({ onMenuClick }) {
   const roleLabels = {
     admin: "ผู้ดูแลระบบ",
     instructor: "อาจารย์ผู้สอน",
+    course_manager: "อาจารย์ผู้รับผิดชอบรายวิชา",
     student: "นักศึกษา",
   };
-  const displayRole = roleLabels[session?.user?.role] || session?.user?.role || "อาจารย์ผู้สอน";
+  const roles = session?.user?.role ? session.user.role.split(",").map(r => r.trim()) : [];
+  const displayRole = roles.map(r => roleLabels[r] || r).join(", ") || "อาจารย์ผู้สอน";
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 

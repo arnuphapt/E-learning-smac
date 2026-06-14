@@ -27,12 +27,20 @@ export const authOptions = {
         if (dbUser) {
           let permissions = [];
           if (dbUser.role) {
-            const { data: roleData } = await supabase
+            const roleIds = dbUser.role.split(",").map(r => r.trim());
+            const { data: rolesData } = await supabase
               .from("roles")
               .select("permissions")
-              .eq("id", dbUser.role)
-              .single();
-            if (roleData) permissions = roleData.permissions || [];
+              .in("id", roleIds);
+            if (rolesData) {
+              const allPerms = new Set();
+              rolesData.forEach(r => {
+                if (r.permissions) {
+                  r.permissions.forEach(p => allPerms.add(p));
+                }
+              });
+              permissions = Array.from(allPerms);
+            }
           }
 
           // Fetch multiple subject groups managed by this user
@@ -92,12 +100,18 @@ export const authOptions = {
           
           let permissions = [];
           if (dbUser.role) {
-            const { data: roleData } = await supabase
+            const roleIds = dbUser.role.split(",").map(r => r.trim());
+            const { data: rolesData } = await supabase
               .from("roles")
               .select("permissions")
-              .eq("id", dbUser.role)
-              .single();
-            if (roleData) permissions = roleData.permissions || [];
+              .in("id", roleIds);
+            if (rolesData) {
+              const allPerms = new Set();
+              rolesData.forEach(r => {
+                if (r.permissions) r.permissions.forEach(p => allPerms.add(p));
+              });
+              permissions = Array.from(allPerms);
+            }
           }
           user.permissions = permissions;
           

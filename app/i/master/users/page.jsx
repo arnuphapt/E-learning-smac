@@ -24,11 +24,13 @@ function RowActions({ onEdit, onDelete, onImpersonate }) {
 function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
   const [name, setName] = React.useState(row ? row.name : "");
   const [email, setEmail] = React.useState(row ? row.email : "");
-  const [role, setRole] = React.useState(row ? row.role : "student");
-  const [studentId, setStudentId] = React.useState(row ? (row.role === "student" ? row.studentId : "") : "");
+  const [selectedRoles, setSelectedRoles] = React.useState(row && row.role ? row.role.split(",").map(r => r.trim()) : ["student"]);
+  const [studentId, setStudentId] = React.useState(row ? (row.role?.split(",")[0] === "student" ? row.studentId : "") : "");
   const [sec, setSec] = React.useState(row ? row.sec : "ไม่มี");
   const [status, setStatus] = React.useState(row ? row.status : "active");
   const [groupId, setGroupId] = React.useState(row ? row.group_id : "");
+
+  const isStudent = selectedRoles.includes("student");
 
   const handleSave = () => {
     if (!name || !email) {
@@ -38,10 +40,10 @@ function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
     onSave({
       name,
       email,
-      role,
-      studentId: role === "student" ? studentId : "อาจารย์ผู้สอน",
-      sec: role === "student" ? sec : "ไม่มี",
-      groupId: role !== "student" ? groupId : null,
+      role: selectedRoles.join(","),
+      studentId: isStudent ? studentId : "อาจารย์ผู้สอน",
+      sec: isStudent ? sec : "ไม่มี",
+      groupId: !isStudent ? groupId : null,
       status
     });
   };
@@ -57,16 +59,38 @@ function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
         <label className="label">อีเมล <span className="c-danger">*</span></label>
         <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="username@smnc.ac.th" />
       </div>
-      <div className="grid grid-2 gap-3">
-        <div className="field">
-          <label className="label">บทบาท</label>
-          <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
-            {rolesList.map(r => (
-              <option key={r.id} value={r.id}>{r.name} ({r.id})</option>
-            ))}
-          </select>
+      
+      <div className="field mb-3">
+        <label className="label">บทบาท <span className="t-xs muted fw-4">(เลือกได้หลายบทบาท)</span></label>
+        <div className="flex gap-4 flex-wrap" style={{ paddingTop: 6 }}>
+          {rolesList.map(r => {
+            const checked = selectedRoles.includes(r.id);
+            return (
+              <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
+                <input 
+                  type="checkbox" 
+                  checked={checked}
+                  onChange={() => {
+                    if (checked) {
+                      if (selectedRoles.length > 1) {
+                        setSelectedRoles(selectedRoles.filter(id => id !== r.id));
+                      } else {
+                        toast("ต้องเลือกอย่างน้อย 1 บทบาท");
+                      }
+                    } else {
+                      setSelectedRoles([...selectedRoles, r.id]);
+                    }
+                  }}
+                />
+                <span className="t-sm">{r.name} ({r.id})</span>
+              </label>
+            );
+          })}
         </div>
-        {role === "student" ? (
+      </div>
+
+      <div className="grid grid-2 gap-3">
+        {isStudent ? (
           <div className="field">
             <label className="label">รหัสนักศึกษา</label>
             <input className="input" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="เช่น 65010001" />
@@ -77,10 +101,17 @@ function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
             <input className="input" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="เช่น อาจารย์" />
           </div>
         )}
+        <div className="field">
+          <label className="label">สถานะการใช้งาน</label>
+          <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="active">ใช้งานปกติ</option>
+            <option value="suspended">ระงับการใช้งาน</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-2 gap-3">
-        {role === "student" && (
+        {isStudent && (
           <div className="field">
             <label className="label">Section / กลุ่มเรียน</label>
             <select className="input" value={sec} onChange={(e) => setSec(e.target.value)}>
@@ -90,7 +121,7 @@ function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
             </select>
           </div>
         )}
-        {role !== "student" && (
+        {!isStudent && (
           <div className="field">
             <label className="label">กลุ่มวิชา / สาขาวิชา</label>
             <select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
@@ -101,13 +132,6 @@ function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
             </select>
           </div>
         )}
-        <div className="field">
-          <label className="label">สถานะการใช้งาน</label>
-          <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="active">ใช้งานปกติ</option>
-            <option value="suspended">ระงับการใช้งาน</option>
-          </select>
-        </div>
       </div>
     </Dialog>
   );
@@ -212,7 +236,8 @@ export default function MasterUsersPage() {
   const handleImpersonate = async (user) => {
     toast("กำลังเตรียมสลับหน้าสวมบทบาท...");
     
-    const isStaff = user.role === "admin" || user.role === "course_manager" || user.role === "instructor";
+    const userRoles = user.role ? user.role.split(",").map(r => r.trim()) : [];
+    const isStaff = userRoles.includes("admin") || userRoles.includes("course_manager") || userRoles.includes("instructor");
     const callbackUrl = isStaff ? "/i/courses" : "/s/courses";
 
     const result = await signIn("credentials", {
@@ -269,9 +294,13 @@ export default function MasterUsersPage() {
           ""
         ]}
         data={usersList.filter((u) => {
-          if (filterRole !== "all" && u.role !== filterRole) return false;
+          if (filterRole !== "all") {
+            const roles = u.role ? u.role.split(",").map(r => r.trim()) : [];
+            if (!roles.includes(filterRole)) return false;
+          }
           if (filterGrade !== "all") {
-            if (u.role !== "student" || !u.studentId) return false;
+            const roles = u.role ? u.role.split(",").map(r => r.trim()) : [];
+            if (!roles.includes("student") || !u.studentId) return false;
             const prefix = String(u.studentId).slice(0, 2);
             const gradeMapping = gradesList.find(g => g.prefix === prefix);
             if (!gradeMapping || gradeMapping.year_label !== filterGrade) return false;
@@ -324,15 +353,20 @@ export default function MasterUsersPage() {
             <td className="t-sm muted">{u.email}</td>
             <td>
               {(() => {
-                const r = rolesList.find(r => r.id === u.role);
-                const roleName = r ? r.name : u.role;
-                const tone = u.role === "admin" ? "danger" : u.role === "instructor" ? "primary" : u.role === "student" ? "info" : "outline";
+                const userRoles = u.role ? u.role.split(",").map(x => x.trim()) : [];
                 const userGroupIds = groupManagers.filter(sgm => sgm.user_id === u.id).map(sgm => sgm.group_id);
                 const userGroupNames = subjectGroups.filter(g => userGroupIds.includes(g.id)).map(g => g.name);
                 const groupsDisplay = userGroupNames.length > 0 ? userGroupNames.join(", ") : (u.group_id && subjectGroups.find(g => g.id === u.group_id)?.name);
                 return (
-                  <div>
-                    <Badge tone={tone}>{roleName}</Badge>
+                  <div className="flex col gap-1">
+                    <div className="flex gap-1 flex-wrap">
+                      {userRoles.map(roleId => {
+                        const r = rolesList.find(x => x.id === roleId);
+                        const roleName = r ? r.name : roleId;
+                        const tone = roleId === "admin" ? "danger" : roleId === "instructor" ? "primary" : roleId === "student" ? "info" : "outline";
+                        return <Badge key={roleId} tone={tone}>{roleName}</Badge>;
+                      })}
+                    </div>
                     {groupsDisplay && <div className="t-xs muted mt-1">{groupsDisplay}</div>}
                   </div>
                 );
@@ -340,7 +374,7 @@ export default function MasterUsersPage() {
             </td>
             <td className="tnum t-sm">
               <div>{u.studentId || "-"}</div>
-              {u.role === "student" && u.studentId && (
+              {u.role?.split(",").map(r => r.trim()).includes("student") && u.studentId && (
                 <div className="t-xs muted" style={{ fontSize: "11px", marginTop: "2px" }}>
                   {(() => {
                     const prefix = String(u.studentId).slice(0, 2);
