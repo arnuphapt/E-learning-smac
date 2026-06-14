@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress } from "@/components/ui/Primitives";
@@ -67,6 +68,9 @@ function CourseListItem({ c, nav }) {
 
 export default function StudentCourses() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const studentId = session?.dbId;
+  const role = session?.user?.role;
   const KEY = "nl_course_view";
   
   // Use a safe initialization for view
@@ -82,13 +86,40 @@ export default function StudentCourses() {
     async function loadData() {
       const { data: cData } = await supabase.from("courses").select("*");
       const { data: yData } = await supabase.from("academic_years").select("*").order("year", { ascending: false });
+      const { data: lData } = await supabase.from("lessons").select("id, course_id, status");
       
-      if (cData) setCourses(cData);
+      if (cData) {
+        const isStaff = role === "instructor" || role === "admin";
+        const visibleLessons = lData ? (isStaff ? lData : lData.filter(l => l.status !== "draft")) : [];
+
+        const mappedCourses = cData.map(c => {
+          const courseLessons = visibleLessons.filter(l => l.course_id === c.id);
+          const lessonsCount = courseLessons.length;
+          
+          let progress = 0;
+          if (studentId && lessonsCount > 0 && typeof window !== "undefined") {
+            const totalProgress = courseLessons.reduce((acc, l) => {
+              const saved = localStorage.getItem(`watch_progress_${studentId}_${l.id}`);
+              const val = saved ? parseInt(saved, 10) : 0;
+              return acc + val;
+            }, 0);
+            progress = Math.round(totalProgress / lessonsCount);
+          }
+
+          return {
+            ...c,
+            lessons: lessonsCount,
+            progress: progress
+          };
+        });
+
+        setCourses(mappedCourses);
+      }
       if (yData) setYears(yData);
       setLoading(false);
     }
     loadData();
-  }, []);
+  }, [studentId, role]);
 
   const setV = (v) => { setView(v); try { localStorage.setItem(KEY, v); } catch (e) {} };
   const list = courses.filter((c) => year === "all" || c.year === year);

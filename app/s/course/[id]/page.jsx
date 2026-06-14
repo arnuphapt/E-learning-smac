@@ -104,7 +104,7 @@ export default function StudentCourse() {
         const assignments = assignRes.data || [];
 
         fetchedLessons = fetchedLessons.map((l) => {
-          const myScore = testScores.find((ts) => ts.student_id === studentId);
+          const myScore = testScores.find((ts) => ts.student_id === studentId && ts.lesson_id === l.id);
           const preTaken = myScore ? (myScore.pre !== null && myScore.pre !== undefined) : false;
           const postTaken = myScore ? (myScore.post !== null && myScore.post !== undefined) : false;
 
@@ -123,9 +123,16 @@ export default function StudentCourse() {
             };
           });
 
+          let progress = 0;
+          if (typeof window !== "undefined") {
+            const saved = localStorage.getItem(`watch_progress_${studentId}_${l.id}`);
+            if (saved) progress = parseInt(saved, 10);
+          }
+
           return {
             ...l,
             status,
+            progress,
             pretest: l.pretest ? {
               ...l.pretest,
               taken: preTaken
@@ -168,6 +175,12 @@ export default function StudentCourse() {
     return l.progress === 100;
   }).length;
 
+  const totalLessons = lessons.length;
+  const averageProgress = totalLessons > 0 
+    ? Math.round(lessons.reduce((acc, l) => acc + (l.progress || 0), 0) / totalLessons)
+    : 0;
+  const courseProgress = averageProgress;
+
   return (
     <div className="container">
       <Crumb nav={nav} items={[{ label: "รายวิชาของฉัน", to: "/s/courses" }, { label: course.code }]} />
@@ -189,8 +202,8 @@ export default function StudentCourse() {
           </div>
           <div className="card bg-muted" style={{ padding: 16, minWidth: 188, border: 0 }}>
             <div className="t-xs muted mb-1">ความคืบหน้ารวม</div>
-            <div className="flex items-end gap-2"><span className="t-3xl fw-7 tnum" style={{ lineHeight: 1 }}>{course.progress || 0}</span><span className="muted mb-1">%</span></div>
-            <div className="mt-2"><Progress value={course.progress || 0} /></div>
+            <div className="flex items-end gap-2"><span className="t-3xl fw-7 tnum" style={{ lineHeight: 1 }}>{courseProgress}</span><span className="muted mb-1">%</span></div>
+            <div className="mt-2"><Progress value={courseProgress} /></div>
             <div className="t-xs muted mt-2">เรียนจบ {completedCount} จาก {lessons.length} บทเรียน</div>
           </div>
         </div>

@@ -28,8 +28,44 @@ function ChecklistItem({ icon, label, sub, tone, action, onClick, active }) {
   );
 }
 
-function VideoStage({ lesson, nav, gated }) {
+function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUpdate }) {
   const [playing, setPlaying] = React.useState(false);
+  const [simulatedPct, setSimulatedPct] = React.useState(watchProgress);
+  const videoRef = React.useRef(null);
+
+  React.useEffect(() => {
+    setSimulatedPct(watchProgress);
+  }, [watchProgress]);
+
+  React.useEffect(() => {
+    if (!playing || lesson.video_url) return;
+
+    const interval = setInterval(() => {
+      setSimulatedPct((prev) => {
+        const next = Math.min(100, prev + 1);
+        if (onProgressUpdate) onProgressUpdate(next);
+        if (next >= 100) {
+          setPlaying(false);
+        }
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [playing, lesson.video_url]);
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      const duration = videoRef.current.duration;
+      const currentTime = videoRef.current.currentTime;
+      if (duration > 0) {
+        const pct = Math.floor((currentTime / duration) * 100);
+        if (onProgressUpdate) onProgressUpdate(pct);
+        setSimulatedPct(pct);
+      }
+    }
+  };
+
   if (gated) {
     return (
       <div style={{ position: "relative", aspectRatio: "16/9", background: "#0b1220", borderRadius: 14, overflow: "hidden", display: "grid", placeItems: "center" }}>
@@ -52,7 +88,14 @@ function VideoStage({ lesson, nav, gated }) {
   if (lesson.video_url) {
     return (
       <div style={{ position: "relative", aspectRatio: "16/9", background: "#000", borderRadius: 14, overflow: "hidden" }}>
-        <video src={lesson.video_url} controls className="w-full h-full" style={{ display: "block", outline: "none" }} />
+        <video 
+          ref={videoRef}
+          src={lesson.video_url} 
+          controls 
+          className="w-full h-full" 
+          style={{ display: "block", outline: "none" }} 
+          onTimeUpdate={handleTimeUpdate}
+        />
       </div>
     );
   }
@@ -67,7 +110,7 @@ function VideoStage({ lesson, nav, gated }) {
       {/* control bar */}
       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "26px 16px 12px", background: "linear-gradient(transparent, rgba(0,0,0,.6))" }}>
         <div style={{ height: 4, borderRadius: 99, background: "rgba(255,255,255,.25)" }}>
-          <div style={{ width: lesson.progress + "%", height: "100%", borderRadius: 99, background: "var(--primary)" }} />
+          <div style={{ width: simulatedPct + "%", height: "100%", borderRadius: 99, background: "var(--primary)" }} />
         </div>
         <div className="flex items-center justify-between mt-2" style={{ color: "#fff" }}>
           <div className="flex items-center gap-3">
@@ -260,6 +303,30 @@ export default function StudentLesson() {
   const [loading, setLoading] = useState(true);
   const [testScore, setTestScore] = useState(null);
   const [submissions, setSubmissions] = useState([]);
+  const [watchProgress, setWatchProgress] = useState(0);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && studentId && lessonId) {
+      const saved = localStorage.getItem(`watch_progress_${studentId}_${lessonId}`);
+      if (saved) {
+        setWatchProgress(parseInt(saved, 10));
+      } else {
+        setWatchProgress(0);
+      }
+    }
+  }, [studentId, lessonId]);
+
+  const handleProgressUpdate = (pct) => {
+    setWatchProgress((prev) => {
+      if (pct > prev) {
+        if (typeof window !== "undefined" && studentId) {
+          localStorage.setItem(`watch_progress_${studentId}_${lessonId}`, pct.toString());
+        }
+        return pct;
+      }
+      return prev;
+    });
+  };
 
   useEffect(() => {
     async function load() {
@@ -281,7 +348,7 @@ export default function StudentLesson() {
       ];
 
       if (studentId) {
-        queries.push(supabase.from("test_scores").select("*").eq("student_id", studentId).maybeSingle());
+        queries.push(supabase.from("test_scores").select("*").eq("student_id", studentId).eq("lesson_id", lessonId).maybeSingle());
       }
 
       const results = await Promise.all(queries);
@@ -333,11 +400,22 @@ export default function StudentLesson() {
     );
   }
 
-  const pre = lesson.pretest || { required: true, taken: false, questions: 10, total: 10, score: 0 };
-  const post = lesson.posttest || { required: true, taken: false, questions: 10, total: 10, score: 0 };
+  const pre = {
+    required: lesson.pretest?.required ?? true,
+    taken: testScore ? (testScore.pre !== null && testScore.pre !== undefined) : false,
+    score: testScore ? testScore.pre : 0,
+    total: testScore ? testScore.total : (lesson.pretest?.questions || 10)
+  };
+
+  const post = {
+    required: lesson.posttest?.required ?? true,
+    taken: testScore ? (testScore.post !== null && testScore.post !== undefined) : false,
+    score: testScore ? testScore.post : 0,
+    total: testScore ? testScore.total : (lesson.posttest?.questions || 10)
+  };
+
   const gated = pre.required && !pre.taken;
 
-  const watchProgress = lesson.progress || 0;
   const isPostGated = false;
 
   const SideRail = (
@@ -351,7 +429,7 @@ export default function StudentLesson() {
               onClick={() => nav("/s/test/" + lesson.id + "/pre")}
               action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
           )}
-          <ChecklistItem icon="playC" tone={gated ? "locked" : "current"}
+          <ChecklistItem icon={watchProgress === 100 ? "checkC" : "playC"} tone={gated ? "locked" : watchProgress === 100 ? "done" : "current"}
             label="วิดีโอบทเรียน" sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
           {assignments.map((a) => {
             const sub = submissions.find((s) => s.assignment_id === a.id);
@@ -381,7 +459,7 @@ export default function StudentLesson() {
       <Crumb nav={nav} items={[{ label: "รายวิชาของฉัน", to: "/s/courses" }, { label: course.code, to: "/s/course/" + course.id }, { label: "บทที่ " + lesson.index }]} />
       <div className="flex gap-5 items-start" style={{ flexDirection: mobile ? "column" : "row" }}>
         <div className="flex-1" style={{ minWidth: 0 }}>
-          <VideoStage lesson={lesson} nav={nav} gated={gated} />
+          <VideoStage lesson={lesson} studentId={studentId} nav={nav} gated={gated} watchProgress={watchProgress} onProgressUpdate={handleProgressUpdate} />
           <div className="flex items-start justify-between gap-3 mt-4 wrap">
             <div>
               <div className="t-xs fw-6 c-primary uppercase mb-1">บทที่ {lesson.index} · {course.code}</div>
@@ -391,7 +469,21 @@ export default function StudentLesson() {
                 <i className="dot-sep" />{statusBadge(lesson.status)}
               </div>
             </div>
-            {!gated && <button className="btn btn-outline btn-sm"><Icon name="check" size={15} />ทำเครื่องหมายว่าเรียนจบ</button>}
+            {!gated && (
+              <button 
+                className={`btn btn-sm ${watchProgress === 100 ? "" : "btn-outline"}`}
+                style={
+                  watchProgress === 100 
+                    ? { background: "var(--success-soft)", color: "var(--success)", border: "1px solid var(--success)", cursor: "default" }
+                    : {}
+                }
+                onClick={() => handleProgressUpdate(100)}
+                disabled={watchProgress === 100}
+              >
+                <Icon name="check" size={15} />
+                {watchProgress === 100 ? "เรียนจบแล้ว" : "ทำเครื่องหมายว่าเรียนจบ"}
+              </button>
+            )}
           </div>
 
           <div className="tabs mt-5">

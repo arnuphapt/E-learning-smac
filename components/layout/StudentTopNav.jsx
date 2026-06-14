@@ -68,6 +68,12 @@ export default function StudentTopNav() {
               <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="user" size={16} /></div>
               <div><div className="t-sm fw-6">โปรไฟล์ส่วนตัว</div><div className="t-xs muted">ข้อมูลและการตั้งค่า</div></div>
             </Link>
+            {(session?.user?.role === "admin" || session?.user?.role === "instructor") && (
+              <Link href="/i/courses" className="flex items-center gap-3 p-2 pointer mt-1" style={{ borderRadius: 8, textDecoration: 'none', color: "var(--fg)" }} onClick={() => setMenuOpen(false)}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="settings" size={16} /></div>
+                <div><div className="t-sm fw-6">ระบบจัดการผู้สอน</div><div className="t-xs muted">เข้าสู่หน้ารายวิชาของอาจารย์</div></div>
+              </Link>
+            )}
             <hr className="divider" style={{ margin: "8px 0" }} />
             <button className="flex items-center gap-3 p-2 pointer w-full" style={{ borderRadius: 8, background: "transparent", border: 0, textAlign: "left", color: "var(--danger)" }} onClick={() => signOut({ callbackUrl: "/login" })}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}><Icon name="x" size={16} /></div>

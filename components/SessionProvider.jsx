@@ -3,7 +3,7 @@
 import { SessionProvider as NextAuthSessionProvider, useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { ConfirmProvider } from "./ui/ConfirmDialog";
+import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 
 function SupabaseSync() {
   const { data: session } = useSession();

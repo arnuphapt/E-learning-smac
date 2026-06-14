@@ -176,6 +176,7 @@ async function seed() {
   // Test Scores
   const { error: tsErr } = await supabase.from('test_scores').upsert(DATA.testScores.map(t => ({
     student_id: t.studentId,
+    lesson_id: t.lessonId || 'l1',
     pre: t.pre,
     post: t.post,
     total: t.total

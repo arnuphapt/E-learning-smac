@@ -104,6 +104,7 @@ export const authOptions = {
         session.user.role = token.role || "student";
         session.user.id = token.dbId || token.sub;
       }
+      session.dbId = token.dbId || token.sub;
       return session;
     },
   },

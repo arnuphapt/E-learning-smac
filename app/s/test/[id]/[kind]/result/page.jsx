@@ -17,7 +17,7 @@ export default function TestResult() {
   const lessonId = params?.id;
   const kind = params?.kind || "pre";
 
-  const studentId = session?.dbId;
+  const studentId = session?.user?.id || session?.dbId;
   const role = session?.user?.role;
 
   const [lesson, setLesson] = useState(null);
@@ -45,8 +45,13 @@ export default function TestResult() {
       if (lRes.data) setLesson(lRes.data);
       if (qRes.data) setQuestions(qRes.data);
 
-      if (studentId) {
-        const { data: tsRes } = await supabase.from("test_scores").select("*").eq("student_id", studentId).maybeSingle();
+      if (studentId && lessonId) {
+        const { data: tsRes } = await supabase
+          .from("test_scores")
+          .select("*")
+          .eq("student_id", studentId)
+          .eq("lesson_id", lessonId)
+          .maybeSingle();
         if (tsRes) setTestScore(tsRes);
       }
 

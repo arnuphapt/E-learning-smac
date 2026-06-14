@@ -7,12 +7,14 @@ import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Dialog } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
+import { toast } from "@/components/ui/Toast";
 
 export default function TestTaking() {
   const router = useRouter();
   const params = useParams();
   const { data: session } = useSession();
   const role = session?.user?.role;
+  const studentId = session?.user?.id || session?.dbId;
   const nav = (path) => router.push(path);
 
   const lessonId = params?.id;
@@ -50,6 +52,47 @@ export default function TestTaking() {
   
   const mobile = false;
 
+  // Real-time countdown timer starting at 30 minutes (1800 seconds)
+  // Session storage ensures it survives accidental page refreshes
+  const [timeLeft, setTimeLeft] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem(`test_timer_${lessonId}_${kind}`);
+      if (saved) {
+        const remaining = parseInt(saved, 10);
+        return remaining > 0 ? remaining : 1800;
+      }
+    }
+    return 1800;
+  });
+
+  const answersRef = React.useRef(answers);
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(`test_timer_${lessonId}_${kind}`, timeLeft.toString());
+    }
+
+    if (timeLeft <= 0) {
+      submit(true);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
   if (loading) return <Loading text="กำลังโหลดข้อสอบ..." fullHeight />;
   if (!lesson || qs.length === 0) return <div style={{ background: "#f7f9fb", minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="muted">ไม่พบข้อสอบ</div></div>;
 
@@ -57,7 +100,65 @@ export default function TestTaking() {
   const answered = Object.keys(answers).length;
 
   const choose = (qid, cid) => setAnswers((a) => ({ ...a, [qid]: cid }));
-  const submit = () => { nav("/s/test/" + lesson.id + "/" + kind + "/result"); };
+  
+  const submit = async (isAuto = false) => {
+    if (!studentId) {
+      toast("ไม่พบข้อมูลนักศึกษา กรุณาเข้าสู่ระบบใหม่", "error");
+      return;
+    }
+
+    const activeAnswers = isAuto ? answersRef.current : answers;
+
+    let correctCount = 0;
+    qs.forEach((q) => {
+      if (activeAnswers[q.id] === q.answer) {
+        correctCount++;
+      }
+    });
+
+    try {
+      const { data: existing } = await supabase
+        .from("test_scores")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("lesson_id", lesson.id)
+        .maybeSingle();
+
+      const scoreObj = {
+        student_id: studentId,
+        lesson_id: lesson.id,
+        total: qs.length,
+      };
+
+      if (kind === "pre") {
+        scoreObj.pre = correctCount;
+        if (existing) {
+          scoreObj.post = existing.post;
+        }
+      } else {
+        scoreObj.post = correctCount;
+        if (existing) {
+          scoreObj.pre = existing.pre;
+        }
+      }
+
+      const { error } = await supabase
+        .from("test_scores")
+        .upsert(scoreObj, { onConflict: "student_id,lesson_id" });
+
+      if (error) throw error;
+      
+      // Clear saved timer upon successful completion
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(`test_timer_${lessonId}_${kind}`);
+      }
+
+      nav("/s/test/" + lesson.id + "/" + kind + "/result");
+    } catch (err) {
+      console.error("Error saving test score:", err);
+      toast("เกิดข้อผิดพลาดในการบันทึกคะแนน: " + err.message, "error");
+    }
+  };
 
   return (
     <div style={{ background: "#f7f9fb", minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -68,7 +169,7 @@ export default function TestTaking() {
           <div className="t-xs muted">{kind === "pre" ? "แบบทดสอบก่อนเรียน (Pre-test)" : "แบบทดสอบหลังเรียน (Post-test)"}</div>
           <div className="t-sm fw-7 truncate">บทที่ {lesson.index} · {lesson.title}</div>
         </div>
-        <div className="flex items-center gap-2 badge badge-muted" style={{ height: 30 }}><Icon name="clock" size={14} />28:14</div>
+        <div className="flex items-center gap-2 badge badge-muted" style={{ height: 30 }}><Icon name="clock" size={14} />{formatTime(timeLeft)}</div>
         <button className="btn btn-primary btn-sm hide-m" onClick={() => setConfirm(true)}>ส่งคำตอบ</button>
       </div>
 
