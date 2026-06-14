@@ -72,7 +72,7 @@ export default function LandingPage() {
                 <path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5" />
               </svg>
             </span>
-            <span>E-learning<small>การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></span>
+            <span>E-learning<small>ผู้ใหญ่และผู้สูงอายุ 1 และชุมชน</small></span>
           </a>
           <div className="nav-links">
             <a href="#about">เกี่ยวกับระบบ</a>
@@ -98,9 +98,9 @@ export default function LandingPage() {
         <div className="wrap">
           <div className="hero-grid">
             <div className="hero-copy">
-              <span className="eyebrow reveal in">วิทยาลัยพยาบาลศรีมหาสารคาม · สถาบันพระบรมราชชนก</span>
+              <span className="eyebrow reveal in">วิทยาลัยพยาบาลศรีมหาสารคาม · คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก</span>
               <h1 className="reveal in d1">ยินดีต้อนรับสู่<br /><span className="hl">ระบบการเรียนรู้ออนไลน์</span></h1>
-              <div className="sub serif reveal in d1">กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ</div>
+              <div className="sub serif reveal in d1">สาขาวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ 1 และสาขาวิชาการพยาบาลชุมชน</div>
               <p className="lead reveal in d2">พื้นที่แห่งการเรียนรู้ที่ออกแบบมาเพื่อสนับสนุนการศึกษาของนักศึกษาพยาบาลให้เกิดประสิทธิภาพสูงสุด ทั้งในและนอกชั้นเรียน — เพียงเข้าสู่ระบบก็พร้อมเริ่มต้นการเรียนรู้ได้ทันที</p>
               <div className="hero-cta reveal in d2">
                 <Link className="btn btn-primary btn-lg" href="/login">เริ่มเรียนรู้
@@ -158,7 +158,7 @@ export default function LandingPage() {
       <section className="section statement" id="about">
         <div className="wrap">
           <span className="eyebrow reveal">เกี่ยวกับระบบ</span>
-          <p className="big reveal d1" style={{ marginTop: 24 }}>ระบบ E-learning แห่งนี้รวบรวม<b>รายวิชาในกลุ่มการพยาบาลผู้ใหญ่และผู้สูงอายุ</b>ไว้อย่างครบถ้วน ครอบคลุมตั้งแต่หลักการพยาบาลพื้นฐาน การดูแลผู้ป่วยที่มีภาวะเจ็บป่วยเฉียบพลันและเรื้อรัง ไปจนถึง<b>การพยาบาลผู้สูงอายุแบบองค์รวม</b></p>
+          <p className="big reveal d1" style={{ marginTop: 24 }}>ระบบ E-learning แห่งนี้รวบรวม<b>รายวิชาในสาขาวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ 1 และสาขาวิชาการพยาบาลชุมชน</b>ไว้อย่างครบถ้วน ครอบคลุมเนื้อหาสำคัญตั้งแต่หลักการพยาบาลผู้ป่วยที่มีภาวะเจ็บป่วยเฉียบพลันและเรื้อรัง ไปจนถึง<b>การพยาบาลสุขภาพครอบครัวและชุมชน การพยาบาลอนามัยโรงเรียน การพยาบาลอาชีวอนามัย และการรักษาพยาบาลเบื้องต้น</b></p>
         </div>
       </section>
 
@@ -256,7 +256,7 @@ export default function LandingPage() {
       <section className="section mission" id="mission">
         <div className="wrap">
           <span className="eyebrow reveal">วิสัยทัศน์</span>
-          <h2 className="reveal d1">ก้าวสู่การเป็น<em>พยาบาลวิชาชีพ</em>ที่มีคุณภาพ พร้อมดูแลผู้ใช้บริการด้วย<em>หัวใจความเป็นมนุษย์</em> <span className="heart">♥</span></h2>
+          <h2 className="reveal d1">ก้าวสู่การเป็น<em>พยาบาลวิชาชีพ</em>ที่มีคุณภาพ พร้อมดูแลผู้ใช้บริการและชุมชนด้วย<em>หัวใจความเป็นมนุษย์</em> <span className="heart">♥</span></h2>
           <p className="reveal d2">เราหวังเป็นอย่างยิ่งว่าระบบ E-learning แห่งนี้จะเป็นเครื่องมือสำคัญที่ช่วยส่งเสริมการเรียนรู้ให้เกิดประสิทธิภาพ ควบคู่ไปกับการบ่มเพาะความรู้ ทักษะ และจิตวิญญาณความเป็นพยาบาล</p>
         </div>
       </section>
@@ -274,7 +274,7 @@ export default function LandingPage() {
                 </span>
                 <div className="who">
                   <div className="a">ด้วยความปรารถนาดี</div>
-                  <div className="b">คณาจารย์กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ</div>
+                  <div className="b">คณาจารย์สาขาวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ 1 และสาขาวิชาการพยาบาลชุมชน</div>
                   <div className="c">วิทยาลัยพยาบาลศรีมหาสารคาม · คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก</div>
                 </div>
               </div>
@@ -304,9 +304,9 @@ export default function LandingPage() {
             <div>
               <div className="brand">
                 <span className="mk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z" /><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5" /></svg></span>
-                <span>E-learning<small>การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></span>
+                <span>E-learning<small>ผู้ใหญ่และผู้สูงอายุ 1 และชุมชน</small></span>
               </div>
-              <p className="desc">ระบบการเรียนรู้ออนไลน์สำหรับนักศึกษาพยาบาล วิทยาลัยพยาบาลศรีมหาสารคาม คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก</p>
+              <p className="desc">ระบบการเรียนรู้ออนไลน์สำหรับนักศึกษาพยาบาล สาขาวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ 1 และสาขาวิชาการพยาบาลชุมชน วิทยาลัยพยาบาลศรีมหาสารคาม คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก</p>
             </div>
             <div className="footer-links">
               <div className="footer-col">
@@ -323,7 +323,7 @@ export default function LandingPage() {
               </div>
               <div className="footer-col">
                 <h4>ติดต่อ</h4>
-                <a href="#">กลุ่มวิชาฯ</a>
+                <a href="#">สาขาวิชาฯ</a>
                 <a href="#">ฝ่ายสนับสนุน</a>
               </div>
             </div>
