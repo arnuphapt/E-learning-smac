@@ -25,12 +25,24 @@ export const authOptions = {
           .single();
 
         if (dbUser) {
+          let permissions = [];
+          if (dbUser.role) {
+            const { data: roleData } = await supabase
+              .from("roles")
+              .select("permissions")
+              .eq("id", dbUser.role)
+              .single();
+            if (roleData) permissions = roleData.permissions || [];
+          }
+
           return {
             id: dbUser.id,
             name: dbUser.name,
             email: dbUser.email || `${dbUser.id}@smnc.ac.th`,
             role: dbUser.role,
             dbId: dbUser.id,
+            study_year: dbUser.study_year,
+            permissions: permissions,
           };
         }
         return null;
@@ -50,7 +62,7 @@ export const authOptions = {
         // 1. Check if the user already exists in public.users table (allows pre-registered admins, instructors, and students)
         const { data: dbUser } = await supabase
           .from("users")
-          .select("id, role")
+          .select("id, role, study_year")
           .eq("email", email)
           .single();
 
@@ -58,6 +70,18 @@ export const authOptions = {
           user.role = dbUser.role;
           user.dbId = dbUser.id;
           user.study_year = dbUser.study_year ?? null;
+          
+          let permissions = [];
+          if (dbUser.role) {
+            const { data: roleData } = await supabase
+              .from("roles")
+              .select("permissions")
+              .eq("id", dbUser.role)
+              .single();
+            if (roleData) permissions = roleData.permissions || [];
+          }
+          user.permissions = permissions;
+          
           return true;
         }
 
@@ -78,6 +102,16 @@ export const authOptions = {
         const role = match ? "student" : "instructor";
         const studentNo = match ? match[1] : null;
 
+        let studyYear = null;
+        if (studentNo) {
+          const prefix = studentNo.substring(0, 2);
+          if (prefix === "69") studyYear = 1;
+          else if (prefix === "68") studyYear = 2;
+          else if (prefix === "67") studyYear = 3;
+          else if (prefix === "66") studyYear = 4;
+          else if (prefix === "65") studyYear = 5;
+        }
+
         const newId = "u_" + Date.now();
         await supabase.from("users").insert({
           id: newId,
@@ -85,11 +119,21 @@ export const authOptions = {
           email: email,
           role: role,
           student_no: studentNo,
+          study_year: studyYear,
         });
+
+        let permissions = [];
+        const { data: roleData } = await supabase
+          .from("roles")
+          .select("permissions")
+          .eq("id", role)
+          .single();
+        if (roleData) permissions = roleData.permissions || [];
 
         user.role = role;
         user.dbId = newId;
-        user.study_year = null;
+        user.study_year = studyYear;
+        user.permissions = permissions;
         return true;
       }
       return true;
@@ -99,6 +143,7 @@ export const authOptions = {
         token.role = user.role;
         token.dbId = user.dbId || user.id;
         token.study_year = user.study_year ?? null;
+        token.permissions = user.permissions || [];
       }
       return token;
     },
@@ -107,6 +152,7 @@ export const authOptions = {
         session.user.role = token.role || "student";
         session.user.id = token.dbId || token.sub;
         session.user.study_year = token.study_year ?? null;
+        session.user.permissions = token.permissions || [];
       }
       session.dbId = token.dbId || token.sub;
       return session;

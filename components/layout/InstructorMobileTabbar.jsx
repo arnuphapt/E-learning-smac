@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import Icon from "../ui/Icon";
 import { Avatar } from "../ui/Primitives";
+import { hasPermission, hasAnyPermission, PERMISSIONS } from "@/lib/rbac";
 
 function MoreSheet({ onClose }) {
   const pathname = usePathname() || "";
@@ -17,14 +18,20 @@ function MoreSheet({ onClose }) {
   };
   const displayRole = roleLabels[session?.user?.role] || "อาจารย์ผู้สอน";
 
-  const masterItems = [
-    ["/i/master/years", "cal", "ปีการศึกษา"],
-    ["/i/master/terms", "layers", "ภาคเรียน"],
-    ["/i/master/groups", "folder", "กลุ่มวิชา"],
-    ["/i/master/sections", "users", "Section / กลุ่มเรียน"],
-    ["/i/master/users", "user", "จัดการผู้ใช้งาน"],
-    ["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา"],
-  ];
+  const user = session?.user;
+  
+  let masterItems = [];
+  if (hasPermission(user, PERMISSIONS.MANAGE_MASTER_DATA)) {
+    masterItems.push(["/i/master/years", "cal", "ปีการศึกษา"]);
+    masterItems.push(["/i/master/terms", "layers", "ภาคเรียน"]);
+    masterItems.push(["/i/master/groups", "folder", "กลุ่มวิชา"]);
+    masterItems.push(["/i/master/sections", "users", "Section / กลุ่มเรียน"]);
+    masterItems.push(["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา"]);
+  }
+  if (hasPermission(user, PERMISSIONS.MANAGE_USERS)) {
+    masterItems.push(["/i/master/users", "user", "จัดการผู้ใช้งาน"]);
+    masterItems.push(["/i/master/roles", "shield", "จัดการสิทธิ์ (Roles)"]);
+  }
 
   return (
     <>
@@ -65,47 +72,51 @@ function MoreSheet({ onClose }) {
         </div>
 
         {/* New course shortcut */}
-        <div style={{ padding: "14px 16px 8px" }}>
-          <Link
-            href="/i/course/new"
-            onClick={onClose}
-            style={{
-              display: "flex", alignItems: "center", gap: 10,
-              background: "var(--primary)", color: "#fff",
-              borderRadius: 12, padding: "11px 16px",
-              fontWeight: 600, fontSize: 14, textDecoration: "none"
-            }}
-          >
-            <Icon name="plus" size={18} />
-            สร้างรายวิชาใหม่
-          </Link>
-        </div>
+        {hasPermission(user, PERMISSIONS.MANAGE_COURSES) && (
+          <div style={{ padding: "14px 16px 8px" }}>
+            <Link
+              href="/i/course/new"
+              onClick={onClose}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                background: "var(--primary)", color: "#fff",
+                borderRadius: 12, padding: "11px 16px",
+                fontWeight: 600, fontSize: 14, textDecoration: "none"
+              }}
+            >
+              <Icon name="plus" size={18} />
+              สร้างรายวิชาใหม่
+            </Link>
+          </div>
+        )}
 
         {/* Master data section */}
-        <div style={{ padding: "4px 16px 8px" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--subtle)", textTransform: "uppercase", letterSpacing: ".5px", padding: "8px 4px 6px" }}>
-            ข้อมูลหลัก (Master)
+        {masterItems.length > 0 && (
+          <div style={{ padding: "4px 16px 8px" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--subtle)", textTransform: "uppercase", letterSpacing: ".5px", padding: "8px 4px 6px" }}>
+              ข้อมูลหลัก (Master)
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {masterItems.map(([to, ic, label]) => (
+                <Link
+                  key={to}
+                  href={to}
+                  onClick={onClose}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "10px 12px", borderRadius: 10,
+                    background: pathname.startsWith(to) ? "var(--primary-soft)" : "var(--muted)",
+                    color: pathname.startsWith(to) ? "var(--primary)" : "var(--fg)",
+                    fontWeight: 500, fontSize: 13, textDecoration: "none"
+                  }}
+                >
+                  <Icon name={ic} size={16} />
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+                </Link>
+              ))}
+            </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {masterItems.map(([to, ic, label]) => (
-              <Link
-                key={to}
-                href={to}
-                onClick={onClose}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "10px 12px", borderRadius: 10,
-                  background: pathname.startsWith(to) ? "var(--primary-soft)" : "var(--muted)",
-                  color: pathname.startsWith(to) ? "var(--primary)" : "var(--fg)",
-                  fontWeight: 500, fontSize: 13, textDecoration: "none"
-                }}
-              >
-                <Icon name={ic} size={16} />
-                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
+        )}
 
         {/* Sign out */}
         <div style={{ padding: "4px 16px 16px", borderTop: "1px solid var(--border)", marginTop: 8 }}>
@@ -130,6 +141,8 @@ function MoreSheet({ onClose }) {
 export default function InstructorMobileTabbar() {
   const pathname = usePathname() || "";
   const [showMore, setShowMore] = useState(false);
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const onHome = pathname === "/i/courses" || pathname.startsWith("/i/course") || pathname.startsWith("/i/lesson");
   const onSubmissions = pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade");
@@ -159,9 +172,15 @@ export default function InstructorMobileTabbar() {
       {showMore && <MoreSheet onClose={() => setShowMore(false)} />}
 
       <div className="tabbar i-tabbar" style={{ background: "rgba(255,255,255,.95)", backdropFilter: "saturate(1.4) blur(12px)" }}>
-        <TabItem href="/i/courses" icon="grid" label="รายวิชา" active={onHome} />
-        <TabItem href="/i/submissions/a1" icon="file" label="ตรวจงาน" active={onSubmissions} />
-        <TabItem href="/i/reports" icon="chart" label="รายงาน" active={onReports} />
+        {hasAnyPermission(user, [PERMISSIONS.MANAGE_COURSES, PERMISSIONS.GRADE_SUBMISSIONS]) && (
+          <TabItem href="/i/courses" icon="grid" label="รายวิชา" active={onHome} />
+        )}
+        {hasPermission(user, PERMISSIONS.GRADE_SUBMISSIONS) && (
+          <TabItem href="/i/submissions/a1" icon="file" label="ตรวจงาน" active={onSubmissions} />
+        )}
+        {hasPermission(user, PERMISSIONS.VIEW_REPORTS) && (
+          <TabItem href="/i/reports" icon="chart" label="รายงาน" active={onReports} />
+        )}
         {/* "More" button – not a Link */}
         <button
           onClick={() => setShowMore(true)}

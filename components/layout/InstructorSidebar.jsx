@@ -6,6 +6,7 @@ import Icon from "../ui/Icon";
 import { Avatar } from "../ui/Primitives";
 import React, { Suspense } from "react";
 import { useSession, signOut } from "next-auth/react";
+import { hasPermission, hasAnyPermission, PERMISSIONS } from "@/lib/rbac";
 
 function InstructorSidebarContent({ open, onClose }) {
   const { data: session } = useSession();
@@ -19,21 +20,35 @@ function InstructorSidebarContent({ open, onClose }) {
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") || "years";
 
-  const items1 = [["/i/courses", "grid", "ภาพรวม / รายวิชา", pathname.startsWith("/i/course") || pathname === "/i/courses" || pathname.startsWith("/i/lesson")]];
-  const items2 = [
-    ["/i/submissions/a1", "file", "ตรวจใบงาน", pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade")],
-    ["/i/reports", "chart", "รายงาน / ส่งออก Excel", pathname.startsWith("/i/reports")],
-  ];
+  const user = session?.user;
+
+  let items1 = [];
+  if (hasAnyPermission(user, [PERMISSIONS.MANAGE_COURSES, PERMISSIONS.GRADE_SUBMISSIONS])) {
+    items1.push(["/i/courses", "grid", "ภาพรวม / รายวิชา", pathname.startsWith("/i/course") || pathname === "/i/courses" || pathname.startsWith("/i/lesson")]);
+  }
+
+  let items2 = [];
+  if (hasPermission(user, PERMISSIONS.GRADE_SUBMISSIONS)) {
+    items2.push(["/i/submissions/a1", "file", "ตรวจใบงาน", pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade")]);
+  }
+  if (hasPermission(user, PERMISSIONS.VIEW_REPORTS)) {
+    items2.push(["/i/reports", "chart", "รายงาน / ส่งออก Excel", pathname.startsWith("/i/reports")]);
+  }
   
   const isMaster = pathname.startsWith("/i/master");
-  const items3 = [
-    ["/i/master/years", "cal", "ปีการศึกษา", pathname === "/i/master/years" || (pathname === "/i/master" && tab === "years")],
-    ["/i/master/terms", "layers", "ภาคเรียน", pathname === "/i/master/terms"],
-    ["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"],
-    ["/i/master/sections", "users", "Section / กลุ่มเรียน", pathname === "/i/master/sections"],
-    ["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"],
-    ["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา", pathname === "/i/master/studentgrade"],
-  ];
+  let items3 = [];
+  if (hasPermission(user, PERMISSIONS.MANAGE_MASTER_DATA)) {
+    items3.push(["/i/master/years", "cal", "ปีการศึกษา", pathname === "/i/master/years" || (pathname === "/i/master" && tab === "years")]);
+    items3.push(["/i/master/terms", "layers", "ภาคเรียน", pathname === "/i/master/terms"]);
+    items3.push(["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"]);
+    items3.push(["/i/master/sections", "users", "Section / กลุ่มเรียน", pathname === "/i/master/sections"]);
+    items3.push(["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา", pathname === "/i/master/studentgrade"]);
+  }
+  
+  if (hasPermission(user, PERMISSIONS.MANAGE_USERS)) {
+    items3.push(["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"]);
+    items3.push(["/i/master/roles", "shield", "จัดการสิทธิ์ (Roles)", pathname === "/i/master/roles"]);
+  }
 
   const Item = ([to, ic, label, active]) => (
     <Link href={to} key={to + label} className={"sb-item" + (active ? " on" : "")} style={{ textDecoration: 'none' }} onClick={onClose}>
@@ -56,17 +71,19 @@ function InstructorSidebarContent({ open, onClose }) {
           <Icon name="x" size={16} />
         </button>
       </div>
-      <Link href="/i/course/new" className="btn btn-primary btn-block" style={{ margin: "0 2px 6px", textDecoration: 'none' }} onClick={onClose}>
-        <Icon name="plus" size={16} />สร้างรายวิชา
-      </Link>
+      {hasPermission(user, PERMISSIONS.MANAGE_COURSES) && (
+        <Link href="/i/course/new" className="btn btn-primary btn-block" style={{ margin: "0 2px 6px", textDecoration: 'none' }} onClick={onClose}>
+          <Icon name="plus" size={16} />สร้างรายวิชา
+        </Link>
+      )}
       
-      <div className="sb-label">การสอน</div>
+      {items1.length > 0 && <div className="sb-label">การสอน</div>}
       {items1.map(Item)}
       
-      <div className="sb-label">งานและคะแนน</div>
+      {items2.length > 0 && <div className="sb-label">งานและคะแนน</div>}
       {items2.map(Item)}
       
-      <div className="sb-label">ตั้งค่าข้อมูลหลัก (Master)</div>
+      {items3.length > 0 && <div className="sb-label">ตั้งค่าข้อมูลหลัก (Master)</div>}
       {items3.map(Item)}
       
       <div className="sb-foot">

@@ -19,12 +19,34 @@ function GoogleIcon() {
 
 function LoginContent() {
   const [loading, setLoading] = useState(false);
+  const [selectedMock, setSelectedMock] = useState("");
   const searchParams = useSearchParams();
   const error = searchParams?.get("error") || null;
 
   const handleGoogleLogin = async () => {
     setLoading(true);
     await signIn("google", { callbackUrl: "/s/courses" });
+  };
+
+  const handleDevLogin = async () => {
+    if (!selectedMock) return;
+    setLoading(true);
+    
+    // Determine the destination based on the selected account
+    const isStaff = selectedMock === "admin2" || selectedMock.startsWith("u_");
+    const callbackUrl = isStaff ? "/i/courses" : "/s/courses";
+
+    const result = await signIn("credentials", {
+      userId: selectedMock,
+      callbackUrl,
+      redirect: false,
+    });
+    if (result?.error) {
+      setLoading(false);
+      alert("เกิดข้อผิดพลาดในการเข้าสู่ระบบ: " + result.error);
+    } else {
+      window.location.href = callbackUrl;
+    }
   };
 
   return (
@@ -75,15 +97,43 @@ function LoginContent() {
           disabled={loading}
           id="google-login-btn"
         >
-          {loading ? (
+          {loading && !selectedMock ? (
             <span className="spinner" />
           ) : (
             <GoogleIcon />
           )}
-          {loading ? "กำลังดำเนินการ…" : "เข้าสู่ระบบด้วย Google"}
+          {loading && !selectedMock ? "กำลังดำเนินการ…" : "เข้าสู่ระบบด้วย Google"}
         </button>
 
+        <div className="login-divider">หรือ บัญชีทดสอบสำหรับอาจารย์ / นศ.</div>
 
+        <div className="dev-login-panel">
+          <div className="dev-select-wrapper">
+            <select
+              className="dev-select"
+              value={selectedMock}
+              onChange={(e) => setSelectedMock(e.target.value)}
+              disabled={loading}
+            >
+              <option value="">-- เลือกสิทธิ์เพื่อทดสอบระบบ --</option>
+              <option value="student_y2">นักศึกษา ชั้นปีที่ 2 (นายสมชาย - Sec 1)</option>
+              <option value="student_y3">นักศึกษา ชั้นปีที่ 3 (นางสาวสมหญิง - Sec 1)</option>
+              <option value="student_y4">นักศึกษา ชั้นปีที่ 4 (นายสมศักดิ์ - Sec 2)</option>
+              <option value="admin2">ผู้ดูแลระบบ / แอดมิน (ผศ.ดร.อนุชา)</option>
+              <option value="u_1781419576209">ผู้รับผิดชอบรายวิชา (ผศ.มลฤดี - การพยาบาลผู้ใหญ่ 1)</option>
+              <option value="u_1781419678033">อาจารย์ผู้สอน (อ.เพชรลดา - การพยาบาลผู้ใหญ่ 1)</option>
+              <option value="u_1781422536510">ผู้รับผิดชอบรายวิชา (ดร.ดิษฐพล - การพยาบาลชุมชน)</option>
+              <option value="u_1781424404859">อาจารย์ผู้สอน (อ.ศุภกฤต - การพยาบาลชุมชน)</option>
+            </select>
+          </div>
+          <button
+            className="dev-login-btn"
+            onClick={handleDevLogin}
+            disabled={loading || !selectedMock}
+          >
+            {loading && selectedMock ? <span className="spinner" /> : "เข้าสู่ระบบเพื่อทดสอบ"}
+          </button>
+        </div>
 
         {/* Footer */}
         <div className="login-footer">

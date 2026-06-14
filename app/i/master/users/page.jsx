@@ -19,7 +19,7 @@ function RowActions({ onEdit, onDelete }) {
   );
 }
 
-function UserDialog({ mode, row, onClose, onSave }) {
+function UserDialog({ mode, row, rolesList, onClose, onSave }) {
   const [name, setName] = React.useState(row ? row.name : "");
   const [email, setEmail] = React.useState(row ? row.email : "");
   const [role, setRole] = React.useState(row ? row.role : "student");
@@ -57,9 +57,9 @@ function UserDialog({ mode, row, onClose, onSave }) {
         <div className="field">
           <label className="label">บทบาท</label>
           <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="student">นักศึกษา</option>
-            <option value="instructor">อาจารย์ผู้สอน</option>
-            <option value="admin">ผู้ดูแลระบบ</option>
+            {rolesList.map(r => (
+              <option key={r.id} value={r.id}>{r.name} ({r.id})</option>
+            ))}
           </select>
         </div>
         {role === "student" ? (
@@ -113,6 +113,7 @@ function ConfirmDialog({ title, desc, onConfirm, onClose }) {
 export default function MasterUsersPage() {
   const [usersList, setUsersList] = useState([]);
   const [gradesList, setGradesList] = useState([]);
+  const [rolesList, setRolesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState(null); // {mode, row}
   const [confirmDlg, setConfirmDlg] = useState(null); // {title, desc, onConfirm}
@@ -121,10 +122,15 @@ export default function MasterUsersPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [uRes, gRes] = await Promise.all([
+    const [uRes, gRes, rRes] = await Promise.all([
       supabase.from("users").select("*"),
-      supabase.from("student_grades").select("*")
+      supabase.from("student_grades").select("*"),
+      supabase.from("roles").select("id, name")
     ]);
+
+    if (rRes.data) {
+      setRolesList(rRes.data);
+    }
 
     if (gRes.data) {
       setGradesList(gRes.data);
@@ -237,9 +243,9 @@ export default function MasterUsersPage() {
               style={{ width: 160, height: 38, padding: "0 12px", fontSize: 13, background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8 }}
             >
               <option value="all">บทบาท: ทั้งหมด</option>
-              <option value="student">นักศึกษา</option>
-              <option value="instructor">อาจารย์ผู้สอน</option>
-              <option value="admin">ผู้ดูแลระบบ</option>
+              {rolesList.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
             </select>
 
             {(filterRole === "all" || filterRole === "student") && (
@@ -267,13 +273,12 @@ export default function MasterUsersPage() {
             </td>
             <td className="t-sm muted">{u.email}</td>
             <td>
-              {u.role === "admin" ? (
-                <Badge tone="danger">ผู้ดูแลระบบ</Badge>
-              ) : u.role === "instructor" ? (
-                <Badge tone="primary">อาจารย์ผู้สอน</Badge>
-              ) : (
-                <Badge tone="info">นักศึกษา</Badge>
-              )}
+              {(() => {
+                const r = rolesList.find(r => r.id === u.role);
+                const roleName = r ? r.name : u.role;
+                const tone = u.role === "admin" ? "danger" : u.role === "instructor" ? "primary" : u.role === "student" ? "info" : "outline";
+                return <Badge tone={tone}>{roleName}</Badge>;
+              })()}
             </td>
             <td className="tnum t-sm">
               <div>{u.studentId || "-"}</div>
@@ -311,7 +316,7 @@ export default function MasterUsersPage() {
         )}
       />
 
-      {dlg && <UserDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={handleSaveUser} />}
+      {dlg && <UserDialog mode={dlg.mode} row={dlg.row} rolesList={rolesList} onClose={() => setDlg(null)} onSave={handleSaveUser} />}
       {confirmDlg && <ConfirmDialog title={confirmDlg.title} desc={confirmDlg.desc} onConfirm={confirmDlg.onConfirm} onClose={() => setConfirmDlg(null)} />}
     </div>
   );
