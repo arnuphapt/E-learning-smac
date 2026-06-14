@@ -12,6 +12,52 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
 import { useSession } from "next-auth/react";
 
+function MultiSelect({ options, selectedValues, onChange, placeholder = "เลือก..." }) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    function h(e) { if (ref.current && !ref.current.contains(e.target)) setIsOpen(false); }
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  const selected = options.filter(o => selectedValues.includes(o.id));
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <div onClick={() => setIsOpen(!isOpen)} className="input"
+        style={{ cursor: "pointer", minHeight: 40, height: "auto", padding: "6px 12px", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        {selected.length === 0 ? <span className="muted t-sm">{placeholder}</span> : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1 }}>
+            {selected.map(o => (
+              <span key={o.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: "var(--primary-soft)", color: "var(--primary)", border: "1px solid var(--border)", fontSize: 12, fontWeight: 600 }}>
+                {o.name}
+                <span onClick={e => { e.stopPropagation(); onChange(selectedValues.filter(id => id !== o.id)); }} style={{ cursor: "pointer", fontWeight: "bold", fontSize: 12 }}>✕</span>
+              </span>
+            ))}
+          </div>
+        )}
+        <Icon name="chevD" size={15} className="muted" style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: ".15s", marginLeft: "auto", flexShrink: 0 }} />
+      </div>
+      {isOpen && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "var(--surface, #fff)", border: "1px solid var(--border-strong)", borderRadius: 8, boxShadow: "0 10px 24px rgba(0,0,0,0.1)", marginTop: 4, maxHeight: 220, overflowY: "auto", padding: 6 }}>
+          {options.length === 0 ? <div className="t-xs muted text-center p-3">ไม่มีข้อมูล</div> : options.map(u => {
+            const isSel = selectedValues.includes(u.id);
+            return (
+              <div key={u.id} onClick={() => onChange(isSel ? selectedValues.filter(id => id !== u.id) : [...selectedValues, u.id])}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 6, cursor: "pointer", background: isSel ? "var(--primary-soft)" : "transparent", color: isSel ? "var(--primary)" : "var(--fg)", marginBottom: 2, userSelect: "none" }}>
+                <input type="checkbox" checked={isSel} onChange={() => {}} style={{ pointerEvents: "none" }} />
+                <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                  <span className="t-sm fw-6">{u.name}</span>
+                  <span className="t-xs muted">{u.email}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StudentRoster({ students, courseSubmissions, enrolledScores, lessons, assignments }) {
   return (
     <Table
@@ -74,7 +120,8 @@ export default function InstructorCourse() {
   const [courseInstructors, setCourseInstructors] = useState([]);
   const [availableInstructors, setAvailableInstructors] = useState([]);
   const [allInstructors, setAllInstructors] = useState([]);
-  const [editMainManager, setEditMainManager] = useState("");
+  const [editMainManagers, setEditMainManagers] = useState([]);
+  const [selectedToAdd, setSelectedToAdd] = useState([]);
   
   const [tab, setTab] = useState("lessons");
   const [loading, setLoading] = useState(true);
@@ -92,7 +139,7 @@ export default function InstructorCourse() {
       supabase.from("test_scores").select("*"),
       supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId),
       supabase.from("course_instructors").select("user_id").eq("course_id", courseId),
-      supabase.from("users").select("id, name, email, role, group_id").in("role", ["instructor", "course_manager", "admin"])
+      supabase.from("users").select("id, name, email, role, group_id").or("role.like.%instructor%,role.like.%course_manager%,role.like.%admin%")
     ]);
     
     if (cRes.data) {
@@ -131,28 +178,26 @@ export default function InstructorCourse() {
       // Find matching user for c.instructor name
       const matchingUser = allInstructorsInDb.find(u => u.name === c.instructor);
       if (matchingUser) {
-        setEditMainManager(matchingUser.id);
+        setEditMainManagers([matchingUser.id]);
       } else {
         const groupCM = allInstructorsInDb.find(u => u.group_id === c.group_id && u.role === "course_manager");
-        if (groupCM) {
-          setEditMainManager(groupCM.id);
-        } else {
-          setEditMainManager("");
-        }
+        setEditMainManagers(groupCM ? [groupCM.id] : []);
       }
 
+      const mainManagerIds = matchingUser ? [matchingUser.id] : [];
+
       // Exclude Main Manager from Assigned Instructors
-      const assigned = allInstructorsInDb.filter(inst => 
-        assignedIds.includes(inst.id) && 
-        inst.id !== (matchingUser?.id || "")
+      const assigned = allInstructorsInDb.filter(inst =>
+        assignedIds.includes(inst.id) &&
+        !mainManagerIds.includes(inst.id)
       );
       setCourseInstructors(assigned);
 
       // Exclude Main Manager from Available Instructors
-      const available = allInstructorsInDb.filter(inst => 
+      const available = allInstructorsInDb.filter(inst =>
         !assignedIds.includes(inst.id) &&
-        inst.id !== (matchingUser?.id || "") &&
-        inst.role === "instructor"
+        !mainManagerIds.includes(inst.id) &&
+        inst.role?.split(",").map(r => r.trim()).includes("instructor")
       );
       setAvailableInstructors(available);
     }
@@ -171,12 +216,11 @@ export default function InstructorCourse() {
     }
   }, [courseId, user]);
 
-  const handleAddInstructor = async (userId) => {
+  const handleAddInstructor = async (userIds) => {
+    if (!userIds || userIds.length === 0) return;
     try {
-      const { error } = await supabase
-        .from("course_instructors")
-        .insert({ course_id: courseId, user_id: userId });
-        
+      const rows = userIds.map(uid => ({ course_id: courseId, user_id: uid }));
+      const { error } = await supabase.from("course_instructors").insert(rows);
       if (error) throw error;
       toast("เพิ่มอาจารย์ผู้สอนร่วมเรียบร้อยแล้ว");
       loadData();
@@ -262,12 +306,14 @@ export default function InstructorCourse() {
     if (!editTitle) return toast("กรุณากรอกชื่อรายวิชา", "warning");
     setSavingTitle(true);
     try {
-      const selectedManager = allInstructors.find(u => u.id === editMainManager);
-      const managerName = selectedManager ? selectedManager.name : course.instructor;
+      const managerNames = editMainManagers
+        .map(id => allInstructors.find(u => u.id === id)?.name)
+        .filter(Boolean);
+      const managerName = managerNames.length > 0 ? managerNames.join(", ") : course.instructor;
 
       const { error } = await supabase
         .from("courses")
-        .update({ 
+        .update({
           title: editTitle,
           year_level: editYearLevels,
           instructor: managerName
@@ -276,19 +322,15 @@ export default function InstructorCourse() {
 
       if (error) throw error;
 
-      // Ensure Main Manager is in course_instructors
-      if (editMainManager) {
+      // Ensure all main managers are in course_instructors
+      for (const mgId of editMainManagers) {
         const { data: existing } = await supabase
           .from("course_instructors")
-          .select("*")
+          .select("user_id")
           .eq("course_id", course.id)
-          .eq("user_id", editMainManager);
-
+          .eq("user_id", mgId);
         if (!existing || existing.length === 0) {
-          await supabase.from("course_instructors").insert({
-            course_id: course.id,
-            user_id: editMainManager
-          });
+          await supabase.from("course_instructors").insert({ course_id: course.id, user_id: mgId });
         }
       }
 
@@ -510,23 +552,12 @@ export default function InstructorCourse() {
             {/* อาจารย์ผู้รับผิดชอบหลัก */}
             <div className="field mb-3">
               <label className="label">อาจารย์ผู้รับผิดชอบหลัก <span className="c-danger">*</span></label>
-              <select 
-                className="input" 
-                value={editMainManager} 
-                onChange={(e) => setEditMainManager(e.target.value)}
-                disabled
-              >
-                {allInstructors.find(u => u.id === editMainManager) ? (
-                  <option value={editMainManager}>
-                    {allInstructors.find(u => u.id === editMainManager)?.name} ({
-                      allInstructors.find(u => u.id === editMainManager)?.role === "admin" ? "แอดมิน" : 
-                      allInstructors.find(u => u.id === editMainManager)?.role === "course_manager" ? "ผู้รับผิดชอบ" : "อาจารย์ผู้สอน"
-                    })
-                  </option>
-                ) : (
-                  <option value={editMainManager || ""}>{course?.instructor || "ไม่ระบุ"}</option>
-                )}
-              </select>
+              <MultiSelect
+                options={allInstructors}
+                selectedValues={editMainManagers}
+                onChange={setEditMainManagers}
+                placeholder="เลือกอาจารย์ผู้รับผิดชอบหลัก..."
+              />
             </div>
 
             {/* Year Level Access */}
@@ -566,21 +597,13 @@ export default function InstructorCourse() {
                 disabled={savingTitle || (
                   editTitle === course.title && 
                   JSON.stringify(editYearLevels) === JSON.stringify(course.year_level || []) &&
-                  editMainManager === (allInstructors.find(u => u.name === course.instructor)?.id || "")
+                  JSON.stringify(editMainManagers) === JSON.stringify(allInstructors.filter(u => course.instructor?.split(", ").includes(u.name)).map(u => u.id))
                 )}
               >
                 <Icon name={savingTitle ? "loader" : "check"} size={15} className={savingTitle ? "spin" : ""} />
                 {savingTitle ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
               </button>
             </div>
-          </div>
-
-          <div className="card card-p">
-            <div className="t-base fw-7 c-danger mb-2">พื้นที่อันตราย (Danger Zone)</div>
-            <p className="t-sm muted mb-4">การลบรายวิชานี้จะทำให้บทเรียน ข้อสอบ ใบงาน และรายการส่งงานทั้งหมดของรายวิชาถูกลบอย่างถาวรและไม่สามารถกู้คืนได้</p>
-            <button className="btn btn-outline c-danger" onClick={handleDeleteCourse}>
-              <Icon name="trash" size={15} /> ลบรายวิชานี้
-            </button>
           </div>
 
           {/* Managing Instructors section: only for admins and course managers */}
@@ -618,29 +641,21 @@ export default function InstructorCourse() {
                 )}
               </div>
 
-              {/* Add instructor select form */}
+              {/* Add instructor multiselect form */}
               {availableInstructors.length > 0 ? (
-                <div className="flex gap-2">
-                  <select 
-                    className="input" 
-                    id="add-instructor-select" 
-                    defaultValue=""
-                    style={{ flex: 1 }}
-                  >
-                    <option value="" disabled>-- เลือกอาจารย์ในสาขาเพื่อเพิ่มเข้าสู่รายวิชา --</option>
-                    {availableInstructors.map(inst => (
-                      <option key={inst.id} value={inst.id}>{inst.name} ({inst.email})</option>
-                    ))}
-                  </select>
-                  <button 
+                <div className="flex gap-2" style={{ alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <MultiSelect
+                      options={availableInstructors}
+                      selectedValues={selectedToAdd}
+                      onChange={setSelectedToAdd}
+                      placeholder="เลือกอาจารย์เพื่อเพิ่มเข้าสู่รายวิชา..."
+                    />
+                  </div>
+                  <button
                     className="btn btn-primary"
-                    onClick={() => {
-                      const select = document.getElementById("add-instructor-select");
-                      if (select && select.value) {
-                        handleAddInstructor(select.value);
-                        select.value = "";
-                      }
-                    }}
+                    disabled={selectedToAdd.length === 0}
+                    onClick={() => { handleAddInstructor(selectedToAdd); setSelectedToAdd([]); }}
                   >
                     <Icon name="plus" size={14} /> เพิ่มผู้สอน
                   </button>
@@ -650,6 +665,14 @@ export default function InstructorCourse() {
               )}
             </div>
           )}
+
+          <div className="card card-p">
+            <div className="t-base fw-7 c-danger mb-2">พื้นที่อันตราย (Danger Zone)</div>
+            <p className="t-sm muted mb-4">การลบรายวิชานี้จะทำให้บทเรียน ข้อสอบ ใบงาน และรายการส่งงานทั้งหมดของรายวิชาถูกลบอย่างถาวรและไม่สามารถกู้คืนได้</p>
+            <button className="btn btn-outline c-danger" onClick={handleDeleteCourse}>
+              <Icon name="trash" size={15} /> ลบรายวิชานี้
+            </button>
+          </div>
         </div>
       )}
     </div>

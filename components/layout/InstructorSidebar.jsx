@@ -51,6 +51,9 @@ function InstructorSidebarContent({ open, onClose }) {
     items3.push(["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"]);
     items3.push(["/i/master/roles", "shield", "จัดการสิทธิ์ (Roles)", pathname === "/i/master/roles"]);
   }
+  if (hasPermission(user, PERMISSIONS.BROADCASTS_MANAGE)) {
+    items3.push(["/i/master/broadcasts", "bell", "ประกาศ (Broadcasts)", pathname === "/i/master/broadcasts"]);
+  }
 
   const Item = ([to, ic, label, active]) => (
     <Link href={to} key={to + label} className={"sb-item" + (active ? " on" : "")} style={{ textDecoration: 'none' }} onClick={onClose}>

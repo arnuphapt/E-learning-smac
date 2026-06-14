@@ -21,6 +21,7 @@ export default function StudentTopNav() {
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
   const onCal = pathname === "/s/calendar";
+  const onBroadcasts = pathname === "/s/broadcasts";
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -45,7 +46,7 @@ export default function StudentTopNav() {
         <Link href="/s/courses" className={onCourses ? "on" : ""} style={{ textDecoration: 'none' }}>รายวิชา</Link>
         <Link href="/s/assignments" className={onAssignments ? "on" : ""} style={{ textDecoration: 'none' }}>ใบงาน</Link>
         <Link href="/s/calendar" className={onCal ? "on" : ""} style={{ textDecoration: 'none' }}>ปฏิทิน</Link>
-        <Link href="/s/courses" style={{ textDecoration: 'none' }}>ความคืบหน้า</Link>
+        <Link href="/s/broadcasts" className={onBroadcasts ? "on" : ""} style={{ textDecoration: 'none' }}>ประกาศ</Link>
       </nav>
       <div className="proto-spacer" />
       <div className="rel hide-m">

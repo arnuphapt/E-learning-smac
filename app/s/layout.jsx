@@ -2,6 +2,7 @@
 
 import StudentTopNav from "@/components/layout/StudentTopNav";
 import StudentMobileTabbar from "@/components/layout/StudentMobileTabbar";
+import CatMascot from "@/components/ui/CatMascot";
 
 export default function StudentLayout({ children }) {
   return (
@@ -11,6 +12,7 @@ export default function StudentLayout({ children }) {
         {children}
       </div>
       <StudentMobileTabbar />
+      <CatMascot />
     </div>
   );
 }

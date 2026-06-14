@@ -61,6 +61,13 @@ const RESOURCES = [
       { id: "users:manage", label: "จัดการทั้งหมด" },
       { id: "users:impersonate", label: "ดูมุมมองผู้ใช้ (Impersonate)" }
     ]
+  },
+  {
+    key: "broadcasts",
+    label: "ประกาศ (Broadcasts)",
+    actions: [
+      { id: "broadcasts:manage", label: "สร้าง/แก้ไข/ลบประกาศ" }
+    ]
   }
 ];
 

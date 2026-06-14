@@ -208,14 +208,14 @@ export default function CreateCourse() {
   const [loading, setLoading] = React.useState(true);
 
   // RBAC Assignment States
-  const [mainManager, setMainManager] = React.useState("");
+  const [mainManagers, setMainManagers] = React.useState([]);
   const [selectedInstructors, setSelectedInstructors] = React.useState([]);
 
   React.useEffect(() => {
     async function load() {
       const [tRes, uRes, gRes, sRes, sgmRes] = await Promise.all([
         supabase.from("terms").select("*"),
-        supabase.from("users").select("*").in("role", ["instructor", "admin", "course_manager"]),
+        supabase.from("users").select("*").or("role.like.%instructor%,role.like.%admin%,role.like.%course_manager%"),
         supabase.from("subject_groups").select("*").eq("status", "active"),
         supabase.from("sections").select("*").eq("status", "active"),
         supabase.from("subject_group_managers").select("*")
@@ -262,10 +262,10 @@ export default function CreateCourse() {
     }
   }, [user]);
 
-  // Set mainManager to the current logged-in user (creator) and keep it locked
+  // Pre-select current user as main manager
   React.useEffect(() => {
     if (user?.id) {
-      setMainManager(user.id);
+      setMainManagers([user.id]);
     }
   }, [user]);
 
@@ -296,8 +296,8 @@ export default function CreateCourse() {
     ? subjectGroups
     : subjectGroups.filter(g => myManagedGroupIds.includes(g.id));
 
-  const availableInstructors = instructors.filter(u => 
-    u.role === "instructor"
+  const availableInstructors = instructors.filter(u =>
+    u.role === "instructor" && !mainManagers.includes(u.id)
   );
 
   const create = async () => {
@@ -305,8 +305,8 @@ export default function CreateCourse() {
       toast("กรุณากรอกชื่อวิชาและรหัสวิชา");
       return;
     }
-    if (!mainManager) {
-      toast("กรุณาเลือกอาจารย์ผู้รับผิดชอบหลัก");
+    if (mainManagers.length === 0) {
+      toast("กรุณาเลือกอาจารย์ผู้รับผิดชอบหลักอย่างน้อย 1 คน");
       return;
     }
 
@@ -317,8 +317,10 @@ export default function CreateCourse() {
     }
 
     const selectedGroup = subjectGroups.find(g => g.id === subjectGroup);
-    const selectedManagerUser = instructors.find(u => u.id === mainManager);
-    const mainManagerName = selectedManagerUser ? selectedManagerUser.name : (user?.name || "ไม่ระบุ");
+    const mainManagerNames = mainManagers
+      .map(id => instructors.find(u => u.id === id)?.name)
+      .filter(Boolean);
+    const mainManagerName = mainManagerNames.length > 0 ? mainManagerNames.join(", ") : (user?.name || "ไม่ระบุ");
 
     const newCourse = {
       id: "c_" + Date.now(),
@@ -348,8 +350,8 @@ export default function CreateCourse() {
       // Link main manager, selected instructors, and creator to course_instructors
       const insertRows = [];
       const uniqueUserIds = new Set();
-      
-      if (mainManager) uniqueUserIds.add(mainManager);
+
+      mainManagers.forEach(id => uniqueUserIds.add(id));
       selectedInstructors.forEach(id => uniqueUserIds.add(id));
       if (user?.id) uniqueUserIds.add(user.id);
       
@@ -451,14 +453,12 @@ export default function CreateCourse() {
               <div className="grid grid-2 gap-3">
                 <div className="field">
                   <label className="label">อาจารย์ผู้รับผิดชอบหลัก <span className="c-danger">*</span></label>
-                  <select 
-                    className="input" 
-                    value={mainManager} 
-                    onChange={(e) => setMainManager(e.target.value)}
-                    disabled
-                  >
-                    <option value={user?.id || ""}>{user?.name || "กำลังโหลด..."}</option>
-                  </select>
+                  <MultiSelect
+                    options={instructors.filter(u => !selectedInstructors.includes(u.id))}
+                    selectedValues={mainManagers}
+                    onChange={setMainManagers}
+                    placeholder="เลือกอาจารย์ผู้รับผิดชอบหลัก..."
+                  />
                 </div>
                 <div className="field">
                   <label className="label">หน่วยกิต</label>
@@ -471,7 +471,7 @@ export default function CreateCourse() {
                 <label className="label">อาจารย์ผู้สอนร่วม <span className="t-xs muted fw-4">(เลือกได้หลายคน)</span></label>
                 <div style={{ paddingTop: 6 }}>
                   <MultiSelect
-                    options={availableInstructors.filter(u => u.id !== mainManager)}
+                    options={availableInstructors}
                     selectedValues={selectedInstructors}
                     onChange={setSelectedInstructors}
                     placeholder="เลือกอาจารย์ผู้สอนร่วม..."
@@ -547,7 +547,7 @@ export default function CreateCourse() {
                   <div className="t-xs muted mt-1 pretty" style={{ minHeight: 30 }}>{subtitle || "คำอธิบายรายวิชาจะแสดงที่นี่"}</div>
                   <div className="flex items-center gap-2 mt-2 t-xs muted">
                     <Icon name="user" size={13} />
-                    ผู้รับผิดชอบหลัก: {instructors.find(u => u.id === mainManager)?.name || "ไม่ระบุ"}
+                    ผู้รับผิดชอบหลัก: {mainManagers.map(id => instructors.find(u => u.id === id)?.name).filter(Boolean).join(", ") || "ไม่ระบุ"}
                   </div>
                   {selectedInstructors.length > 0 && (
                     <div className="flex items-center gap-2 mt-1 t-xs muted">
@@ -566,7 +566,7 @@ export default function CreateCourse() {
             </div>
           </div>
           <div className="flex col gap-2 mt-4">
-            <button className="btn btn-primary btn-lg btn-block" disabled={!title || !code || !term || !mainManager} onClick={create}>
+            <button className="btn btn-primary btn-lg btn-block" disabled={!title || !code || !term || mainManagers.length === 0} onClick={create}>
               <Icon name="plus" size={17} />สร้างรายวิชา
             </button>
             <button className="btn btn-outline btn-block" onClick={() => nav("/i/courses")}>ยกเลิก</button>
