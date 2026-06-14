@@ -108,6 +108,14 @@ function VideoManage({ lesson, onSave, toast }) {
       setVideoProgress("บันทึกข้อมูล...");
 
       await onSave({
+        title: title || "บทเรียนใหม่",
+        description: desc,
+        duration,
+        status,
+        pretest: { ...lesson.pretest, required: preReq },
+        posttest: { ...lesson.posttest, required: postReq },
+        watch_limit: watchLimit,
+        allow_download: allowDownload,
         video: true,
         video_url: publicUrl,
         video_path: key
@@ -1002,9 +1010,7 @@ function InstructorLessonContent() {
     const isNew = lessonId === "new";
     if (isNew) {
       const newLessonObj = {
-        id: lesson.id,
-        course_id: lesson.course_id,
-        index: lesson.index,
+        ...lesson,
         ...updatedFields
       };
       const { error } = await supabase.from("lessons").insert([newLessonObj]);
