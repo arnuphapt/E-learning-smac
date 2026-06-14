@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { PageHead } from "@/components/ui/Shared";
 import { Badge } from "@/components/ui/Primitives";
-import CatMascot from "@/components/ui/CatMascot";
 
 export default function StudentBroadcastsPage() {
   const [broadcasts, setBroadcasts] = useState([]);

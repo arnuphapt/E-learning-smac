@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { supabase } from "@/lib/supabase";
 import Icon from "../ui/Icon";
 import { Avatar } from "../ui/Primitives";
 
@@ -25,12 +26,26 @@ export default function StudentTopNav() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef(null);
+  const [broadcasts, setBroadcasts] = useState([]);
+
+  useEffect(() => {
+    const now = new Date().toISOString();
+    supabase
+      .from("broadcasts")
+      .select("id,title,body,pinned,created_at")
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .order("pinned", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(({ data }) => setBroadcasts(data || []));
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(event.target)) setMenuOpen(false);
+      if (bellRef.current && !bellRef.current.contains(event.target)) setBellOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -53,7 +68,35 @@ export default function StudentTopNav() {
         <Icon name="search" size={16} style={{ position: "absolute", left: 11, top: 10, color: "var(--subtle)" }} />
         <input className="input" style={{ width: 220, paddingLeft: 34, height: 38 }} placeholder="ค้นหารายวิชา บทเรียน…" />
       </div>
-      <button className="iconbtn ghost"><Icon name="bell" size={18} /></button>
+      <div className="rel" ref={bellRef}>
+        <button className="iconbtn ghost rel" onClick={() => setBellOpen(v => !v)} style={{ position: "relative" }}>
+          <Icon name="bell" size={18} />
+          {broadcasts.length > 0 && (
+            <span style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: "#ef4444", border: "1.5px solid var(--surface, #fff)" }} />
+          )}
+        </button>
+        {bellOpen && (
+          <div className="card shadow" style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 320, maxHeight: 400, overflowY: "auto", zIndex: 200, padding: 0, borderRadius: 12 }}>
+            <div className="flex items-center justify-between" style={{ padding: "12px 14px 8px", borderBottom: "1px solid var(--border)" }}>
+              <span className="fw-7 t-sm">ประกาศ</span>
+              <Link href="/s/broadcasts" className="t-xs" style={{ color: "var(--primary)", textDecoration: "none" }} onClick={() => setBellOpen(false)}>ดูทั้งหมด</Link>
+            </div>
+            {broadcasts.length === 0 ? (
+              <div className="t-sm muted" style={{ padding: "24px 14px", textAlign: "center" }}>ยังไม่มีประกาศ</div>
+            ) : (
+              broadcasts.map(b => (
+                <div key={b.id} style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
+                  <div className="flex items-center gap-1 mb-1">
+                    {b.pinned && <span style={{ fontSize: 11 }}>📌</span>}
+                    <span className="fw-6 t-sm">{b.title}</span>
+                  </div>
+                  {b.body && <div className="t-xs muted" style={{ overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{b.body}</div>}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
       
       <div className="rel" ref={menuRef}>
         <div className="flex items-center gap-2 pointer" onClick={() => setMenuOpen(!menuOpen)} style={{ padding: "4px 8px", borderRadius: 8, transition: ".15s", background: menuOpen ? "var(--muted)" : "transparent" }}>
