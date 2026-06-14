@@ -9,23 +9,26 @@ import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 import { toast } from "@/components/ui/Toast";
+import { signIn } from "next-auth/react";
 
-function RowActions({ onEdit, onDelete }) {
+function RowActions({ onEdit, onDelete, onImpersonate }) {
   return (
     <div className="flex items-center gap-1 justify-end">
+      <button className="iconbtn ghost c-primary" onClick={onImpersonate} title="ดูมุมมองผู้ใช้ (Impersonate)"><Icon name="eye" size={15} /></button>
       <button className="iconbtn ghost" onClick={onEdit}><Icon name="pencil" size={15} /></button>
       <button className="iconbtn ghost c-danger" onClick={onDelete}><Icon name="trash" size={15} /></button>
     </div>
   );
 }
 
-function UserDialog({ mode, row, rolesList, onClose, onSave }) {
+function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
   const [name, setName] = React.useState(row ? row.name : "");
   const [email, setEmail] = React.useState(row ? row.email : "");
   const [role, setRole] = React.useState(row ? row.role : "student");
   const [studentId, setStudentId] = React.useState(row ? (row.role === "student" ? row.studentId : "") : "");
   const [sec, setSec] = React.useState(row ? row.sec : "ไม่มี");
   const [status, setStatus] = React.useState(row ? row.status : "active");
+  const [groupId, setGroupId] = React.useState(row ? row.group_id : "");
 
   const handleSave = () => {
     if (!name || !email) {
@@ -38,6 +41,7 @@ function UserDialog({ mode, row, rolesList, onClose, onSave }) {
       role,
       studentId: role === "student" ? studentId : "อาจารย์ผู้สอน",
       sec: role === "student" ? sec : "ไม่มี",
+      groupId: role !== "student" ? groupId : null,
       status
     });
   };
@@ -86,6 +90,17 @@ function UserDialog({ mode, row, rolesList, onClose, onSave }) {
             </select>
           </div>
         )}
+        {role !== "student" && (
+          <div className="field">
+            <label className="label">กลุ่มวิชา / สาขาวิชา</label>
+            <select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+              <option value="">ไม่ระบุกลุ่มวิชา</option>
+              {subjectGroups && subjectGroups.map(g => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="field">
           <label className="label">สถานะการใช้งาน</label>
           <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -114,6 +129,8 @@ export default function MasterUsersPage() {
   const [usersList, setUsersList] = useState([]);
   const [gradesList, setGradesList] = useState([]);
   const [rolesList, setRolesList] = useState([]);
+  const [subjectGroups, setSubjectGroups] = useState([]);
+  const [groupManagers, setGroupManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState(null); // {mode, row}
   const [confirmDlg, setConfirmDlg] = useState(null); // {title, desc, onConfirm}
@@ -122,10 +139,12 @@ export default function MasterUsersPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [uRes, gRes, rRes] = await Promise.all([
+    const [uRes, gRes, rRes, sgRes, sgmRes] = await Promise.all([
       supabase.from("users").select("*"),
       supabase.from("student_grades").select("*"),
-      supabase.from("roles").select("id, name")
+      supabase.from("roles").select("id, name"),
+      supabase.from("subject_groups").select("*").eq("status", "active"),
+      supabase.from("subject_group_managers").select("*")
     ]);
 
     if (rRes.data) {
@@ -134,6 +153,14 @@ export default function MasterUsersPage() {
 
     if (gRes.data) {
       setGradesList(gRes.data);
+    }
+
+    if (sgRes.data) {
+      setSubjectGroups(sgRes.data);
+    }
+
+    if (sgmRes.data) {
+      setGroupManagers(sgmRes.data);
     }
 
     if (uRes.data) {
@@ -158,7 +185,8 @@ export default function MasterUsersPage() {
       email: updatedUser.email,
       role: updatedUser.role,
       student_no: updatedUser.role === "student" ? updatedUser.studentId : updatedUser.studentId || "อาจารย์ผู้สอน",
-      section: updatedUser.role === "student" ? updatedUser.sec : "ไม่มี"
+      section: updatedUser.role === "student" ? updatedUser.sec : "ไม่มี",
+      group_id: updatedUser.groupId
     };
 
     if (dlg.mode === "add") {
@@ -167,7 +195,7 @@ export default function MasterUsersPage() {
       if (error) {
         toast("เกิดข้อผิดพลาดในการเพิ่มผู้ใช้: " + error.message);
       } else {
-        setUsersList(prev => [...prev, { id: newId, ...dbUser, studentId: dbUser.student_no, sec: dbUser.section, status: updatedUser.status }]);
+        setUsersList(prev => [...prev, { id: newId, ...dbUser, studentId: dbUser.student_no, sec: dbUser.section, group_id: dbUser.group_id, status: updatedUser.status }]);
         toast("เพิ่มผู้ใช้งานเรียบร้อยแล้ว");
       }
     } else {
@@ -175,9 +203,31 @@ export default function MasterUsersPage() {
       if (error) {
         toast("เกิดข้อผิดพลาดในการแก้ไขผู้ใช้: " + error.message);
       } else {
-        setUsersList(prev => prev.map(u => u.id === dlg.row.id ? { ...u, ...dbUser, studentId: dbUser.student_no, sec: dbUser.section, status: updatedUser.status } : u));
+        setUsersList(prev => prev.map(u => u.id === dlg.row.id ? { ...u, ...dbUser, studentId: dbUser.student_no, sec: dbUser.section, group_id: dbUser.group_id, status: updatedUser.status } : u));
         toast("บันทึกการแก้ไขเรียบร้อยแล้ว");
       }
+    }
+  };
+
+  const handleImpersonate = async (user) => {
+    toast("กำลังเตรียมสลับหน้าสวมบทบาท...");
+    
+    const isStaff = user.role === "admin" || user.role === "course_manager" || user.role === "instructor";
+    const callbackUrl = isStaff ? "/i/courses" : "/s/courses";
+
+    const result = await signIn("credentials", {
+      userId: user.id,
+      callbackUrl,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      toast("เกิดข้อผิดพลาดในการสวมบทบาท: " + result.error, "error");
+    } else {
+      toast(`สวมบทบาทเป็น ${user.name} สำเร็จ! กำลังเปลี่ยนหน้า...`);
+      setTimeout(() => {
+        window.location.href = callbackUrl;
+      }, 800);
     }
   };
 
@@ -277,7 +327,15 @@ export default function MasterUsersPage() {
                 const r = rolesList.find(r => r.id === u.role);
                 const roleName = r ? r.name : u.role;
                 const tone = u.role === "admin" ? "danger" : u.role === "instructor" ? "primary" : u.role === "student" ? "info" : "outline";
-                return <Badge tone={tone}>{roleName}</Badge>;
+                const userGroupIds = groupManagers.filter(sgm => sgm.user_id === u.id).map(sgm => sgm.group_id);
+                const userGroupNames = subjectGroups.filter(g => userGroupIds.includes(g.id)).map(g => g.name);
+                const groupsDisplay = userGroupNames.length > 0 ? userGroupNames.join(", ") : (u.group_id && subjectGroups.find(g => g.id === u.group_id)?.name);
+                return (
+                  <div>
+                    <Badge tone={tone}>{roleName}</Badge>
+                    {groupsDisplay && <div className="t-xs muted mt-1">{groupsDisplay}</div>}
+                  </div>
+                );
               })()}
             </td>
             <td className="tnum t-sm">
@@ -310,13 +368,14 @@ export default function MasterUsersPage() {
                     onConfirm: () => handleDeleteUser(u.id)
                   });
                 }}
+                onImpersonate={() => handleImpersonate(u)}
               />
             </td>
           </tr>
         )}
       />
 
-      {dlg && <UserDialog mode={dlg.mode} row={dlg.row} rolesList={rolesList} onClose={() => setDlg(null)} onSave={handleSaveUser} />}
+      {dlg && <UserDialog mode={dlg.mode} row={dlg.row} rolesList={rolesList} subjectGroups={subjectGroups} onClose={() => setDlg(null)} onSave={handleSaveUser} />}
       {confirmDlg && <ConfirmDialog title={confirmDlg.title} desc={confirmDlg.desc} onConfirm={confirmDlg.onConfirm} onClose={() => setConfirmDlg(null)} />}
     </div>
   );

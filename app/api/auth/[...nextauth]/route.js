@@ -35,6 +35,13 @@ export const authOptions = {
             if (roleData) permissions = roleData.permissions || [];
           }
 
+          // Fetch multiple subject groups managed by this user
+          const { data: sgmList } = await supabase
+            .from("subject_group_managers")
+            .select("group_id")
+            .eq("user_id", dbUser.id);
+          const groupIds = sgmList ? sgmList.map(item => item.group_id) : [];
+
           return {
             id: dbUser.id,
             name: dbUser.name,
@@ -42,6 +49,8 @@ export const authOptions = {
             role: dbUser.role,
             dbId: dbUser.id,
             study_year: dbUser.study_year,
+            group_id: groupIds[0] || dbUser.group_id || null,
+            group_ids: groupIds,
             permissions: permissions,
           };
         }
@@ -62,7 +71,7 @@ export const authOptions = {
         // 1. Check if the user already exists in public.users table (allows pre-registered admins, instructors, and students)
         const { data: dbUser } = await supabase
           .from("users")
-          .select("id, role, study_year")
+          .select("id, role, study_year, group_id")
           .eq("email", email)
           .single();
 
@@ -70,6 +79,16 @@ export const authOptions = {
           user.role = dbUser.role;
           user.dbId = dbUser.id;
           user.study_year = dbUser.study_year ?? null;
+          
+          // Fetch multiple subject groups managed by this user
+          const { data: sgmList } = await supabase
+            .from("subject_group_managers")
+            .select("group_id")
+            .eq("user_id", dbUser.id);
+          const groupIds = sgmList ? sgmList.map(item => item.group_id) : [];
+
+          user.group_id = groupIds[0] || dbUser.group_id || null;
+          user.group_ids = groupIds;
           
           let permissions = [];
           if (dbUser.role) {
@@ -133,6 +152,8 @@ export const authOptions = {
         user.role = role;
         user.dbId = newId;
         user.study_year = studyYear;
+        user.group_id = null;
+        user.group_ids = [];
         user.permissions = permissions;
         return true;
       }
@@ -143,6 +164,8 @@ export const authOptions = {
         token.role = user.role;
         token.dbId = user.dbId || user.id;
         token.study_year = user.study_year ?? null;
+        token.group_id = user.group_id || null;
+        token.group_ids = user.group_ids || [];
         token.permissions = user.permissions || [];
       }
       return token;
@@ -152,6 +175,8 @@ export const authOptions = {
         session.user.role = token.role || "student";
         session.user.id = token.dbId || token.sub;
         session.user.study_year = token.study_year ?? null;
+        session.user.group_id = token.group_id || null;
+        session.user.group_ids = token.group_ids || [];
         session.user.permissions = token.permissions || [];
       }
       session.dbId = token.dbId || token.sub;

@@ -6,6 +6,9 @@ import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import { toast } from "@/components/ui/Toast";
+import { useSession } from "next-auth/react";
+import { hasPermission, PERMISSIONS } from "@/lib/rbac";
+
 
 function ToggleRow({ label, on }) {
   const [v, setV] = React.useState(on);
@@ -19,10 +22,172 @@ function ToggleRow({ label, on }) {
   );
 }
 
+function MultiSelect({ options, selectedValues, onChange, placeholder = "เลือกคณาจารย์..." }) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const containerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOptions = options.filter(opt => selectedValues.includes(opt.id));
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
+      <style>{`
+        .multi-option-item:hover {
+          background-color: var(--muted, #f1f5f9) !important;
+        }
+      `}</style>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className="input flex items-center justify-between"
+        style={{ 
+          cursor: "pointer", 
+          minHeight: 40, 
+          height: "auto", 
+          padding: "6px 12px", 
+          display: "flex", 
+          flexWrap: "wrap", 
+          gap: 6,
+          background: "var(--surface, #fff)",
+          border: "1px solid var(--border-strong, #cbd5e1)",
+          borderRadius: 8
+        }}
+      >
+        {selectedOptions.length === 0 ? (
+          <span className="muted t-sm">{placeholder}</span>
+        ) : (
+          <div className="flex wrap gap-1" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {selectedOptions.map(opt => (
+              <span 
+                key={opt.id} 
+                className="badge" 
+                style={{ 
+                  display: "inline-flex", 
+                  alignItems: "center", 
+                  gap: 4, 
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  background: "var(--primary-soft, #eef6ff)",
+                  color: "var(--primary-soft-fg, #1e5fa8)",
+                  border: "1px solid var(--border, #bfdbfe)",
+                  fontSize: "12px",
+                  fontWeight: 600
+                }}
+              >
+                {opt.name}
+                <span 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onChange(selectedValues.filter(id => id !== opt.id)); 
+                  }}
+                  style={{ 
+                    cursor: "pointer", 
+                    fontWeight: "bold",
+                    fontSize: 12,
+                    marginLeft: 4,
+                    color: "var(--primary)"
+                  }}
+                >
+                  ✕
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+        <Icon name="chevD" size={15} className="muted" style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: ".15s", marginLeft: "auto" }} />
+      </div>
+
+      {isOpen && (
+        <div 
+          style={{ 
+            position: "absolute", 
+            top: "100%", 
+            left: 0, 
+            right: 0, 
+            zIndex: 100, 
+            background: "#fff", 
+            border: "1px solid var(--border-strong, #cbd5e1)", 
+            borderRadius: 8, 
+            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)", 
+            marginTop: 4, 
+            maxHeight: 220, 
+            overflowY: "auto",
+            padding: 6
+          }}
+        >
+          {options.length === 0 ? (
+            <div className="t-xs muted text-center p-3">ไม่มีข้อมูลผู้สอน</div>
+          ) : (
+            options.map(u => {
+              const isSelected = selectedValues.includes(u.id);
+              return (
+                <div 
+                  key={u.id}
+                  onClick={() => {
+                    if (isSelected) {
+                      onChange(selectedValues.filter(id => id !== u.id));
+                    } else {
+                      onChange([...selectedValues, u.id]);
+                    }
+                  }}
+                  style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: 8, 
+                    padding: "8px 12px", 
+                    borderRadius: 6,
+                    cursor: "pointer", 
+                    background: isSelected ? "var(--primary-soft, #eef6ff)" : "transparent",
+                    color: isSelected ? "var(--primary-soft-fg, #1e5fa8)" : "var(--fg)",
+                    transition: ".1s",
+                    userSelect: "none",
+                    marginBottom: 2
+                  }}
+                  className="multi-option-item"
+                >
+                  <input 
+                    type="checkbox" 
+                    checked={isSelected}
+                    onChange={() => {}}
+                    style={{ pointerEvents: "none" }}
+                  />
+                  <div className="flex col" style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+                    <span className="t-sm fw-6" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.name}</span>
+                    <span className="t-xs muted" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {u.role === "course_manager" ? "ผู้รับผิดชอบ" : "ผู้สอน"} · {u.email}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CreateCourse() {
   const router = useRouter();
+  const { data: session, status } = useSession();
+  const user = session?.user;
   const nav = (path) => router.push(path);
 
+  React.useEffect(() => {
+    if (status === "loading") return;
+    if (!user || !hasPermission(user, PERMISSIONS.COURSES_CREATE)) {
+      toast("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+      router.push("/i/courses");
+    }
+  }, [user, status]);
 
   const COLORS = ["#0d6e8c", "#1e5fa8", "#2f7d5b", "#5b4b9e", "#b4530b", "#0b1220"];
   const [title, setTitle] = React.useState("");
@@ -30,7 +195,6 @@ export default function CreateCourse() {
   const [subtitle, setSubtitle] = React.useState("");
   const [color, setColor] = React.useState(COLORS[0]);
   const [term, setTerm] = React.useState("");
-  const [instructor, setInstructor] = React.useState("");
   const [credits, setCredits] = React.useState("3 (2-2-5)");
   const [subjectGroup, setSubjectGroup] = React.useState("");
   const [section, setSection] = React.useState("");
@@ -40,15 +204,21 @@ export default function CreateCourse() {
   const [instructors, setInstructors] = React.useState([]);
   const [subjectGroups, setSubjectGroups] = React.useState([]);
   const [sections, setSections] = React.useState([]);
+  const [groupManagers, setGroupManagers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+
+  // RBAC Assignment States
+  const [mainManager, setMainManager] = React.useState("");
+  const [selectedInstructors, setSelectedInstructors] = React.useState([]);
 
   React.useEffect(() => {
     async function load() {
-      const [tRes, uRes, gRes, sRes] = await Promise.all([
+      const [tRes, uRes, gRes, sRes, sgmRes] = await Promise.all([
         supabase.from("terms").select("*"),
-        supabase.from("users").select("*").in("role", ["instructor", "admin"]),
+        supabase.from("users").select("*").in("role", ["instructor", "admin", "course_manager"]),
         supabase.from("subject_groups").select("*").eq("status", "active"),
-        supabase.from("sections").select("*").eq("status", "active")
+        supabase.from("sections").select("*").eq("status", "active"),
+        supabase.from("subject_group_managers").select("*")
       ]);
 
       const fetchedTerms = tRes.data || [];
@@ -59,13 +229,23 @@ export default function CreateCourse() {
 
       const fetchedInstructors = uRes.data || [];
       setInstructors(fetchedInstructors);
-      if (fetchedInstructors.length > 0) {
-        setInstructor(fetchedInstructors[0].name);
-      }
 
       const fetchedGroups = gRes.data || [];
       setSubjectGroups(fetchedGroups);
-      if (fetchedGroups.length > 0) {
+
+      const fetchedGroupManagers = sgmRes.data || [];
+      setGroupManagers(fetchedGroupManagers);
+      
+      // If course manager, auto-set their department and only show/pre-select it
+      if (user?.role === "course_manager") {
+        const myDbGroups = fetchedGroupManagers.filter(sgm => sgm.user_id === user.id).map(sgm => sgm.group_id);
+        const myGroupId = myDbGroups[0] || user?.group_id;
+        if (myGroupId) {
+          setSubjectGroup(myGroupId);
+        } else if (fetchedGroups.length > 0) {
+          setSubjectGroup(fetchedGroups[0].id);
+        }
+      } else if (fetchedGroups.length > 0) {
         setSubjectGroup(fetchedGroups[0].id);
       }
 
@@ -77,12 +257,56 @@ export default function CreateCourse() {
 
       setLoading(false);
     }
-    load();
-  }, []);
+    if (user) {
+      load();
+    }
+  }, [user]);
+
+  // Set mainManager to the current logged-in user (creator) and keep it locked
+  React.useEffect(() => {
+    if (user?.id) {
+      setMainManager(user.id);
+    }
+  }, [user]);
+
+  // Handle group change side effects
+  React.useEffect(() => {
+    if (!subjectGroup || instructors.length === 0) return;
+    
+    // Clear selected instructors (since group changed)
+    setSelectedInstructors([]);
+  }, [subjectGroup, instructors]);
+
+  // Group IDs managed by the current user computed directly from the fetched database managers
+  const myManagedGroupIds = React.useMemo(() => {
+    if (!user) return [];
+    if (user.role === "admin") return subjectGroups.map(g => g.id);
+    
+    const dbGroupIds = groupManagers
+      .filter(sgm => sgm.user_id === user.id)
+      .map(sgm => sgm.group_id);
+      
+    if (user.group_id && !dbGroupIds.includes(user.group_id)) {
+      dbGroupIds.push(user.group_id);
+    }
+    return dbGroupIds;
+  }, [groupManagers, user, subjectGroups]);
+
+  const filteredGroups = user?.role === "admin"
+    ? subjectGroups
+    : subjectGroups.filter(g => myManagedGroupIds.includes(g.id));
+
+  const availableInstructors = instructors.filter(u => 
+    u.role === "instructor"
+  );
 
   const create = async () => {
     if (!title || !code) {
       toast("กรุณากรอกชื่อวิชาและรหัสวิชา");
+      return;
+    }
+    if (!mainManager) {
+      toast("กรุณาเลือกอาจารย์ผู้รับผิดชอบหลัก");
       return;
     }
 
@@ -93,6 +317,8 @@ export default function CreateCourse() {
     }
 
     const selectedGroup = subjectGroups.find(g => g.id === subjectGroup);
+    const selectedManagerUser = instructors.find(u => u.id === mainManager);
+    const mainManagerName = selectedManagerUser ? selectedManagerUser.name : (user?.name || "ไม่ระบุ");
 
     const newCourse = {
       id: "c_" + Date.now(),
@@ -101,7 +327,7 @@ export default function CreateCourse() {
       subtitle,
       term,
       year: String(selectedYear),
-      instructor: instructor || "ไม่ระบุ",
+      instructor: mainManagerName,
       group_id: subjectGroup || null,
       group_name: selectedGroup?.name || null,
       section: section || null,
@@ -119,10 +345,40 @@ export default function CreateCourse() {
       console.error("Error creating course", error);
       toast("เกิดข้อผิดพลาดในการสร้างรายวิชา: " + error.message);
     } else {
+      // Link main manager, selected instructors, and creator to course_instructors
+      const insertRows = [];
+      const uniqueUserIds = new Set();
+      
+      if (mainManager) uniqueUserIds.add(mainManager);
+      selectedInstructors.forEach(id => uniqueUserIds.add(id));
+      if (user?.id) uniqueUserIds.add(user.id);
+      
+      uniqueUserIds.forEach(userId => {
+        insertRows.push({
+          course_id: newCourse.id,
+          user_id: userId
+        });
+      });
+
+      if (insertRows.length > 0) {
+        const { error: linkError } = await supabase.from("course_instructors").insert(insertRows);
+        if (linkError) {
+          console.error("Error linking course instructors:", linkError);
+        }
+      }
+
       toast("สร้างรายวิชาเรียบร้อยแล้ว");
       setTimeout(() => nav("/i/courses"), 700);
     }
   };
+
+  if (status === "loading" || loading || !user || !hasPermission(user, PERMISSIONS.COURSES_CREATE)) {
+    return (
+      <div className="flex items-center justify-center" style={{ minHeight: "60vh" }}>
+        <div className="t-sm muted">กำลังโหลด...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">
@@ -142,13 +398,18 @@ export default function CreateCourse() {
               <div className="grid grid-2 gap-3">
                 <div className="field"><label className="label">รหัสวิชา <span className="c-danger">*</span></label><input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="เช่น NUR301" /></div>
                 <div className="field"><label className="label">กลุ่มวิชา</label>
-                  <select className="input" value={subjectGroup} onChange={(e) => setSubjectGroup(e.target.value)}>
-                    {subjectGroups.length === 0 ? (
+                  <select 
+                    className="input" 
+                    value={subjectGroup} 
+                    onChange={(e) => setSubjectGroup(e.target.value)}
+                    disabled={user?.role === "course_manager" && filteredGroups.length <= 1}
+                  >
+                    {filteredGroups.length === 0 ? (
                       <option value="">— ยังไม่มีกลุ่มวิชา กรุณาเพิ่มในระบบหลักก่อน —</option>
                     ) : (
                       <>
-                        <option value="">ไม่ระบุกลุ่มวิชา</option>
-                        {subjectGroups.map((g) => (
+                        <option value="">เลือกกลุ่มวิชา</option>
+                        {filteredGroups.map((g) => (
                           <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                       </>
@@ -188,26 +449,38 @@ export default function CreateCourse() {
                 <textarea className="input" rows={3} value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="สรุปขอบเขตเนื้อหาและจุดเน้นของรายวิชา…" />
               </div>
               <div className="grid grid-2 gap-3">
-                <div className="field" style={{ margin: 0 }}>
-                  <label className="label">อาจารย์ผู้สอน</label>
-                  <select className="input" value={instructor} onChange={(e) => setInstructor(e.target.value)}>
-                    {instructors.length === 0 ? (
-                      <option value="">(ไม่มีข้อมูลอาจารย์ผู้สอน - กรุณาเพิ่มผู้ใช้งาน)</option>
-                    ) : (
-                      instructors.map((u) => (
-                        <option key={u.id} value={u.name}>{u.name}</option>
-                      ))
-                    )}
+                <div className="field">
+                  <label className="label">อาจารย์ผู้รับผิดชอบหลัก <span className="c-danger">*</span></label>
+                  <select 
+                    className="input" 
+                    value={mainManager} 
+                    onChange={(e) => setMainManager(e.target.value)}
+                    disabled
+                  >
+                    <option value={user?.id || ""}>{user?.name || "กำลังโหลด..."}</option>
                   </select>
                 </div>
-                <div className="field" style={{ margin: 0 }}>
+                <div className="field">
                   <label className="label">หน่วยกิต</label>
                   <input className="input" value={credits} onChange={(e) => setCredits(e.target.value)} placeholder="เช่น 3 (2-2-5)" />
                 </div>
               </div>
 
+              {/* อาจารย์ผู้สอนร่วม */}
+              <div className="field" style={{ marginTop: 12 }}>
+                <label className="label">อาจารย์ผู้สอนร่วม <span className="t-xs muted fw-4">(เลือกได้หลายคน)</span></label>
+                <div style={{ paddingTop: 6 }}>
+                  <MultiSelect
+                    options={availableInstructors.filter(u => u.id !== mainManager)}
+                    selectedValues={selectedInstructors}
+                    onChange={setSelectedInstructors}
+                    placeholder="เลือกอาจารย์ผู้สอนร่วม..."
+                  />
+                </div>
+              </div>
+
               {/* Year Level Access */}
-              <div className="field" style={{ marginTop: 4 }}>
+              <div className="field" style={{ marginTop: 12 }}>
                 <label className="label">ชั้นปีที่เข้าถึงได้ <span className="t-xs muted fw-4">(ไม่เลือก = ทุกชั้นปี)</span></label>
                 <div className="flex items-center gap-3 flex-wrap" style={{ paddingTop: 6 }}>
                   {[1, 2, 3, 4].map((yr) => {
@@ -264,7 +537,16 @@ export default function CreateCourse() {
                 <div className="card-p" style={{ padding: 16 }}>
                   <div className="fw-7">{title || "ชื่อรายวิชา"}</div>
                   <div className="t-xs muted mt-1 pretty" style={{ minHeight: 30 }}>{subtitle || "คำอธิบายรายวิชาจะแสดงที่นี่"}</div>
-                  <div className="flex items-center gap-2 mt-2 t-xs muted"><Icon name="user" size={13} />{instructor || "ไม่ระบุอาจารย์"}</div>
+                  <div className="flex items-center gap-2 mt-2 t-xs muted">
+                    <Icon name="user" size={13} />
+                    ผู้รับผิดชอบหลัก: {instructors.find(u => u.id === mainManager)?.name || "ไม่ระบุ"}
+                  </div>
+                  {selectedInstructors.length > 0 && (
+                    <div className="flex items-center gap-2 mt-1 t-xs muted">
+                      <Icon name="users" size={13} />
+                      ผู้สอนร่วม: {selectedInstructors.map(id => instructors.find(u => u.id === id)?.name).filter(Boolean).join(", ")}
+                    </div>
+                  )}
                   {section && (
                     <div className="flex items-center gap-2 mt-1 t-xs muted"><Icon name="users" size={13} />Section: {section}</div>
                   )}
@@ -276,7 +558,9 @@ export default function CreateCourse() {
             </div>
           </div>
           <div className="flex col gap-2 mt-4">
-            <button className="btn btn-primary btn-lg btn-block" disabled={!title || !code || !term} onClick={create}><Icon name="plus" size={17} />สร้างรายวิชา</button>
+            <button className="btn btn-primary btn-lg btn-block" disabled={!title || !code || !term || !mainManager} onClick={create}>
+              <Icon name="plus" size={17} />สร้างรายวิชา
+            </button>
             <button className="btn btn-outline btn-block" onClick={() => nav("/i/courses")}>ยกเลิก</button>
           </div>
           <div className="t-xs muted center mt-2">หลังสร้างแล้ว คุณจะเพิ่มบทเรียนและแบบทดสอบได้</div>

@@ -10,6 +10,7 @@ import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
+import { useSession } from "next-auth/react";
 
 function StudentRoster({ students, courseSubmissions, enrolledScores, lessons, assignments }) {
   return (
@@ -60,6 +61,8 @@ export default function InstructorCourse() {
   const params = useParams();
   const nav = (path) => router.push(path);
   const confirm = useConfirm();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const courseId = params?.id;
   const [course, setCourse] = useState(null);
@@ -68,6 +71,10 @@ export default function InstructorCourse() {
   const [assignments, setAssignments] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [testScores, setTestScores] = useState([]);
+  const [courseInstructors, setCourseInstructors] = useState([]);
+  const [availableInstructors, setAvailableInstructors] = useState([]);
+  const [allInstructors, setAllInstructors] = useState([]);
+  const [editMainManager, setEditMainManager] = useState("");
   
   const [tab, setTab] = useState("lessons");
   const [loading, setLoading] = useState(true);
@@ -76,20 +83,78 @@ export default function InstructorCourse() {
   const [savingTitle, setSavingTitle] = useState(false);
 
   const loadData = async () => {
-    if (!courseId) return;
-    const [cRes, lRes, sRes, subRes, tsRes, aRes] = await Promise.all([
+    if (!courseId || !user) return;
+    const [cRes, lRes, sRes, subRes, tsRes, aRes, ciRes, insRes] = await Promise.all([
       supabase.from("courses").select("*").eq("id", courseId).single(),
       supabase.from("lessons").select("*").eq("course_id", courseId).order("index", { ascending: true }),
       supabase.from("users").select("*").eq("role", "student"),
       supabase.from("submissions").select("*"),
       supabase.from("test_scores").select("*"),
-      supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId)
+      supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId),
+      supabase.from("course_instructors").select("user_id").eq("course_id", courseId),
+      supabase.from("users").select("id, name, email, role, group_id").in("role", ["instructor", "course_manager", "admin"])
     ]);
     
     if (cRes.data) {
-      setCourse(cRes.data);
-      setEditTitle(cRes.data.title);
-      setEditYearLevels(cRes.data.year_level || []);
+      const c = cRes.data;
+      const instructorsList = ciRes?.data || [];
+      const isInstructorAssigned = instructorsList.some(i => i.user_id === user?.id);
+
+      // Security check:
+      // 1. Admin has access to everything
+      // 2. Course manager has access to courses in their group/department OR assigned to them
+      // 3. Instructor has access to courses assigned to them
+      let hasAccess = false;
+      if (user?.role === "admin") {
+        hasAccess = true;
+      } else if (user?.role === "course_manager") {
+        hasAccess = c.group_id === user.group_id || user.group_ids?.includes(c.group_id) || isInstructorAssigned;
+      } else if (user?.role === "instructor") {
+        hasAccess = isInstructorAssigned;
+      }
+
+      if (!hasAccess) {
+        toast("คุณไม่มีสิทธิ์เข้าถึงหรือจัดการรายวิชานี้", "error");
+        nav("/i/courses");
+        return;
+      }
+
+      setCourse(c);
+      setEditTitle(c.title);
+      setEditYearLevels(c.year_level || []);
+
+      const allInstructorsInDb = insRes.data || [];
+      setAllInstructors(allInstructorsInDb);
+
+      const assignedIds = instructorsList.map(ci => ci.user_id);
+      
+      // Find matching user for c.instructor name
+      const matchingUser = allInstructorsInDb.find(u => u.name === c.instructor);
+      if (matchingUser) {
+        setEditMainManager(matchingUser.id);
+      } else {
+        const groupCM = allInstructorsInDb.find(u => u.group_id === c.group_id && u.role === "course_manager");
+        if (groupCM) {
+          setEditMainManager(groupCM.id);
+        } else {
+          setEditMainManager("");
+        }
+      }
+
+      // Exclude Main Manager from Assigned Instructors
+      const assigned = allInstructorsInDb.filter(inst => 
+        assignedIds.includes(inst.id) && 
+        inst.id !== (matchingUser?.id || "")
+      );
+      setCourseInstructors(assigned);
+
+      // Exclude Main Manager from Available Instructors
+      const available = allInstructorsInDb.filter(inst => 
+        !assignedIds.includes(inst.id) &&
+        inst.id !== (matchingUser?.id || "") &&
+        inst.role === "instructor"
+      );
+      setAvailableInstructors(available);
     }
     if (lRes.data) setLessons(lRes.data);
     if (sRes.data) setStudents(sRes.data);
@@ -101,8 +166,50 @@ export default function InstructorCourse() {
   };
 
   useEffect(() => {
-    loadData();
-  }, [courseId]);
+    if (user) {
+      loadData();
+    }
+  }, [courseId, user]);
+
+  const handleAddInstructor = async (userId) => {
+    try {
+      const { error } = await supabase
+        .from("course_instructors")
+        .insert({ course_id: courseId, user_id: userId });
+        
+      if (error) throw error;
+      toast("เพิ่มอาจารย์ผู้สอนร่วมเรียบร้อยแล้ว");
+      loadData();
+    } catch (error) {
+      toast("เกิดข้อผิดพลาด: " + error.message, "error");
+    }
+  };
+
+  const handleRemoveInstructor = async (userId) => {
+    const confirmed = await confirm({
+      title: "ยกเลิกสิทธิ์เข้าสอน",
+      message: "คุณต้องการถอดถอนอาจารย์ท่านนี้ออกจากรายวิชาใช่หรือไม่? อาจารย์ท่านนี้จะไม่สามารถเข้าจัดการวิชานี้ได้อีกต่อไป",
+      danger: true,
+      confirmText: "ถอดถอน",
+      cancelText: "ยกเลิก"
+    });
+    
+    if (!confirmed) return;
+    
+    try {
+      const { error } = await supabase
+        .from("course_instructors")
+        .delete()
+        .eq("course_id", courseId)
+        .eq("user_id", userId);
+        
+      if (error) throw error;
+      toast("ถอดถอนอาจารย์ผู้สอนร่วมเรียบร้อยแล้ว");
+      loadData();
+    } catch (error) {
+      toast("เกิดข้อผิดพลาด: " + error.message, "error");
+    }
+  };
 
   const handleDeleteLesson = async (lId, lTitle) => {
     const confirmed = await confirm({
@@ -155,17 +262,44 @@ export default function InstructorCourse() {
     if (!editTitle) return toast("กรุณากรอกชื่อรายวิชา", "warning");
     setSavingTitle(true);
     try {
+      const selectedManager = allInstructors.find(u => u.id === editMainManager);
+      const managerName = selectedManager ? selectedManager.name : course.instructor;
+
       const { error } = await supabase
         .from("courses")
         .update({ 
           title: editTitle,
-          year_level: editYearLevels 
+          year_level: editYearLevels,
+          instructor: managerName
         })
         .eq("id", course.id);
 
       if (error) throw error;
-      setCourse({ ...course, title: editTitle, year_level: editYearLevels });
+
+      // Ensure Main Manager is in course_instructors
+      if (editMainManager) {
+        const { data: existing } = await supabase
+          .from("course_instructors")
+          .select("*")
+          .eq("course_id", course.id)
+          .eq("user_id", editMainManager);
+
+        if (!existing || existing.length === 0) {
+          await supabase.from("course_instructors").insert({
+            course_id: course.id,
+            user_id: editMainManager
+          });
+        }
+      }
+
+      setCourse({ 
+        ...course, 
+        title: editTitle, 
+        year_level: editYearLevels,
+        instructor: managerName 
+      });
       toast("บันทึกข้อมูลรายวิชาเรียบร้อยแล้ว");
+      loadData();
     } catch (error) {
       console.error("Error updating course:", error);
       toast("เกิดข้อผิดพลาดในการบันทึกข้อมูลรายวิชา: " + error.message, "error");
@@ -276,7 +410,19 @@ export default function InstructorCourse() {
     <div className="container">
       <Crumb nav={nav} items={[{ label: "รายวิชา", to: "/i/courses" }, { label: course.code }]} />
       <PageHead kicker={course.term} title={course.title}
-        right={<div className="flex gap-2"><button className="btn btn-outline" onClick={() => setTab("settings")}><Icon name="settings" size={16} />ตั้งค่า</button><button className="btn btn-primary" onClick={() => nav("/i/lesson/new?course_id=" + course.id)}><Icon name="plus" size={16} />เพิ่มบทเรียน</button></div>} />
+        right={
+          <div className="flex gap-2">
+            {(user?.role === "admin" || user?.role === "course_manager") && (
+              <button className="btn btn-outline" onClick={() => setTab("settings")}>
+                <Icon name="settings" size={16} />ตั้งค่า
+              </button>
+            )}
+            <button className="btn btn-primary" onClick={() => nav("/i/lesson/new?course_id=" + course.id)}>
+              <Icon name="plus" size={16} />เพิ่มบทเรียน
+            </button>
+          </div>
+        } 
+      />
 
       <div className="grid grid-4 gap-3 mb-5">
         {[
@@ -293,7 +439,11 @@ export default function InstructorCourse() {
       </div>
 
       <div className="tabs mb-4">
-        {[["lessons", "บทเรียน", "book"], ["students", "นักศึกษา", "users"], ["settings", "ตั้งค่ารายวิชา", "settings"]].map(([k, t, ic]) => (
+        {[
+          ["lessons", "บทเรียน", "book"], 
+          ["students", "นักศึกษา", "users"], 
+          ...(user?.role === "admin" || user?.role === "course_manager" ? [["settings", "ตั้งค่ารายวิชา", "settings"]] : [])
+        ].map(([k, t, ic]) => (
           <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}><Icon name={ic} size={15} />{t}</button>
         ))}
       </div>
@@ -357,6 +507,28 @@ export default function InstructorCourse() {
               />
             </div>
 
+            {/* อาจารย์ผู้รับผิดชอบหลัก */}
+            <div className="field mb-3">
+              <label className="label">อาจารย์ผู้รับผิดชอบหลัก <span className="c-danger">*</span></label>
+              <select 
+                className="input" 
+                value={editMainManager} 
+                onChange={(e) => setEditMainManager(e.target.value)}
+                disabled
+              >
+                {allInstructors.find(u => u.id === editMainManager) ? (
+                  <option value={editMainManager}>
+                    {allInstructors.find(u => u.id === editMainManager)?.name} ({
+                      allInstructors.find(u => u.id === editMainManager)?.role === "admin" ? "แอดมิน" : 
+                      allInstructors.find(u => u.id === editMainManager)?.role === "course_manager" ? "ผู้รับผิดชอบ" : "อาจารย์ผู้สอน"
+                    })
+                  </option>
+                ) : (
+                  <option value={editMainManager || ""}>{course?.instructor || "ไม่ระบุ"}</option>
+                )}
+              </select>
+            </div>
+
             {/* Year Level Access */}
             <div className="field mb-4">
               <label className="label">ชั้นปีที่เข้าถึงได้ <span className="t-xs muted fw-4">(ไม่เลือก = ทุกชั้นปี)</span></label>
@@ -391,7 +563,11 @@ export default function InstructorCourse() {
               <button 
                 className={`btn btn-primary ${savingTitle ? "disabled" : ""}`} 
                 onClick={handleUpdateCourse} 
-                disabled={savingTitle || (editTitle === course.title && JSON.stringify(editYearLevels) === JSON.stringify(course.year_level || []))}
+                disabled={savingTitle || (
+                  editTitle === course.title && 
+                  JSON.stringify(editYearLevels) === JSON.stringify(course.year_level || []) &&
+                  editMainManager === (allInstructors.find(u => u.name === course.instructor)?.id || "")
+                )}
               >
                 <Icon name={savingTitle ? "loader" : "check"} size={15} className={savingTitle ? "spin" : ""} />
                 {savingTitle ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
@@ -406,6 +582,74 @@ export default function InstructorCourse() {
               <Icon name="trash" size={15} /> ลบรายวิชานี้
             </button>
           </div>
+
+          {/* Managing Instructors section: only for admins and course managers */}
+          {(user?.role === "admin" || user?.role === "course_manager") && (
+            <div className="card card-p">
+              <div className="t-base fw-7 mb-2">จัดการอาจารย์ผู้สอนร่วม (Instructors)</div>
+              <p className="t-sm muted mb-3">มอบหมายสิทธิ์ให้อาจารย์ผู้สอนท่านอื่นในสาขาเดียวกัน เพื่อให้สามารถเข้ามาเพิ่มบทเรียน ตรวจงาน และจัดการวิชานี้ได้</p>
+              
+              {/* Assigned instructors list */}
+              <div className="flex col gap-2 mb-4">
+                <div className="t-xs fw-7 muted">อาจารย์ที่ได้รับสิทธิ์ในวิชานี้:</div>
+                {courseInstructors.length === 0 ? (
+                  <div className="t-sm muted p-3 border rounded text-center" style={{ borderStyle: "dashed", background: "var(--bg)" }}>ยังไม่มีอาจารย์ผู้สอนร่วมในรายวิชานี้</div>
+                ) : (
+                  courseInstructors.map(inst => (
+                    <div key={inst.id} className="flex items-center justify-between p-2 border rounded bg-muted" style={{ background: "var(--muted)" }}>
+                      <div className="flex items-center gap-2">
+                        <Avatar name={inst.name.replace(/^อ\. (ดร\. )?/, "")} size={24} />
+                        <div>
+                          <div className="fw-6 t-sm">{inst.name}</div>
+                          <div className="t-xs muted">{inst.email}</div>
+                        </div>
+                      </div>
+                      {inst.id !== user?.id && (
+                        <button 
+                          className="iconbtn ghost c-danger" 
+                          onClick={() => handleRemoveInstructor(inst.id)}
+                          style={{ height: 28, width: 28 }}
+                        >
+                          <Icon name="trash" size={13} />
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Add instructor select form */}
+              {availableInstructors.length > 0 ? (
+                <div className="flex gap-2">
+                  <select 
+                    className="input" 
+                    id="add-instructor-select" 
+                    defaultValue=""
+                    style={{ flex: 1 }}
+                  >
+                    <option value="" disabled>-- เลือกอาจารย์ในสาขาเพื่อเพิ่มเข้าสู่รายวิชา --</option>
+                    {availableInstructors.map(inst => (
+                      <option key={inst.id} value={inst.id}>{inst.name} ({inst.email})</option>
+                    ))}
+                  </select>
+                  <button 
+                    className="btn btn-primary"
+                    onClick={() => {
+                      const select = document.getElementById("add-instructor-select");
+                      if (select && select.value) {
+                        handleAddInstructor(select.value);
+                        select.value = "";
+                      }
+                    }}
+                  >
+                    <Icon name="plus" size={14} /> เพิ่มผู้สอน
+                  </button>
+                </div>
+              ) : (
+                <div className="t-xs muted">ไม่มีอาจารย์ผู้สอนท่านอื่นที่ว่างในสาขาวิชานี้</div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

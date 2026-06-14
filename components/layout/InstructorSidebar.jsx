@@ -23,21 +23,21 @@ function InstructorSidebarContent({ open, onClose }) {
   const user = session?.user;
 
   let items1 = [];
-  if (hasAnyPermission(user, [PERMISSIONS.MANAGE_COURSES, PERMISSIONS.GRADE_SUBMISSIONS])) {
+  if (hasPermission(user, PERMISSIONS.COURSES_VIEW)) {
     items1.push(["/i/courses", "grid", "ภาพรวม / รายวิชา", pathname.startsWith("/i/course") || pathname === "/i/courses" || pathname.startsWith("/i/lesson")]);
   }
 
   let items2 = [];
-  if (hasPermission(user, PERMISSIONS.GRADE_SUBMISSIONS)) {
+  if (hasPermission(user, PERMISSIONS.SUBMISSIONS_VIEW)) {
     items2.push(["/i/submissions/a1", "file", "ตรวจใบงาน", pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade")]);
   }
-  if (hasPermission(user, PERMISSIONS.VIEW_REPORTS)) {
+  if (hasPermission(user, PERMISSIONS.REPORTS_VIEW)) {
     items2.push(["/i/reports", "chart", "รายงาน / ส่งออก Excel", pathname.startsWith("/i/reports")]);
   }
   
   const isMaster = pathname.startsWith("/i/master");
   let items3 = [];
-  if (hasPermission(user, PERMISSIONS.MANAGE_MASTER_DATA)) {
+  if (hasPermission(user, PERMISSIONS.MASTER_MANAGE)) {
     items3.push(["/i/master/years", "cal", "ปีการศึกษา", pathname === "/i/master/years" || (pathname === "/i/master" && tab === "years")]);
     items3.push(["/i/master/terms", "layers", "ภาคเรียน", pathname === "/i/master/terms"]);
     items3.push(["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"]);
@@ -45,7 +45,7 @@ function InstructorSidebarContent({ open, onClose }) {
     items3.push(["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา", pathname === "/i/master/studentgrade"]);
   }
   
-  if (hasPermission(user, PERMISSIONS.MANAGE_USERS)) {
+  if (hasPermission(user, PERMISSIONS.USERS_MANAGE)) {
     items3.push(["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"]);
     items3.push(["/i/master/roles", "shield", "จัดการสิทธิ์ (Roles)", pathname === "/i/master/roles"]);
   }
@@ -71,7 +71,7 @@ function InstructorSidebarContent({ open, onClose }) {
           <Icon name="x" size={16} />
         </button>
       </div>
-      {hasPermission(user, PERMISSIONS.MANAGE_COURSES) && (
+      {hasPermission(user, PERMISSIONS.COURSES_CREATE) && (
         <Link href="/i/course/new" className="btn btn-primary btn-block" style={{ margin: "0 2px 6px", textDecoration: 'none' }} onClick={onClose}>
           <Icon name="plus" size={16} />สร้างรายวิชา
         </Link>

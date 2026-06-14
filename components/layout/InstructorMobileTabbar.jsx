@@ -21,14 +21,14 @@ function MoreSheet({ onClose }) {
   const user = session?.user;
   
   let masterItems = [];
-  if (hasPermission(user, PERMISSIONS.MANAGE_MASTER_DATA)) {
+  if (hasPermission(user, PERMISSIONS.MASTER_MANAGE)) {
     masterItems.push(["/i/master/years", "cal", "ปีการศึกษา"]);
     masterItems.push(["/i/master/terms", "layers", "ภาคเรียน"]);
     masterItems.push(["/i/master/groups", "folder", "กลุ่มวิชา"]);
     masterItems.push(["/i/master/sections", "users", "Section / กลุ่มเรียน"]);
     masterItems.push(["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา"]);
   }
-  if (hasPermission(user, PERMISSIONS.MANAGE_USERS)) {
+  if (hasPermission(user, PERMISSIONS.USERS_MANAGE)) {
     masterItems.push(["/i/master/users", "user", "จัดการผู้ใช้งาน"]);
     masterItems.push(["/i/master/roles", "shield", "จัดการสิทธิ์ (Roles)"]);
   }
@@ -54,12 +54,12 @@ function MoreSheet({ onClose }) {
         <style>{`
           @keyframes slideUp { from { transform: translateY(60px); opacity: 0; } }
         `}</style>
-
+ 
         {/* Handle */}
         <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
           <div style={{ width: 36, height: 4, borderRadius: 99, background: "var(--border-strong)" }} />
         </div>
-
+ 
         {/* User info */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px 14px", borderBottom: "1px solid var(--border)" }}>
           <Avatar name={session?.user?.name || "อาจารย์"} src={session?.user?.image} size={42} />
@@ -70,9 +70,9 @@ function MoreSheet({ onClose }) {
             <div style={{ fontSize: 12, color: "var(--muted-fg)" }}>{displayRole}</div>
           </div>
         </div>
-
+ 
         {/* New course shortcut */}
-        {hasPermission(user, PERMISSIONS.MANAGE_COURSES) && (
+        {hasPermission(user, PERMISSIONS.COURSES_CREATE) && (
           <div style={{ padding: "14px 16px 8px" }}>
             <Link
               href="/i/course/new"
@@ -89,7 +89,7 @@ function MoreSheet({ onClose }) {
             </Link>
           </div>
         )}
-
+ 
         {/* Master data section */}
         {masterItems.length > 0 && (
           <div style={{ padding: "4px 16px 8px" }}>
@@ -117,7 +117,7 @@ function MoreSheet({ onClose }) {
             </div>
           </div>
         )}
-
+ 
         {/* Sign out */}
         <div style={{ padding: "4px 16px 16px", borderTop: "1px solid var(--border)", marginTop: 8 }}>
           <button
@@ -137,18 +137,18 @@ function MoreSheet({ onClose }) {
     </>
   );
 }
-
+ 
 export default function InstructorMobileTabbar() {
   const pathname = usePathname() || "";
   const [showMore, setShowMore] = useState(false);
   const { data: session } = useSession();
   const user = session?.user;
-
+ 
   const onHome = pathname === "/i/courses" || pathname.startsWith("/i/course") || pathname.startsWith("/i/lesson");
   const onSubmissions = pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade");
   const onReports = pathname.startsWith("/i/reports");
   const onMaster = pathname.startsWith("/i/master");
-
+ 
   const TabItem = ({ href, icon, label, active, onClick }) => (
     <Link
       href={href || "#"}
@@ -166,19 +166,19 @@ export default function InstructorMobileTabbar() {
       <span>{label}</span>
     </Link>
   );
-
+ 
   return (
     <>
       {showMore && <MoreSheet onClose={() => setShowMore(false)} />}
-
+ 
       <div className="tabbar i-tabbar" style={{ background: "rgba(255,255,255,.95)", backdropFilter: "saturate(1.4) blur(12px)" }}>
-        {hasAnyPermission(user, [PERMISSIONS.MANAGE_COURSES, PERMISSIONS.GRADE_SUBMISSIONS]) && (
+        {hasPermission(user, PERMISSIONS.COURSES_VIEW) && (
           <TabItem href="/i/courses" icon="grid" label="รายวิชา" active={onHome} />
         )}
-        {hasPermission(user, PERMISSIONS.GRADE_SUBMISSIONS) && (
+        {hasPermission(user, PERMISSIONS.SUBMISSIONS_VIEW) && (
           <TabItem href="/i/submissions/a1" icon="file" label="ตรวจงาน" active={onSubmissions} />
         )}
-        {hasPermission(user, PERMISSIONS.VIEW_REPORTS) && (
+        {hasPermission(user, PERMISSIONS.REPORTS_VIEW) && (
           <TabItem href="/i/reports" icon="chart" label="รายงาน" active={onReports} />
         )}
         {/* "More" button – not a Link */}

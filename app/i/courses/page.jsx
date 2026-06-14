@@ -10,9 +10,13 @@ import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
+import { useSession } from "next-auth/react";
 
 export default function InstructorCourses() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const user = session?.user;
+  
   const nav = (path) => router.push(path);
   const confirm = useConfirm();
   const [courses, setCourses] = useState([]);
@@ -20,13 +24,15 @@ export default function InstructorCourses() {
   const [expandedCourses, setExpandedCourses] = useState({});
 
   const load = async () => {
+    if (!user) return;
     setLoading(true);
-    const [cRes, lRes, sRes, aRes, subRes] = await Promise.all([
+    const [cRes, lRes, sRes, aRes, subRes, ciRes] = await Promise.all([
       supabase.from("courses").select("*"),
       supabase.from("lessons").select("id, course_id, title, index, status").order("index", { ascending: true }),
       supabase.from("users").select("id, student_no, section, email").eq("role", "student"),
       supabase.from("assignments").select("id, course_id"),
-      supabase.from("submissions").select("id, assignment_id, status")
+      supabase.from("submissions").select("id, assignment_id, status"),
+      supabase.from("course_instructors").select("course_id").eq("user_id", user.id)
     ]);
 
     if (cRes.data) {
@@ -35,8 +41,26 @@ export default function InstructorCourses() {
       const allStudents = sRes.data || [];
       const allAssignments = aRes.data || [];
       const allSubmissions = subRes.data || [];
+      const myCourseIds = (ciRes?.data || []).map(ci => ci.course_id);
 
-      const enrichedCourses = coursesList.map((c) => {
+      const filteredCourses = coursesList.filter((c) => {
+        // 1. Admin sees everything
+        if (user?.role === "admin") return true;
+
+        // 2. Course Manager sees all courses in their department (group_id / group_ids)
+        if (user?.role === "course_manager") {
+          return c.group_id === user.group_id || user.group_ids?.includes(c.group_id);
+        }
+
+        // 3. Instructor sees courses assigned to them
+        if (user?.role === "instructor") {
+          return myCourseIds.includes(c.id);
+        }
+
+        return false;
+      });
+
+      const enrichedCourses = filteredCourses.map((c) => {
         const courseLessons = allLessons.filter((l) => l.course_id === c.id);
 
         const courseSection = c.section;
@@ -73,8 +97,10 @@ export default function InstructorCourses() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    if (user) {
+      load();
+    }
+  }, [user]);
 
   const toggleExpand = (courseId) => {
     setExpandedCourses((prev) => ({
@@ -196,9 +222,11 @@ export default function InstructorCourses() {
         title="รายวิชาทั้งหมด"
         description="รายชื่อวิชาในกลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ"
         addButton={
-          <button className="btn btn-primary btn-sm" onClick={() => nav("/i/course/new")}>
-            <Icon name="plus" size={15} />สร้างรายวิชา
-          </button>
+          (user?.role === "admin" || user?.role === "course_manager") && (
+            <button className="btn btn-primary btn-sm" onClick={() => nav("/i/course/new")}>
+              <Icon name="plus" size={15} />สร้างรายวิชา
+            </button>
+          )
         }
         loading={loading}
         className="table hover"
@@ -250,9 +278,11 @@ export default function InstructorCourses() {
                       <button className="btn btn-outline btn-sm" onClick={() => nav("/i/course/" + c.id)} style={{ display: "flex", alignItems: "center", gap: 4, height: 32 }}>
                         <Icon name="pencil" size={13} /> จัดการรายวิชา
                       </button>
-                      <button className="iconbtn ghost c-danger" onClick={() => handleDeleteCourse(c)} style={{ height: 32, width: 32 }}>
-                        <Icon name="trash" size={15} />
-                      </button>
+                      {(user?.role === "admin" || user?.role === "course_manager") && (
+                        <button className="iconbtn ghost c-danger" onClick={() => handleDeleteCourse(c)} style={{ height: 32, width: 32 }}>
+                          <Icon name="trash" size={15} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

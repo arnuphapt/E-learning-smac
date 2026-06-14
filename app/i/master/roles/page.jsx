@@ -11,12 +11,56 @@ import { toast } from "@/components/ui/Toast";
 import { PERMISSIONS } from "@/lib/rbac";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 
-const AVAILABLE_PERMISSIONS = [
-  { id: PERMISSIONS.MANAGE_COURSES, label: "จัดการรายวิชา", desc: "สร้าง แก้ไข ลบรายวิชา" },
-  { id: PERMISSIONS.GRADE_SUBMISSIONS, label: "ตรวจงาน/ให้คะแนน", desc: "ดูและตรวจงานที่นักศึกษาส่ง" },
-  { id: PERMISSIONS.VIEW_REPORTS, label: "ดูรายงาน", desc: "ดูรายงานและส่งออก Excel" },
-  { id: PERMISSIONS.MANAGE_MASTER_DATA, label: "จัดการข้อมูลหลัก", desc: "จัดการปีการศึกษา กลุ่มวิชา ฯลฯ" },
-  { id: PERMISSIONS.MANAGE_USERS, label: "จัดการผู้ใช้และสิทธิ์", desc: "จัดการบัญชีผู้ใช้งานและ Roles" },
+const RESOURCES = [
+  {
+    key: "courses",
+    label: "รายวิชา (Courses)",
+    actions: [
+      { id: "courses:view", label: "ดู" },
+      { id: "courses:create", label: "สร้าง" },
+      { id: "courses:edit", label: "แก้ไข" },
+      { id: "courses:delete", label: "ลบ" }
+    ]
+  },
+  {
+    key: "lessons",
+    label: "บทเรียน (Lessons)",
+    actions: [
+      { id: "lessons:view", label: "ดู" },
+      { id: "lessons:create", label: "สร้าง" },
+      { id: "lessons:edit", label: "แก้ไข" },
+      { id: "lessons:delete", label: "ลบ" }
+    ]
+  },
+  {
+    key: "submissions",
+    label: "ตรวจงาน (Submissions)",
+    actions: [
+      { id: "submissions:view", label: "ดูงานส่ง" },
+      { id: "submissions:grade", label: "ตรวจ/ให้คะแนน" }
+    ]
+  },
+  {
+    key: "reports",
+    label: "รายงาน (Reports)",
+    actions: [
+      { id: "reports:view", label: "ดู/ส่งออกรายงาน" }
+    ]
+  },
+  {
+    key: "master",
+    label: "ข้อมูลหลัก (Master Data)",
+    actions: [
+      { id: "master:manage", label: "จัดการทั้งหมด" }
+    ]
+  },
+  {
+    key: "users",
+    label: "ผู้ใช้งานและสิทธิ์ (Users/Roles)",
+    actions: [
+      { id: "users:manage", label: "จัดการทั้งหมด" }
+    ]
+  }
 ];
 
 function RowActions({ onEdit, onDelete, disableDelete }) {
@@ -41,7 +85,6 @@ function RoleDialog({ mode, row, onClose, onSave }) {
       toast("กรุณากรอกข้อมูลที่จำเป็น (*) ให้ครบถ้วน");
       return;
     }
-    // Prevent changing id of default roles, or only allow in add mode
     onSave({
       id: mode === "add" ? id.toLowerCase().replace(/[^a-z0-9_]/g, '') : id,
       name,
@@ -63,6 +106,7 @@ function RoleDialog({ mode, row, onClose, onSave }) {
       title={mode === "add" ? "สร้าง Role ใหม่" : "แก้ไขข้อมูล Role"} 
       desc="กำหนดชื่อ Role และเลือกสิทธิ์การเข้าถึงเมนูต่างๆ" 
       onClose={onClose}
+      lg={true}
       footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={handleSave}><Icon name="check" size={15} />บันทึก</button></>}
     >
       <div className="grid grid-2 gap-3">
@@ -97,22 +141,37 @@ function RoleDialog({ mode, row, onClose, onSave }) {
       </div>
       
       <div className="field" style={{ marginTop: 16 }}>
-        <label className="label">กำหนดสิทธิ์ (Permissions)</label>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--muted)", padding: 12, borderRadius: 8 }}>
-          {AVAILABLE_PERMISSIONS.map(perm => (
-            <label key={perm.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-              <input 
-                type="checkbox" 
-                checked={permissions.includes(perm.id)}
-                onChange={() => togglePermission(perm.id)}
-                style={{ marginTop: 4 }}
-              />
-              <div>
-                <div style={{ fontWeight: 500, fontSize: 14 }}>{perm.label}</div>
-                <div style={{ fontSize: 12, color: "var(--muted-fg)" }}>{perm.desc}</div>
-              </div>
-            </label>
-          ))}
+        <label className="label">กำหนดสิทธิ์แยกตามประเภทการใช้งาน (Permissions Grid)</label>
+        <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 10 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, textAlign: "left" }}>
+            <thead>
+              <tr style={{ background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+                <th style={{ padding: "10px 14px", fontWeight: 600 }}>เมนู / ทรัพยากร</th>
+                <th style={{ padding: "10px 14px", fontWeight: 600 }}>การจัดการสิทธิ์การเข้าถึง</th>
+              </tr>
+            </thead>
+            <tbody>
+              {RESOURCES.map(res => (
+                <tr key={res.key} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <td style={{ padding: "12px 14px", fontWeight: 500, width: "220px", background: "#fcfcfd" }}>{res.label}</td>
+                  <td style={{ padding: "12px 14px" }}>
+                    <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                      {res.actions.map(act => (
+                        <label key={act.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}>
+                          <input 
+                            type="checkbox" 
+                            checked={permissions.includes(act.id)}
+                            onChange={() => togglePermission(act.id)}
+                          />
+                          <span>{act.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </Dialog>
