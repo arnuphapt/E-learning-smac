@@ -8,6 +8,24 @@ import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge, Avatar } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import { toast } from "@/components/ui/Toast";
+
+function getFileName(filePath) {
+  if (!filePath) return "";
+  try {
+    const parts = filePath.split("/");
+    const name = parts[parts.length - 1];
+    return decodeURIComponent(name.replace(/^\d+_/, ''));
+  } catch (e) {
+    return filePath;
+  }
+}
+
+function getFileTypeAndSize(filePath) {
+  if (!filePath) return "เอกสารแนบ";
+  const ext = filePath.split('.').pop().toUpperCase();
+  return ext ? `${ext} · เอกสารส่งงาน` : "เอกสารส่งงาน";
+}
 
 function GradedView({ a, rubric, instructorName }) {
   const totalScore = a.score || 0;
@@ -68,6 +86,8 @@ export default function AssignmentDetail() {
   const [text, setText] = useState("");
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = React.useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -112,14 +132,52 @@ export default function AssignmentDetail() {
   const mobile = false;
   const graded = status === "graded";
   const canSubmit = (a?.allow_file && file) || (a?.allow_text && text.trim());
+  const handleFileChange = async (e) => {
+    const uploadedFile = e.target.files?.[0];
+    if (!uploadedFile) return;
+
+    setUploading(true);
+    try {
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: uploadedFile.name,
+          filetype: uploadedFile.type,
+          folder: `submissions/${studentId || "guest"}/${asgId}`
+        })
+      });
+      if (!presignRes.ok) throw new Error("Failed to get upload signature");
+
+      const { uploadUrl, publicUrl, key } = await presignRes.json();
+
+      if (uploadUrl) {
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": uploadedFile.type },
+          body: uploadedFile
+        });
+        if (!uploadRes.ok) throw new Error("Failed to upload file to Cloudflare R2");
+      }
+
+      setFile(publicUrl);
+      toast("อัปโหลดไฟล์สำเร็จ");
+    } catch (err) {
+      console.error(err);
+      toast("เกิดข้อผิดพลาดในการอัปโหลด: " + err.message, "error");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = async () => { 
     if (!studentId) {
-      alert("กรุณาเข้าสู่ระบบก่อนส่งงาน");
+      toast("กรุณาเข้าสู่ระบบก่อนส่งงาน", "warning");
       return;
     }
+    const subId = submission?.id || "sub_" + Date.now();
     const subObj = {
-      id: "sub_" + Date.now(),
+      id: subId,
       student_id: studentId,
       assignment_id: asgId,
       status: "submitted",
@@ -131,13 +189,42 @@ export default function AssignmentDetail() {
       late: false
     };
 
-    const { error } = await supabase.from("submissions").insert([subObj]);
+    const { error } = await supabase.from("submissions").upsert([subObj]);
     if (error) {
-      alert("เกิดข้อผิดพลาดในการส่ง: " + error.message);
+      toast("เกิดข้อผิดพลาดในการส่ง: " + error.message, "error");
     } else {
       setStatus("submitted");
       setSubmission(subObj);
-      alert("ส่งใบงานเรียบร้อยแล้ว");
+      toast("ส่งใบงานเรียบร้อยแล้ว");
+    }
+  };
+
+  const saveDraft = async () => {
+    if (!studentId) {
+      toast("กรุณาเข้าสู่ระบบก่อนบันทึกฉบับร่าง", "warning");
+      return;
+    }
+    const subId = submission?.id || "sub_" + Date.now();
+    const subObj = {
+      id: subId,
+      student_id: studentId,
+      assignment_id: asgId,
+      status: "not-submitted",
+      submitted_at: null,
+      file: file || null,
+      text: text || null,
+      score: null,
+      total: a.points,
+      late: false
+    };
+
+    const { error } = await supabase.from("submissions").upsert([subObj]);
+    if (error) {
+      toast("เกิดข้อผิดพลาดในการบันทึก: " + error.message, "error");
+    } else {
+      setStatus("not-submitted");
+      setSubmission(subObj);
+      toast("บันทึกฉบับร่างเรียบร้อยแล้ว");
     }
   };
 
@@ -145,13 +232,13 @@ export default function AssignmentDetail() {
     if (!studentId) return;
     const { error } = await supabase.from("submissions").delete().eq("student_id", studentId).eq("assignment_id", asgId);
     if (error) {
-      alert("เกิดข้อผิดพลาดในการยกเลิก: " + error.message);
+      toast("เกิดข้อผิดพลาดในการยกเลิก: " + error.message, "error");
     } else {
       setStatus("not-submitted");
       setSubmission(null);
       setFile(null);
       setText("");
-      alert("ยกเลิกการส่งใบงานแล้ว");
+      toast("ยกเลิกการส่งใบงานแล้ว");
     }
   };
 
@@ -229,16 +316,39 @@ export default function AssignmentDetail() {
                 {file ? (
                   <div className="flex items-center gap-3" style={{ padding: 12, border: "1px solid var(--border)", borderRadius: 11 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}><Icon name="file" size={17} /></div>
-                    <div className="flex-1"><div className="t-sm fw-6">{file}</div><div className="t-xs muted">PDF · 1.8 MB</div></div>
-                    {status !== "submitted" && <button className="btn btn-ghost btn-sm c-danger" onClick={() => setFile(null)}><Icon name="trash" size={15} /></button>}
+                    <div className="flex-1">
+                      <div className="t-sm fw-6 truncate">{getFileName(file)}</div>
+                      <div className="t-xs muted">{getFileTypeAndSize(file)}</div>
+                    </div>
+                    {status !== "submitted" && !uploading && (
+                      <button className="btn btn-ghost btn-sm c-danger" onClick={() => setFile(null)}>
+                        <Icon name="trash" size={15} />
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <label className="flex col items-center justify-center gap-2 pointer" style={{ padding: "26px 18px", border: "1.5px dashed var(--border-strong)", borderRadius: 12, background: "#fbfcfd" }}
-                    onClick={() => setFile(`ใบงาน-${a.title}.pdf`)}>
-                    <div style={{ width: 42, height: 42, borderRadius: 11, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="upload" size={20} /></div>
-                    <div className="t-sm fw-6">ลากไฟล์มาวาง หรือ คลิกเพื่อเลือกไฟล์</div>
-                    <div className="t-xs muted">รองรับ PDF, DOCX, รูปภาพ — ไม่เกิน 25 MB</div>
-                  </label>
+                  <div style={{ position: "relative" }}>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleFileChange} 
+                      style={{ display: "none" }} 
+                      disabled={uploading} 
+                    />
+                    <div 
+                      className={`flex col items-center justify-center gap-2 pointer ${uploading ? "disabled" : ""}`} 
+                      style={{ padding: "26px 18px", border: "1.5px dashed var(--border-strong)", borderRadius: 12, background: "#fbfcfd" }}
+                      onClick={() => !uploading && fileInputRef.current?.click()}
+                    >
+                      <div style={{ width: 42, height: 42, borderRadius: 11, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
+                        <Icon name="upload" size={20} />
+                      </div>
+                      <div className="t-sm fw-6">
+                        {uploading ? "กำลังอัปโหลดไฟล์..." : "ลากไฟล์มาวาง หรือ คลิกเพื่อเลือกไฟล์"}
+                      </div>
+                      <div className="t-xs muted">รองรับ PDF, DOCX, รูปภาพ — ไม่เกิน 25 MB</div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -252,8 +362,8 @@ export default function AssignmentDetail() {
               <div className="flex items-center justify-between gap-2 wrap">
                 <div className="t-xs muted flex items-center gap-1"><Icon name="alert" size={14} />ส่งได้ก่อน {a.due} {a.due_time}</div>
                 <div className="flex gap-2">
-                  <button className="btn btn-outline">บันทึกฉบับร่าง</button>
-                  <button className="btn btn-primary" disabled={!canSubmit} onClick={submit}><Icon name="send" size={15} />ส่งใบงาน</button>
+                  <button className="btn btn-outline" onClick={saveDraft}>บันทึกฉบับร่าง</button>
+                  <button className="btn btn-primary" disabled={!canSubmit || uploading} onClick={submit}><Icon name="send" size={15} />ส่งใบงาน</button>
                 </div>
               </div>
             )}

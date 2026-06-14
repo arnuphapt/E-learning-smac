@@ -171,8 +171,22 @@ export default function Grader() {
               <>
                 <div className="card card-p mb-3 flex items-center gap-3">
                   <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}><Icon name="file" size={18} /></div>
-                  <div className="flex-1"><div className="t-sm fw-6">{sub.file}</div><div className="t-xs muted">ส่งเมื่อ {sub.submitted_at}</div></div>
-                  <button className="btn btn-outline btn-sm"><Icon name="download" size={14} />ดาวน์โหลด</button>
+                  <div className="flex-1">
+                    <div className="t-sm fw-6 truncate">
+                      {sub.file.startsWith("http") || sub.file.includes("/") ? sub.file.split("/").pop().replace(/^\d+_/, "") : sub.file}
+                    </div>
+                    <div className="t-xs muted">ส่งเมื่อ {sub.submitted_at}</div>
+                  </div>
+                  <a 
+                    href={sub.file} 
+                    download={sub.file.split("/").pop()} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn btn-outline btn-sm"
+                    style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+                  >
+                    <Icon name="download" size={14} />ดาวน์โหลด
+                  </a>
                 </div>
                 <Ph label="ตัวอย่างเอกสารงานนักศึกษา (PDF preview)" h={mobile ? 320 : 520} />
               </>
