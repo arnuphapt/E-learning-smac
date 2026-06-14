@@ -53,14 +53,21 @@ export default function InstructorHeader({ onMenuClick }) {
         <div className="rel" ref={menuRef}>
           <div className="flex items-center gap-2 pointer" onClick={() => setMenuOpen(!menuOpen)} style={{ padding: "4px 8px", borderRadius: 8, transition: ".15s", background: menuOpen ? "var(--muted)" : "transparent" }}>
             <Avatar name={session?.user?.name || "อาจารย์"} src={session?.user?.image} size={32} />
-            <Icon name="chevD" size={14} className="muted" />
+            <div style={{ lineHeight: 1.2 }} className="hide-m">
+              <div className="t-sm fw-6">{session?.user?.name || "กำลังโหลด..."}</div>
+              <div className="t-xs muted">{displayRole}</div>
+            </div>
+            <Icon name="chevD" size={14} className="muted hide-m" />
           </div>
 
           {menuOpen && (
             <div className="card shadow" style={{ position: "absolute", top: "100%", right: 0, marginTop: 8, width: 220, zIndex: 100, padding: 8 }}>
-              <div className="p-2" style={{ borderBottom: "1px solid var(--border)", marginBottom: 6 }}>
-                <div className="t-sm fw-6 truncate">{session?.user?.name || "อ. ดร. สุภาวดี ทองคำ"}</div>
-                <div className="t-xs muted">{displayRole}</div>
+              <div className="flex items-center gap-3 p-2" style={{ borderBottom: "1px solid var(--border)", marginBottom: 6 }}>
+                <Avatar name={session?.user?.name || "อาจารย์"} src={session?.user?.image} size={38} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="t-sm fw-6 truncate">{session?.user?.name || "อาจารย์"}</div>
+                  <div className="t-xs muted">{displayRole}</div>
+                </div>
               </div>
               <Link href="/s/courses" className="flex items-center gap-3 p-2 pointer" style={{ borderRadius: 8, textDecoration: 'none', color: "var(--fg)" }} onClick={() => setMenuOpen(false)}>
                 <div style={{ width: 26, height: 26, borderRadius: 6, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="grad" size={14} /></div>
