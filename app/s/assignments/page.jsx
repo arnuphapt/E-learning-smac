@@ -12,6 +12,7 @@ import Loading from "@/components/ui/Loading";
 export default function StudentAssignments() {
   const router = useRouter();
   const { data: session } = useSession();
+  const studentId = session?.dbId;
   const role = session?.user?.role;
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState("all");
@@ -20,21 +21,37 @@ export default function StudentAssignments() {
   const [courses, setCourses] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [lessons, setLessons] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
     async function loadData() {
-      const { data: cData } = await supabase.from("courses").select("*");
-      const { data: aData } = await supabase.from("assignments").select("*");
-      const { data: lData } = await supabase.from("lessons").select("*");
+      const queries = [
+        supabase.from("courses").select("*"),
+        supabase.from("assignments").select("*"),
+        supabase.from("lessons").select("*")
+      ];
+
+      if (studentId) {
+        queries.push(supabase.from("submissions").select("*").eq("student_id", studentId));
+      }
+
+      const results = await Promise.all(queries);
       
-      if (cData) setCourses(cData);
-      if (aData) setAssignments(aData);
-      if (lData) setLessons(lData);
+      if (results[0].data) setCourses(results[0].data);
+      if (results[1].data) setAssignments(results[1].data);
+      if (results[2].data) setLessons(results[2].data);
+      
+      if (studentId && results[3]?.data) {
+        setSubmissions(results[3].data);
+      } else {
+        setSubmissions([]);
+      }
+      
       setLoading(false);
     }
     loadData();
-  }, []);
+  }, [studentId, role]);
 
   const nav = (path) => router.push(path);
 
@@ -48,23 +65,23 @@ export default function StudentAssignments() {
     })
     .map((asg) => {
       const course = courses.find((c) => c.id === asg.course_id);
-      const lesson = lessons.find((l) => l.id === asg.lesson_id);
-    
-    // Status and score are loaded dynamically from student's progress in lessons
-    const status = lesson?.assignment?.status || "not-submitted";
-    const score = lesson?.assignment?.score || null;
-    const total = lesson?.assignment?.total || asg.points;
+      
+      // Load real status, score, and total points from submissions table
+      const sub = submissions.find((s) => s.assignment_id === asg.id);
+      const status = sub ? sub.status : "not-submitted";
+      const score = sub ? sub.score : null;
+      const total = sub ? sub.total : asg.points;
 
-    return {
-      ...asg,
-      status,
-      score,
-      total,
-      courseCode: course?.code || "N/A",
-      courseTitle: course?.title || "ไม่พบรายวิชา",
-      courseHero: course?.hero || "var(--primary)",
-    };
-  });
+      return {
+        ...asg,
+        status,
+        score,
+        total,
+        courseCode: course?.code || "N/A",
+        courseTitle: course?.title || "ไม่พบรายวิชา",
+        courseHero: course?.hero || "var(--primary)",
+      };
+    });
 
   // 2. Filter logic
   const filteredAssignments = assignmentsList.filter((asg) => {
