@@ -128,10 +128,12 @@ export default function InstructorCourse() {
   const [editTitle, setEditTitle] = useState("");
   const [editYearLevels, setEditYearLevels] = useState([]);
   const [savingTitle, setSavingTitle] = useState(false);
+  const [masterYearLabels, setMasterYearLabels] = useState([]);
+  const [gradesList, setGradesList] = useState([]);
 
   const loadData = async () => {
     if (!courseId || !user) return;
-    const [cRes, lRes, sRes, subRes, tsRes, aRes, ciRes, insRes] = await Promise.all([
+    const [cRes, lRes, sRes, subRes, tsRes, aRes, ciRes, insRes, sgRes] = await Promise.all([
       supabase.from("courses").select("*").eq("id", courseId).single(),
       supabase.from("lessons").select("*").eq("course_id", courseId).order("index", { ascending: true }),
       supabase.from("users").select("*").eq("role", "student"),
@@ -139,7 +141,8 @@ export default function InstructorCourse() {
       supabase.from("test_scores").select("*"),
       supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId),
       supabase.from("course_instructors").select("user_id").eq("course_id", courseId),
-      supabase.from("users").select("id, name, email, role, group_id").or("role.like.%instructor%,role.like.%course_manager%,role.like.%admin%")
+      supabase.from("users").select("id, name, email, role, group_id").or("role.like.%instructor%,role.like.%course_manager%,role.like.%admin%"),
+      supabase.from("student_grades").select("prefix, year_label")
     ]);
     
     if (cRes.data) {
@@ -204,6 +207,12 @@ export default function InstructorCourse() {
     if (subRes.data) setSubmissions(subRes.data);
     if (tsRes.data) setTestScores(tsRes.data);
     if (aRes.data) setAssignments(aRes.data);
+    
+    if (sgRes?.data) {
+      setGradesList(sgRes.data);
+      const uniqueYears = Array.from(new Set(sgRes.data.map(g => g.year_label).filter(Boolean))).sort();
+      setMasterYearLabels(uniqueYears);
+    }
     
     setLoading(false);
   };
@@ -422,15 +431,26 @@ export default function InstructorCourse() {
 
   // Calculate enrolled students based on course section and access controls
   const courseSection = course.section;
-  const allowedYears = course.access?.allowedYears || [];
+  const allowedYears = course.year_level || [];
   const allowedEmails = course.access?.allowedEmails || [];
   const enrolledStudents = students.filter(s => {
     if (courseSection && courseSection !== "ไม่ระบุ Section" && s.section !== courseSection) {
       return false;
     }
     if (allowedYears.length > 0) {
-      const studentYear = s.student_no ? s.student_no.slice(0, 2) : "";
-      if (!allowedYears.includes(studentYear) && !allowedEmails.includes(s.email)) {
+      const prefix = s.student_no ? s.student_no.substring(0, 2) : "";
+      const mapping = gradesList.find(g => g.prefix === prefix);
+      const studentLabel = mapping ? mapping.year_label : null;
+      const studentFallback = s.study_year ? Number(s.study_year) : null;
+      
+      const hasMatch = allowedYears.some(ay => {
+        if (typeof ay === 'number' || !isNaN(Number(ay))) {
+           return Number(ay) === studentFallback || ay == studentFallback;
+        }
+        return ay === studentLabel;
+      });
+
+      if (!hasMatch && !allowedEmails.includes(s.email)) {
         return false;
       }
     }
@@ -562,20 +582,24 @@ export default function InstructorCourse() {
             <div className="field mb-4">
               <label className="label">ชั้นปีที่เข้าถึงได้ <span className="t-xs muted fw-4">(ไม่เลือก = ทุกชั้นปี)</span></label>
               <div className="flex items-center gap-3 flex-wrap" style={{ paddingTop: 6 }}>
-                {[1, 2, 3, 4].map((yr) => {
-                  const checked = editYearLevels.includes(yr);
+                {masterYearLabels.length === 0 ? (
+                  <span className="t-sm muted">กำลังโหลดข้อมูลชั้นปี... หรือไม่มีข้อมูลชั้นปีในระบบ</span>
+                ) : masterYearLabels.map((yrLabel) => {
+                  const numberMatch = parseInt(yrLabel.replace(/\D/g, ''));
+                  const checked = editYearLevels.includes(yrLabel) || (!isNaN(numberMatch) && editYearLevels.includes(numberMatch)) || editYearLevels.includes(String(numberMatch));
+                  
                   return (
-                    <label key={yr} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
+                    <label key={yrLabel} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
                       padding: "7px 14px", borderRadius: 9, border: `1.5px solid ${checked ? "var(--primary)" : "var(--border)"}`,
                       background: checked ? "var(--primary-soft, #eef6ff)" : "var(--surface)", transition: ".15s", fontWeight: checked ? 700 : 400,
                       color: checked ? "var(--primary)" : "var(--fg)" }}>
                       <input type="checkbox" style={{ display: "none" }} checked={checked}
-                        onChange={() => setEditYearLevels(prev => checked ? prev.filter(y => y !== yr) : [...prev, yr].sort())} />
+                        onChange={() => setEditYearLevels(prev => checked ? prev.filter(y => y !== yrLabel && (!isNaN(numberMatch) ? String(y) !== String(numberMatch) : true)) : [...prev, yrLabel].sort())} />
                       <span style={{ width: 16, height: 16, borderRadius: 5, border: `2px solid ${checked ? "var(--primary)" : "var(--border-strong)"}`,
                         background: checked ? "var(--primary)" : "transparent", display: "grid", placeItems: "center", flexShrink: 0 }}>
                         {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                       </span>
-                      ชั้นปี {yr}
+                      {yrLabel}
                     </label>
                   );
                 })}

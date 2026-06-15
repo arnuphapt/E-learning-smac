@@ -205,6 +205,7 @@ export default function CreateCourse() {
   const [subjectGroups, setSubjectGroups] = React.useState([]);
   const [sections, setSections] = React.useState([]);
   const [groupManagers, setGroupManagers] = React.useState([]);
+  const [masterYearLabels, setMasterYearLabels] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
   // RBAC Assignment States
@@ -213,12 +214,13 @@ export default function CreateCourse() {
 
   React.useEffect(() => {
     async function load() {
-      const [tRes, uRes, gRes, sRes, sgmRes] = await Promise.all([
+      const [tRes, uRes, gRes, sRes, sgmRes, gradeRes] = await Promise.all([
         supabase.from("terms").select("*"),
         supabase.from("users").select("*").or("role.like.%instructor%,role.like.%admin%,role.like.%course_manager%"),
         supabase.from("subject_groups").select("*").eq("status", "active"),
         supabase.from("sections").select("*").eq("status", "active"),
-        supabase.from("subject_group_managers").select("*")
+        supabase.from("subject_group_managers").select("*"),
+        supabase.from("student_grades").select("year_label")
       ]);
 
       const fetchedTerms = tRes.data || [];
@@ -235,6 +237,10 @@ export default function CreateCourse() {
 
       const fetchedGroupManagers = sgmRes.data || [];
       setGroupManagers(fetchedGroupManagers);
+
+      const grades = gradeRes.data || [];
+      const uniqueYears = Array.from(new Set(grades.map(g => g.year_label).filter(Boolean))).sort();
+      setMasterYearLabels(uniqueYears);
       
       // If course manager, auto-set their department and only show/pre-select it
       if (user?.role === "course_manager") {
@@ -483,20 +489,22 @@ export default function CreateCourse() {
               <div className="field" style={{ marginTop: 12 }}>
                 <label className="label">ชั้นปีที่เข้าถึงได้ <span className="t-xs muted fw-4">(ไม่เลือก = ทุกชั้นปี)</span></label>
                 <div className="flex items-center gap-3 flex-wrap" style={{ paddingTop: 6 }}>
-                  {[1, 2, 3, 4].map((yr) => {
-                    const checked = yearLevels.includes(yr);
+                  {masterYearLabels.length === 0 ? (
+                    <span className="t-sm muted">กำลังโหลดข้อมูลชั้นปี... หรือไม่มีข้อมูลชั้นปีในระบบ</span>
+                  ) : masterYearLabels.map((yrLabel) => {
+                    const checked = yearLevels.includes(yrLabel);
                     return (
-                      <label key={yr} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
+                      <label key={yrLabel} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
                         padding: "7px 14px", borderRadius: 9, border: `1.5px solid ${checked ? "var(--primary)" : "var(--border)"}`,
                         background: checked ? "var(--primary-bg, #eef6ff)" : "var(--surface)", transition: ".15s", fontWeight: checked ? 700 : 400,
                         color: checked ? "var(--primary)" : "var(--fg)" }}>
                         <input type="checkbox" style={{ display: "none" }} checked={checked}
-                          onChange={() => setYearLevels(prev => checked ? prev.filter(y => y !== yr) : [...prev, yr].sort())} />
+                          onChange={() => setYearLevels(prev => checked ? prev.filter(y => y !== yrLabel) : [...prev, yrLabel].sort())} />
                         <span style={{ width: 16, height: 16, borderRadius: 5, border: `2px solid ${checked ? "var(--primary)" : "var(--border-strong)"}`,
                           background: checked ? "var(--primary)" : "transparent", display: "grid", placeItems: "center", flexShrink: 0 }}>
                           {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </span>
-                        ชั้นปี {yr}
+                        {yrLabel}
                       </label>
                     );
                   })}

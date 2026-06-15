@@ -88,6 +88,7 @@ export default function StudentCourses() {
       const { data: cData } = await supabase.from("courses").select("*");
       const { data: yData } = await supabase.from("academic_years").select("*").order("year", { ascending: false });
       const { data: lData } = await supabase.from("lessons").select("id, course_id, status");
+      const { data: sgData } = await supabase.from("student_grades").select("prefix, year_label");
       
       if (cData) {
         const isStaff = role === "instructor" || role === "admin";
@@ -114,12 +115,26 @@ export default function StudentCourses() {
           };
         });
 
+        const gradesList = sgData || [];
+        const email = session?.user?.email || "";
+        const match = email.match(/^(\d+)@/);
+        const prefix = match ? match[1].substring(0, 2) : "";
+        const mapping = gradesList.find(g => g.prefix === prefix);
+        const studentLabel = mapping ? mapping.year_label : null;
+        const studentFallback = studentYear;
+
         // Filter by year_level access control (staff sees all)
         const filtered = isStaff ? mappedCourses : mappedCourses.filter(c => {
           const allowed = c.year_level;
           if (!allowed || allowed.length === 0) return true; // no restriction
-          if (!studentYear) return false; // student has no year set
-          return allowed.includes(studentYear);
+          
+          const hasMatch = allowed.some(ay => {
+            if (typeof ay === 'number' || !isNaN(Number(ay))) {
+               return Number(ay) === studentFallback || ay == studentFallback;
+            }
+            return ay === studentLabel;
+          });
+          return hasMatch;
         });
 
         setCourses(filtered);

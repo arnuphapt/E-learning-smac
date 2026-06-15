@@ -1009,13 +1009,14 @@ function InstructorLessonContent() {
 
     const { data: cData } = await supabase.from("courses").select("*").eq("id", lData.course_id).single();
 
-    const [qRes, aRes, rRes, subRes, tsRes, stRes] = await Promise.all([
+    const [qRes, aRes, rRes, subRes, tsRes, stRes, sgRes] = await Promise.all([
       supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),
       supabase.from("assignments").select("*").eq("lesson_id", lessonId),
       supabase.from("rubrics").select("*"),
       supabase.from("submissions").select("*"),
       supabase.from("test_scores").select("*"),
-      supabase.from("users").select("*").eq("role", "student")
+      supabase.from("users").select("*").eq("role", "student"),
+      supabase.from("student_grades").select("prefix, year_label")
     ]);
 
     // Filter submissions by assignment if exists
@@ -1031,7 +1032,8 @@ function InstructorLessonContent() {
       rubrics: rRes.data || [],
       submissions: finalSubmissions,
       testScores: tsRes.data || [],
-      students: stRes.data || []
+      students: stRes.data || [],
+      studentGrades: sgRes.data || []
     });
     setLoading(false);
   };
@@ -1168,15 +1170,27 @@ function InstructorLessonContent() {
 
   // Filter students based on course restrictions
   const courseSection = course?.section;
-  const allowedYears = course?.access?.allowedYears || [];
+  const allowedYears = course?.year_level || [];
   const allowedEmails = course?.access?.allowedEmails || [];
+  const gradesList = data?.studentGrades || [];
   const enrolledStudents = data.students.filter(s => {
     if (courseSection && courseSection !== "ไม่ระบุ Section" && s.section !== courseSection) {
       return false;
     }
     if (allowedYears.length > 0) {
-      const studentYear = s.student_no ? s.student_no.slice(0, 2) : "";
-      if (!allowedYears.includes(studentYear) && !allowedEmails.includes(s.email)) {
+      const prefix = s.student_no ? s.student_no.substring(0, 2) : "";
+      const mapping = gradesList.find(g => g.prefix === prefix);
+      const studentLabel = mapping ? mapping.year_label : null;
+      const studentFallback = s.study_year ? Number(s.study_year) : null;
+      
+      const hasMatch = allowedYears.some(ay => {
+        if (typeof ay === 'number' || !isNaN(Number(ay))) {
+           return Number(ay) === studentFallback || ay == studentFallback;
+        }
+        return ay === studentLabel;
+      });
+
+      if (!hasMatch && !allowedEmails.includes(s.email)) {
         return false;
       }
     }

@@ -26,13 +26,14 @@ export default function InstructorCourses() {
   const load = async () => {
     if (!user) return;
     setLoading(true);
-    const [cRes, lRes, sRes, aRes, subRes, ciRes] = await Promise.all([
+    const [cRes, lRes, sRes, aRes, subRes, ciRes, sgRes] = await Promise.all([
       supabase.from("courses").select("*"),
       supabase.from("lessons").select("id, course_id, title, index, status").order("index", { ascending: true }),
-      supabase.from("users").select("id, student_no, section, email").like("role", "%student%"),
+      supabase.from("users").select("id, student_no, section, email, study_year").eq("role", "student"),
       supabase.from("assignments").select("id, course_id"),
       supabase.from("submissions").select("id, assignment_id, status"),
-      supabase.from("course_instructors").select("course_id").eq("user_id", user.id)
+      supabase.from("course_instructors").select("course_id").eq("user_id", user.id),
+      supabase.from("student_grades").select("prefix, year_label")
     ]);
 
     if (cRes.data) {
@@ -55,16 +56,28 @@ export default function InstructorCourses() {
         return false;
       });
 
+      const gradesList = sgRes?.data || [];
+
       const enrichedCourses = filteredCourses.map((c) => {
         const courseLessons = allLessons.filter((l) => l.course_id === c.id);
 
         const courseSection = c.section;
-        const allowedYears = c.access?.allowedYears || [];
+        const allowedYears = c.year_level || [];
 
         const courseStudents = allStudents.filter((s) => {
           if (allowedYears.length > 0) {
-            const matchesYear = allowedYears.some((year) => s.student_no?.startsWith(year));
-            if (!matchesYear) return false;
+            const prefix = s.student_no ? s.student_no.substring(0, 2) : "";
+            const mapping = gradesList.find(g => g.prefix === prefix);
+            const studentLabel = mapping ? mapping.year_label : null;
+            const studentFallback = s.study_year ? Number(s.study_year) : null;
+            
+            const hasMatch = allowedYears.some(ay => {
+              if (typeof ay === 'number' || !isNaN(Number(ay))) {
+                 return Number(ay) === studentFallback || ay == studentFallback;
+              }
+              return ay === studentLabel;
+            });
+            if (!hasMatch) return false;
           }
           if (courseSection) {
             return s.section === courseSection;
