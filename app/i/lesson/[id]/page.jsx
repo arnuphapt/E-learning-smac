@@ -1174,6 +1174,9 @@ function InstructorLessonContent() {
   const allowedEmails = course?.access?.allowedEmails || [];
   const gradesList = data?.studentGrades || [];
   const enrolledStudents = data.students.filter(s => {
+    if (allowedEmails.includes(s.email)) {
+      return true;
+    }
     if (courseSection && courseSection !== "ไม่ระบุ Section" && s.section !== courseSection) {
       return false;
     }
@@ -1190,7 +1193,7 @@ function InstructorLessonContent() {
         return ay === studentLabel;
       });
 
-      if (!hasMatch && !allowedEmails.includes(s.email)) {
+      if (!hasMatch) {
         return false;
       }
     }

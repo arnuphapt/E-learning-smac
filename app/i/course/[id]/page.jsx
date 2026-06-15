@@ -58,47 +58,230 @@ function MultiSelect({ options, selectedValues, onChange, placeholder = "เล�
   );
 }
 
-function StudentRoster({ students, courseSubmissions, enrolledScores, lessons, assignments }) {
-  return (
-    <Table
-      title={`รายชื่อนักศึกษา (${students.length})`}
-      className="table"
-      searchPlaceholder="ค้นหาชื่อ หรือรหัสนักศึกษา..."
-      headers={[
-        "รหัสนักศึกษา",
-        "ชื่อ-นามสกุล",
-        "Section",
-        <span className="hide-m" key="progress">ความคืบหน้า</span>
-      ]}
-      data={students}
-      colSpan={4}
-      renderRow={(s) => {
-        const studentId = s.id;
-        const studentSubs = courseSubmissions.filter(sub => sub.student_id === studentId);
-        const submittedCount = studentSubs.length;
-        
-        const totalAssignments = assignments.length;
-        
-        let progressPct = 0;
-        if (totalAssignments > 0) {
-          progressPct = (submittedCount / totalAssignments) * 100;
-        }
+function StudentRoster({ 
+  students, 
+  courseSubmissions, 
+  enrolledScores, 
+  lessons, 
+  assignments,
+  allStudents = [],
+  courseId,
+  allowedEmails = [],
+  onUpdateAllowedEmails
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [tempEmails, setTempEmails] = useState([]);
 
-        return (
-          <tr key={s.id}>
-            <td className="num">{s.student_no}</td>
-            <td className="fw-6">{s.name}</td>
-            <td>{s.section || "-"}</td>
-            <td className="hide-m">
-              <div className="flex items-center gap-3">
-                <Progress value={progressPct} />
-                <span className="muted t-xs">{submittedCount}/{totalAssignments}</span>
+  const handleOpen = () => {
+    setTempEmails(allowedEmails);
+    setSearch("");
+    setIsOpen(true);
+  };
+
+  const handleSave = async () => {
+    await onUpdateAllowedEmails(tempEmails);
+    setIsOpen(false);
+  };
+
+  const toggleStudent = (email) => {
+    if (tempEmails.includes(email)) {
+      setTempEmails(tempEmails.filter(e => e !== email));
+    } else {
+      setTempEmails([...tempEmails, email]);
+    }
+  };
+
+  const filteredStudents = allStudents.filter(s => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (s.name || "").toLowerCase().includes(q) ||
+      (s.student_no || "").toLowerCase().includes(q) ||
+      (s.email || "").toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <>
+      <Table
+        title={`รายชื่อนักศึกษา (${students.length})`}
+        className="table"
+        searchPlaceholder="ค้นหาชื่อ หรือรหัสนักศึกษา..."
+        addButton={
+          <button className="btn btn-outline" onClick={handleOpen} style={{ height: 36, display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icon name="users" size={15} /> จัดการนักศึกษาเพิ่มเติม
+          </button>
+        }
+        headers={[
+          "รหัสนักศึกษา",
+          "ชื่อ-นามสกุล",
+          "Section",
+          <span className="hide-m" key="progress">ความคืบหน้า</span>
+        ]}
+        data={students}
+        colSpan={4}
+        renderRow={(s) => {
+          const studentId = s.id;
+          const studentSubs = courseSubmissions.filter(sub => sub.student_id === studentId);
+          const submittedCount = studentSubs.length;
+          
+          const totalAssignments = assignments.length;
+          
+          let progressPct = 0;
+          if (totalAssignments > 0) {
+            progressPct = (submittedCount / totalAssignments) * 100;
+          }
+
+          return (
+            <tr key={s.id}>
+              <td className="num">
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {s.student_no}
+                  {allowedEmails.includes(s.email) && (
+                    <span title="นักศึกษาเพิ่มกรณีพิเศษ (Manual)" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", display: "inline-block" }} />
+                  )}
+                </div>
+              </td>
+              <td className="fw-6">
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {s.name}
+                  {allowedEmails.includes(s.email) && (
+                    <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: "var(--primary-soft)", color: "var(--primary)", fontWeight: 600 }}>กรณีพิเศษ</span>
+                  )}
+                </div>
+              </td>
+              <td>{s.section || "-"}</td>
+              <td className="hide-m">
+                <div className="flex items-center gap-3">
+                  <Progress value={progressPct} />
+                  <span className="muted t-xs">{submittedCount}/{totalAssignments}</span>
+                </div>
+              </td>
+            </tr>
+          );
+        }}
+      />
+
+      {isOpen && (
+        <div className="overlay" onClick={() => setIsOpen(false)} style={{ zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="dialog scroll" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 580, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column", padding: 0, overflow: "hidden" }}>
+            
+            <div className="dialog-h flex items-center justify-between" style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
+              <div>
+                <div className="title" style={{ fontSize: "17px", fontWeight: 700, color: "var(--fg)" }}>จัดการสิทธิ์นักศึกษาเพิ่มเติม</div>
+                <div className="desc pretty" style={{ fontSize: "12.5px", color: "var(--muted-fg)", marginTop: 4 }}>
+                  เลือกนักศึกษาที่ใช้อีเมลเก่าหรือต้องการให้เข้าเรียนรายวิชานี้เป็นกรณีพิเศษ ( bypass ชั้นปีและกลุ่มเรียน )
+                </div>
               </div>
-            </td>
-          </tr>
-        );
-      }}
-    />
+              <button className="iconbtn ghost" onClick={() => setIsOpen(false)} style={{ border: 0, background: "transparent", cursor: "pointer", width: 32, height: 32, display: "grid", placeItems: "center" }}>
+                <Icon name="x" size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", background: "#f8fafc" }}>
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <span style={{ position: "absolute", left: 12, color: "#64748b", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                  <Icon name="search" size={15} />
+                </span>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="ค้นหาชื่อ, รหัสนักศึกษา หรืออีเมล..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{
+                    width: "100%",
+                    height: 38,
+                    paddingLeft: 38,
+                    paddingRight: 12,
+                    fontSize: 13,
+                    background: "#fff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 8
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 24px", minHeight: 250, maxHeight: 380 }}>
+              {filteredStudents.length === 0 ? (
+                <div className="text-center muted p-5 t-sm">ไม่พบรายชื่อนักศึกษา</div>
+              ) : (
+                filteredStudents.map(s => {
+                  const isChecked = tempEmails.includes(s.email);
+                  const isManuallyAddedInitially = allowedEmails.includes(s.email);
+                  return (
+                    <div 
+                      key={s.id} 
+                      onClick={() => toggleStudent(s.email)}
+                      style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: 12, 
+                        padding: "10px 12px", 
+                        borderRadius: 8, 
+                        cursor: "pointer", 
+                        background: isChecked ? "var(--primary-soft)" : "transparent",
+                        marginBottom: 4, 
+                        transition: ".1s",
+                        userSelect: "none"
+                      }}
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked} 
+                        onChange={() => {}} 
+                        style={{ pointerEvents: "none", width: 16, height: 16 }} 
+                      />
+                      <div className="flex-1" style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span className="fw-6 t-sm" style={{ color: "var(--fg)" }}>{s.name}</span>
+                          <span className="t-xs muted tnum">({s.student_no})</span>
+                          {isManuallyAddedInitially && (
+                            <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "var(--primary-soft)", color: "var(--primary)", fontWeight: 600 }}>เพิ่มด้วยมือ</span>
+                          )}
+                        </div>
+                        <div className="t-xs muted truncate">{s.email} {s.section ? `· Sec ${s.section}` : ""}</div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="dialog-f" style={{ padding: "16px 24px", background: "#f8fafc", borderTop: "1px solid var(--border)", gap: 12, display: "flex", justifyContent: "flex-end" }}>
+              <span className="t-xs muted" style={{ marginRight: "auto", alignSelf: "center" }}>
+                เลือกแล้ว {tempEmails.length} คน
+              </span>
+              <button 
+                className="btn btn-outline" 
+                onClick={() => setIsOpen(false)}
+                style={{ height: 36, padding: "0 16px", borderRadius: 8, fontSize: "13px" }}
+              >
+                ยกเลิก
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleSave}
+                style={{ 
+                  height: 36, 
+                  padding: "0 16px", 
+                  borderRadius: 8, 
+                  fontSize: "13px",
+                  background: "var(--primary)",
+                  color: "#fff",
+                  borderColor: "transparent"
+                }}
+              >
+                บันทึกการแก้ไข
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -357,6 +540,26 @@ export default function InstructorCourse() {
     }
   };
 
+  const handleUpdateAllowedEmails = async (newEmails) => {
+    try {
+      const updatedAccess = {
+        ...(course.access || {}),
+        allowedEmails: newEmails
+      };
+      const { error } = await supabase
+        .from("courses")
+        .update({ access: updatedAccess })
+        .eq("id", course.id);
+
+      if (error) throw error;
+      toast("อัปเดตรายชื่อนักศึกษาเพิ่มเติมเรียบร้อยแล้ว");
+      loadData();
+    } catch (error) {
+      console.error("Error updating allowed emails:", error);
+      toast("เกิดข้อผิดพลาดในการอัปเดตรายชื่อนักศึกษา: " + error.message, "error");
+    }
+  };
+
   const handleDeleteCourse = async () => {
     const confirmed = await confirm({
       title: "ลบรายวิชา",
@@ -434,6 +637,9 @@ export default function InstructorCourse() {
   const allowedYears = course.year_level || [];
   const allowedEmails = course.access?.allowedEmails || [];
   const enrolledStudents = students.filter(s => {
+    if (allowedEmails.includes(s.email)) {
+      return true;
+    }
     if (courseSection && courseSection !== "ไม่ระบุ Section" && s.section !== courseSection) {
       return false;
     }
@@ -450,7 +656,7 @@ export default function InstructorCourse() {
         return ay === studentLabel;
       });
 
-      if (!hasMatch && !allowedEmails.includes(s.email)) {
+      if (!hasMatch) {
         return false;
       }
     }
@@ -550,6 +756,10 @@ export default function InstructorCourse() {
           enrolledScores={enrolledScores} 
           lessons={lessons} 
           assignments={assignments}
+          allStudents={students}
+          courseId={course.id}
+          allowedEmails={course.access?.allowedEmails || []}
+          onUpdateAllowedEmails={handleUpdateAllowedEmails}
         />
       )}
       {tab === "settings" && (

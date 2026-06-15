@@ -125,6 +125,9 @@ export default function StudentCourses() {
 
         // Filter by year_level access control (staff sees all)
         const filtered = isStaff ? mappedCourses : mappedCourses.filter(c => {
+          const allowedEmails = c.access?.allowedEmails || [];
+          if (allowedEmails.includes(email)) return true;
+
           const allowed = c.year_level;
           if (!allowed || allowed.length === 0) return true; // no restriction
           

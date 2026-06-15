@@ -63,8 +63,11 @@ export default function InstructorCourses() {
 
         const courseSection = c.section;
         const allowedYears = c.year_level || [];
-
+        const allowedEmails = c.access?.allowedEmails || [];
         const courseStudents = allStudents.filter((s) => {
+          if (allowedEmails.includes(s.email)) {
+            return true;
+          }
           if (allowedYears.length > 0) {
             const prefix = s.student_no ? s.student_no.substring(0, 2) : "";
             const mapping = gradesList.find(g => g.prefix === prefix);
@@ -79,7 +82,7 @@ export default function InstructorCourses() {
             });
             if (!hasMatch) return false;
           }
-          if (courseSection) {
+          if (courseSection && courseSection !== "ไม่ระบุ Section") {
             return s.section === courseSection;
           }
           return true;
