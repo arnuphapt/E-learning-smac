@@ -148,29 +148,17 @@ function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
         </div>
       </div>
 
-      <div className="grid grid-2 gap-3">
-        {isStudent && (
-          <div className="field">
-            <label className="label">Section / กลุ่มเรียน</label>
-            <select className="input" value={sec} onChange={(e) => setSec(e.target.value)}>
-              <option value="Sec 1">Sec 1</option>
-              <option value="Sec 2">Sec 2</option>
-              <option value="ไม่มี">ไม่มี</option>
-            </select>
-          </div>
-        )}
-        {!isStudent && (
-          <div className="field">
-            <label className="label">กลุ่มวิชา / สาขาวิชา</label>
-            <select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-              <option value="">ไม่ระบุกลุ่มวิชา</option>
-              {subjectGroups && subjectGroups.map(g => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
+      {!isStudent && (
+        <div className="field">
+          <label className="label">กลุ่มวิชา / สาขาวิชา</label>
+          <select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+            <option value="">ไม่ระบุกลุ่มวิชา</option>
+            {subjectGroups && subjectGroups.map(g => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </Dialog>
   );
 }
@@ -276,6 +264,13 @@ export default function MasterUsersPage() {
   const handleImpersonate = async (user) => {
     toast("กำลังเตรียมสลับหน้าสวมบทบาท...");
     
+    if (session?.user?.id && session?.user?.name) {
+      if (!localStorage.getItem("original_admin_id")) {
+        localStorage.setItem("original_admin_id", session.user.id);
+        localStorage.setItem("original_admin_name", session.user.name);
+      }
+    }
+
     const userRoles = user.role ? user.role.split(",").map(r => r.trim()) : [];
     const isStaff = userRoles.includes("admin") || userRoles.includes("course_manager") || userRoles.includes("instructor");
     const callbackUrl = isStaff ? "/i/courses" : "/s/courses";
@@ -329,7 +324,6 @@ export default function MasterUsersPage() {
           "อีเมล",
           "บทบาท",
           "รหัสประจำตัว / ตำแหน่ง",
-          "กลุ่มเรียน",
           "สถานะ",
           ""
         ]}
@@ -347,7 +341,7 @@ export default function MasterUsersPage() {
           }
           return true;
         })}
-        colSpan={7}
+        colSpan={6}
         filter={
           <>
             <select
@@ -424,7 +418,6 @@ export default function MasterUsersPage() {
                 </div>
               )}
             </td>
-            <td>{u.sec && u.sec !== "ไม่มี" ? <Badge tone="outline">{u.sec}</Badge> : <span className="muted t-sm">-</span>}</td>
             <td>
               {u.status === "active" ? (
                 <Badge tone="success" dot>ใช้งาน</Badge>

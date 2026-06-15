@@ -85,10 +85,21 @@ export default function StudentCourses() {
     setView(localStorage.getItem(KEY) || "grid");
     
     async function loadData() {
-      const { data: cData } = await supabase.from("courses").select("*");
-      const { data: yData } = await supabase.from("academic_years").select("*").order("year", { ascending: false });
-      const { data: lData } = await supabase.from("lessons").select("id, course_id, status");
-      const { data: sgData } = await supabase.from("student_grades").select("prefix, year_label");
+      const [cRes, yRes, lRes, sgRes, uRes, secRes] = await Promise.all([
+        supabase.from("courses").select("*"),
+        supabase.from("academic_years").select("*").order("year", { ascending: false }),
+        supabase.from("lessons").select("id, course_id, status"),
+        supabase.from("student_grades").select("prefix, year_label"),
+        studentId ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: null }),
+        supabase.from("sections").select("*")
+      ]);
+      
+      const cData = cRes.data;
+      const yData = yRes.data;
+      const lData = lRes.data;
+      const sgData = sgRes.data;
+      const studentProfile = uRes?.data;
+      const sectionsList = secRes?.data || [];
       
       if (cData) {
         const isStaff = role === "instructor" || role === "admin";
@@ -115,18 +126,52 @@ export default function StudentCourses() {
           };
         });
 
+        const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
+          if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
+          const masterSec = sections.find(s => s.name === sectionName);
+          if (!masterSec) return false;
+          
+          const start = masterSec.range_start;
+          const end = masterSec.range_end;
+          if (!start || !end) return null; // indicates static check fallback
+          
+          const snoStr = String(studentNo).trim();
+          if (snoStr.length < 3) return false;
+          const last3 = parseInt(snoStr.slice(-3), 10);
+          const startVal = parseInt(start, 10);
+          const endVal = parseInt(end, 10);
+          if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
+          
+          return last3 >= startVal && last3 <= endVal;
+        };
+
         const gradesList = sgData || [];
         const email = session?.user?.email || "";
         const match = email.match(/^(\d+)@/);
+        const parsedStudentNo = match ? match[1] : "";
+        const finalStudentNo = studentProfile?.student_no || parsedStudentNo;
+        const finalStudentSec = studentProfile?.section || "";
+
         const prefix = match ? match[1].substring(0, 2) : "";
         const mapping = gradesList.find(g => g.prefix === prefix);
         const studentLabel = mapping ? mapping.year_label : null;
         const studentFallback = studentYear;
 
-        // Filter by year_level access control (staff sees all)
+        // Filter by year_level & master sectionRanges access control (staff sees all)
         const filtered = isStaff ? mappedCourses : mappedCourses.filter(c => {
           const allowedEmails = c.access?.allowedEmails || [];
           if (allowedEmails.includes(email)) return true;
+
+          // Check section ranges or fallback to profile section comparison
+          if (c.section && c.section !== "ไม่ระบุ Section") {
+            const rangeMatch = getStudentSecFromMaster(finalStudentNo, c.section, sectionsList);
+            if (rangeMatch === null) {
+              // Static fallback check
+              if (finalStudentSec !== c.section) return false;
+            } else if (!rangeMatch) {
+              return false;
+            }
+          }
 
           const allowed = c.year_level;
           if (!allowed || allowed.length === 0) return true; // no restriction

@@ -37,22 +37,23 @@ function InstructorSidebarContent({ open, onClose }) {
     items2.push(["/i/reports", "chart", "รายงาน / ส่งออก Excel", pathname.startsWith("/i/reports")]);
   }
   
-  const isMaster = pathname.startsWith("/i/master");
-  let items3 = [];
+  let academicMasterItems = [];
+  let studentMasterItems = [];
+  let systemMasterItems = [];
   if (hasPermission(user, PERMISSIONS.MASTER_MANAGE)) {
-    items3.push(["/i/master/years", "cal", "ปีการศึกษา", pathname === "/i/master/years" || (pathname === "/i/master" && tab === "years")]);
-    items3.push(["/i/master/terms", "layers", "ภาคเรียน", pathname === "/i/master/terms"]);
-    items3.push(["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"]);
-    items3.push(["/i/master/sections", "users", "Section / กลุ่มเรียน", pathname === "/i/master/sections"]);
-    items3.push(["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา", pathname === "/i/master/studentgrade"]);
+    academicMasterItems.push(["/i/master/years", "cal", "ปีการศึกษา", pathname === "/i/master/years" || (pathname === "/i/master" && tab === "years")]);
+    academicMasterItems.push(["/i/master/terms", "layers", "ภาคเรียน", pathname === "/i/master/terms"]);
+    academicMasterItems.push(["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"]);
+    studentMasterItems.push(["/i/master/sections", "users", "Section / กลุ่มเรียน", pathname === "/i/master/sections"]);
+    studentMasterItems.push(["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา", pathname === "/i/master/studentgrade"]);
   }
   
   if (hasPermission(user, PERMISSIONS.USERS_MANAGE)) {
-    items3.push(["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"]);
-    items3.push(["/i/master/roles", "shield", "จัดการสิทธิ์ (Roles)", pathname === "/i/master/roles"]);
+    systemMasterItems.push(["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"]);
+    systemMasterItems.push(["/i/master/roles", "shield", "จัดการสิทธิ์ (Roles)", pathname === "/i/master/roles"]);
   }
   if (hasPermission(user, PERMISSIONS.BROADCASTS_MANAGE)) {
-    items3.push(["/i/master/broadcasts", "bell", "ประกาศ (Broadcasts)", pathname === "/i/master/broadcasts"]);
+    systemMasterItems.push(["/i/master/broadcasts", "bell", "ประกาศ (Broadcasts)", pathname === "/i/master/broadcasts"]);
   }
 
   const Item = ([to, ic, label, active]) => (
@@ -88,8 +89,14 @@ function InstructorSidebarContent({ open, onClose }) {
       {items2.length > 0 && <div className="sb-label">งานและคะแนน</div>}
       {items2.map(Item)}
       
-      {items3.length > 0 && <div className="sb-label">ตั้งค่าข้อมูลหลัก (Master)</div>}
-      {items3.map(Item)}
+      {academicMasterItems.length > 0 && <div className="sb-label">ข้อมูลหลักสูตร (Academic Data)</div>}
+      {academicMasterItems.map(Item)}
+
+      {studentMasterItems.length > 0 && <div className="sb-label">กลุ่มเรียนและชั้นปี (Student Data)</div>}
+      {studentMasterItems.map(Item)}
+
+      {systemMasterItems.length > 0 && <div className="sb-label">จัดการระบบ (System Settings)</div>}
+      {systemMasterItems.map(Item)}
       
       <div className="sb-foot">
         <Avatar name={session?.user?.name || "สุภาวดี"} src={session?.user?.image} size={36} />

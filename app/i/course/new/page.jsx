@@ -343,7 +343,10 @@ export default function CreateCourse() {
       students: 0,
       progress: 0,
       hero: color,
-      year_level: yearLevels,
+      year_level: yearLevels.map(y => {
+        const parsed = parseInt(String(y).replace(/\D/g, ''), 10);
+        return isNaN(parsed) ? null : parsed;
+      }).filter(Boolean),
       access: { allowedYears: [], allowedEmails: [] }
     };
 

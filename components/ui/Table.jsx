@@ -25,6 +25,81 @@ function getHeaderText(node) {
   return "";
 }
 
+function SortIcon({ direction }) {
+  if (direction === "asc") {
+    return (
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ marginLeft: 6, display: "inline-block", verticalAlign: "middle" }}>
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    );
+  }
+  if (direction === "desc") {
+    return (
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ marginLeft: 6, display: "inline-block", verticalAlign: "middle" }}>
+        <path d="M12 5v14M5 12l7 7 7-7"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 6, display: "inline-block", verticalAlign: "middle", opacity: 0.3 }}>
+      <path d="m7 15 5 5 5-5M7 9l5-5 5 5"/>
+    </svg>
+  );
+}
+
+function getSortValue(item, index, sortKeys, headers) {
+  if (!item) return null;
+  if (sortKeys && sortKeys[index] !== undefined) {
+    const keyOrFunc = sortKeys[index];
+    if (typeof keyOrFunc === "function") {
+      return keyOrFunc(item);
+    }
+    if (typeof keyOrFunc === "string" && keyOrFunc) {
+      return item[keyOrFunc];
+    }
+    return null;
+  }
+  
+  const headerText = getHeaderText(headers[index]).toLowerCase().trim();
+  if (!headerText) return null;
+  
+  let resolvedKey = null;
+  if (headerText.includes("รหัส")) {
+    resolvedKey = "student_no" in item ? "student_no" : "code" in item ? "code" : "username" in item ? "username" : "id";
+  } else if (headerText.includes("ชื่อ") || headerText.includes("บทเรียน") || headerText.includes("หัวข้อ") || headerText.includes("รายการ")) {
+    resolvedKey = "name" in item ? "name" : "title" in item ? "title" : "label" in item ? "label" : "username";
+  } else if (headerText.includes("section") || headerText.includes("กลุ่มเรียน") || headerText.includes("ห้องเรียน")) {
+    resolvedKey = "section" in item ? "section" : "name" in item ? "name" : "group_name";
+  } else if (headerText.includes("สถานะ")) {
+    resolvedKey = "status" in item ? "status" : "active";
+  } else if (headerText.includes("ปี") || headerText.includes("ปีการศึกษา")) {
+    resolvedKey = "year" in item ? "year" : "academic_year";
+  } else if (headerText.includes("เทอม") || headerText.includes("ภาคเรียน")) {
+    resolvedKey = "term";
+  } else if (headerText.includes("จำนวน")) {
+    resolvedKey = "students" in item ? "students" : "student_count" in item ? "student_count" : "count";
+  } else if (headerText.includes("อีเมล")) {
+    resolvedKey = "email";
+  } else if (headerText.includes("กลุ่ม")) {
+    resolvedKey = "group_name" in item ? "group_name" : "name";
+  } else if (headerText.includes("บทบาท") || headerText.includes("สิทธิ์")) {
+    resolvedKey = "role";
+  } else if (headerText.includes("ลำดับ")) {
+    resolvedKey = "index" in item ? "index" : "id";
+  } else if (headerText.includes("คะแนน")) {
+    resolvedKey = "score" in item ? "score" : "post" in item ? "post" : "pre";
+  } else if (headerText.includes("ส่งงาน")) {
+    resolvedKey = "status";
+  }
+  
+  if (resolvedKey && resolvedKey in item) {
+    return item[resolvedKey];
+  }
+  
+  const keys = Object.keys(item);
+  return item[keys[index]] || null;
+}
+
 function makeResponsiveRow(element, index, headers) {
   if (!React.isValidElement(element)) return element;
 
@@ -91,13 +166,15 @@ export default function Table({
   description,
   addButton,
   loading = false,
+  sortKeys = [],
 }) {
   const actualColSpan = (colSpan || headers.length || 1) + 1;
   const [page, setPage] = React.useState(1);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [sortConfig, setSortConfig] = React.useState({ keyIndex: null, direction: null });
 
-  // Reset to page 1 whenever data or search query changes
-  React.useEffect(() => { setPage(1); }, [data.length, searchQuery]);
+  // Reset to page 1 whenever data, search query, or sorting changes
+  React.useEffect(() => { setPage(1); }, [data.length, searchQuery, sortConfig]);
 
   const filteredData = React.useMemo(() => {
     if (!searchQuery.trim()) return data;
@@ -118,12 +195,75 @@ export default function Table({
     });
   }, [data, searchQuery, searchKeys]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  const getSortValueLocal = (item, index) => {
+    return getSortValue(item, index, sortKeys, headers);
+  };
+
+  const isColumnSortable = (index) => {
+    if (sortKeys && sortKeys[index] !== undefined) {
+      return sortKeys[index] !== null && sortKeys[index] !== false;
+    }
+    const headerText = getHeaderText(headers[index]).trim();
+    if (!headerText) return false;
+    if (["", "จัดการ", "ลบ", "เครื่องมือ", "action", "actions"].includes(headerText.toLowerCase())) {
+      return false;
+    }
+    if (data.length > 0) {
+      const sampleVal = getSortValueLocal(data[0], index);
+      return sampleVal !== undefined && sampleVal !== null;
+    }
+    return true;
+  };
+
+  const sortedData = React.useMemo(() => {
+    if (sortConfig.keyIndex === null) return filteredData;
+    const index = sortConfig.keyIndex;
+    const direction = sortConfig.direction;
+
+    return [...filteredData].sort((a, b) => {
+      let valA = getSortValueLocal(a, index);
+      let valB = getSortValueLocal(b, index);
+
+      if (valA === valB) return 0;
+      if (valA == null) return 1;
+      if (valB == null) return -1;
+
+      const isNumA = typeof valA === "number" || (!isNaN(Number(valA)) && !isNaN(parseFloat(valA)));
+      const isNumB = typeof valB === "number" || (!isNaN(Number(valB)) && !isNaN(parseFloat(valB)));
+
+      if (isNumA && isNumB) {
+        const numA = Number(valA);
+        const numB = Number(valB);
+        return direction === "asc" ? numA - numB : numB - numA;
+      }
+
+      const strA = String(valA).trim();
+      const strB = String(valB).trim();
+
+      return direction === "asc"
+        ? strA.localeCompare(strB, "th", { sensitivity: "base" })
+        : strB.localeCompare(strA, "th", { sensitivity: "base" });
+    });
+  }, [filteredData, sortConfig, sortKeys, headers]);
+
+  const handleSort = (index) => {
+    let direction = "asc";
+    if (sortConfig.keyIndex === index) {
+      if (sortConfig.direction === "asc") {
+        direction = "desc";
+      } else if (sortConfig.direction === "desc") {
+        direction = null;
+      }
+    }
+    setSortConfig({ keyIndex: direction ? index : null, direction });
+  };
+
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const start = (safePage - 1) * pageSize;
-  const pageData = filteredData.slice(start, start + pageSize);
+  const pageData = sortedData.slice(start, start + pageSize);
 
-  const hasPagination = filteredData.length > pageSize;
+  const hasPagination = sortedData.length > pageSize;
 
   // Build visible page numbers: always show first, last, current ±1
   function getPageNums() {
@@ -182,6 +322,15 @@ export default function Table({
           white-space: nowrap !important;
           text-transform: none !important;
           letter-spacing: normal !important;
+        }
+        table.table th.sortable {
+          cursor: pointer !important;
+          user-select: none !important;
+          transition: background-color 0.15s ease, color 0.15s ease !important;
+        }
+        table.table th.sortable:hover {
+          background-color: #f1f5f9 !important;
+          color: #1e293b !important;
         }
         table.table td {
           padding: 16px 20px !important;
@@ -366,9 +515,23 @@ export default function Table({
             <thead>
               <tr>
                 <th style={{ width: 55, textAlign: "center" }}>No.</th>
-                {headers.map((h, i) => (
-                  <th key={i}>{h}</th>
-                ))}
+                {headers.map((h, i) => {
+                  const sortable = isColumnSortable(i);
+                  const isCurrent = sortConfig.keyIndex === i;
+                  return (
+                    <th
+                      key={i}
+                      className={sortable ? "sortable" : undefined}
+                      onClick={sortable ? () => handleSort(i) : undefined}
+                      style={sortable ? { cursor: "pointer", userSelect: "none" } : undefined}
+                    >
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        {h}
+                        {sortable && <SortIcon direction={isCurrent ? sortConfig.direction : null} />}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -392,7 +555,7 @@ export default function Table({
           {hasPagination && (
             <div className="table-footer">
               <span className="table-count">
-                {start + 1}–{Math.min(start + pageSize, data.length)} จาก {data.length} รายการ
+                {start + 1}–{Math.min(start + pageSize, sortedData.length)} จาก {sortedData.length} รายการ
               </span>
               <div className="table-pagination">
                 <button

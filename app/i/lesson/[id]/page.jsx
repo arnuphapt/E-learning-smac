@@ -29,6 +29,25 @@ function ToggleRow({ label, on, onChange }) {
   );
 }
 
+const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
+  if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
+  const masterSec = sections.find(s => s.name === sectionName);
+  if (!masterSec) return false;
+  
+  const start = masterSec.range_start;
+  const end = masterSec.range_end;
+  if (!start || !end) return null; // static fallback indicator
+  
+  const snoStr = String(studentNo).trim();
+  if (snoStr.length < 3) return false;
+  const last3 = parseInt(snoStr.slice(-3), 10);
+  const startVal = parseInt(start, 10);
+  const endVal = parseInt(end, 10);
+  if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
+  
+  return last3 >= startVal && last3 <= endVal;
+};
+
 function Chk({ label, on, onChange }) {
   const [v, setV] = React.useState(on);
   React.useEffect(() => { setV(on); }, [on]);
@@ -1009,14 +1028,15 @@ function InstructorLessonContent() {
 
     const { data: cData } = await supabase.from("courses").select("*").eq("id", lData.course_id).single();
 
-    const [qRes, aRes, rRes, subRes, tsRes, stRes, sgRes] = await Promise.all([
+    const [qRes, aRes, rRes, subRes, tsRes, stRes, sgRes, secRes] = await Promise.all([
       supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),
       supabase.from("assignments").select("*").eq("lesson_id", lessonId),
       supabase.from("rubrics").select("*"),
       supabase.from("submissions").select("*"),
       supabase.from("test_scores").select("*"),
       supabase.from("users").select("*").eq("role", "student"),
-      supabase.from("student_grades").select("prefix, year_label")
+      supabase.from("student_grades").select("prefix, year_label"),
+      supabase.from("sections").select("*")
     ]);
 
     // Filter submissions by assignment if exists
@@ -1033,7 +1053,8 @@ function InstructorLessonContent() {
       submissions: finalSubmissions,
       testScores: tsRes.data || [],
       students: stRes.data || [],
-      studentGrades: sgRes.data || []
+      studentGrades: sgRes.data || [],
+      sectionsList: secRes?.data || []
     });
     setLoading(false);
   };
@@ -1173,12 +1194,18 @@ function InstructorLessonContent() {
   const allowedYears = course?.year_level || [];
   const allowedEmails = course?.access?.allowedEmails || [];
   const gradesList = data?.studentGrades || [];
+  const sectionsList = data?.sectionsList || [];
   const enrolledStudents = data.students.filter(s => {
     if (allowedEmails.includes(s.email)) {
       return true;
     }
-    if (courseSection && courseSection !== "ไม่ระบุ Section" && s.section !== courseSection) {
-      return false;
+    if (courseSection && courseSection !== "ไม่ระบุ Section") {
+      const rangeMatch = getStudentSecFromMaster(s.student_no, courseSection, sectionsList);
+      if (rangeMatch === null) {
+        if (s.section !== courseSection) return false;
+      } else if (!rangeMatch) {
+        return false;
+      }
     }
     if (allowedYears.length > 0) {
       const prefix = s.student_no ? s.student_no.substring(0, 2) : "";

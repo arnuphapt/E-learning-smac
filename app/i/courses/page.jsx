@@ -12,6 +12,25 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
 import { useSession } from "next-auth/react";
 
+const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
+  if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
+  const masterSec = sections.find(s => s.name === sectionName);
+  if (!masterSec) return false;
+  
+  const start = masterSec.range_start;
+  const end = masterSec.range_end;
+  if (!start || !end) return null; // static fallback indicator
+  
+  const snoStr = String(studentNo).trim();
+  if (snoStr.length < 3) return false;
+  const last3 = parseInt(snoStr.slice(-3), 10);
+  const startVal = parseInt(start, 10);
+  const endVal = parseInt(end, 10);
+  if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
+  
+  return last3 >= startVal && last3 <= endVal;
+};
+
 export default function InstructorCourses() {
   const router = useRouter();
   const { data: session } = useSession();
@@ -26,14 +45,15 @@ export default function InstructorCourses() {
   const load = async () => {
     if (!user) return;
     setLoading(true);
-    const [cRes, lRes, sRes, aRes, subRes, ciRes, sgRes] = await Promise.all([
+    const [cRes, lRes, sRes, aRes, subRes, ciRes, sgRes, secRes] = await Promise.all([
       supabase.from("courses").select("*"),
       supabase.from("lessons").select("id, course_id, title, index, status").order("index", { ascending: true }),
       supabase.from("users").select("id, student_no, section, email, study_year").eq("role", "student"),
       supabase.from("assignments").select("id, course_id"),
       supabase.from("submissions").select("id, assignment_id, status"),
       supabase.from("course_instructors").select("course_id").eq("user_id", user.id),
-      supabase.from("student_grades").select("prefix, year_label")
+      supabase.from("student_grades").select("prefix, year_label"),
+      supabase.from("sections").select("*")
     ]);
 
     if (cRes.data) {
@@ -43,6 +63,7 @@ export default function InstructorCourses() {
       const allAssignments = aRes.data || [];
       const allSubmissions = subRes.data || [];
       const myCourseIds = (ciRes?.data || []).map(ci => ci.course_id);
+      const sectionsList = secRes?.data || [];
 
       const userRoles = user?.role?.split(",").map(r => r.trim()) || [];
       const filteredCourses = coursesList.filter((c) => {
@@ -83,7 +104,12 @@ export default function InstructorCourses() {
             if (!hasMatch) return false;
           }
           if (courseSection && courseSection !== "ไม่ระบุ Section") {
-            return s.section === courseSection;
+            const rangeMatch = getStudentSecFromMaster(s.student_no, courseSection, sectionsList);
+            if (rangeMatch === null) {
+              if (s.section !== courseSection) return false;
+            } else if (!rangeMatch) {
+              return false;
+            }
           }
           return true;
         });

@@ -20,8 +20,7 @@ export default function StudentProfile() {
 
   const [form, setForm] = useState({
     name: "",
-    student_no: "",
-    section: ""
+    student_no: ""
   });
 
   useEffect(() => {
@@ -32,8 +31,7 @@ export default function StudentProfile() {
           setProfile(data);
           setForm({
             name: data.name || "",
-            student_no: data.student_no || "",
-            section: data.section || ""
+            student_no: data.student_no || ""
           });
         }
       }
@@ -47,8 +45,7 @@ export default function StudentProfile() {
     setSaving(true);
     const { error } = await supabase.from("users").update({
       name: form.name,
-      student_no: form.student_no,
-      section: form.section
+      student_no: form.student_no
     }).eq("id", session.dbId);
 
     if (error) {
@@ -89,27 +86,14 @@ export default function StudentProfile() {
             />
           </div>
           
-          <div className="flex gap-3">
-            <div className="field flex-1">
-              <label className="label">รหัสนักศึกษา</label>
-              <input 
-                type="text" 
-                className="input" 
-                value={form.student_no} 
-                onChange={(e) => setForm({...form, student_no: e.target.value})} 
-              />
-            </div>
-            
-            <div className="field flex-1">
-              <label className="label">กลุ่มเรียน (Section)</label>
-              <input 
-                type="text" 
-                className="input" 
-                value={form.section} 
-                onChange={(e) => setForm({...form, section: e.target.value})} 
-                placeholder="เช่น 1, 2, 3"
-              />
-            </div>
+          <div className="field">
+            <label className="label">รหัสนักศึกษา</label>
+            <input 
+              type="text" 
+              className="input" 
+              value={form.student_no} 
+              onChange={(e) => setForm({...form, student_no: e.target.value})} 
+            />
           </div>
           
           <div className="field">

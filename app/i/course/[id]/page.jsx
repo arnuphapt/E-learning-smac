@@ -12,6 +12,46 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
 import { useSession } from "next-auth/react";
 
+const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
+  if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
+  const masterSec = sections.find(s => s.name === sectionName);
+  if (!masterSec) return false;
+  
+  const start = masterSec.range_start;
+  const end = masterSec.range_end;
+  if (!start || !end) return null; // static fallback indicator
+  
+  const snoStr = String(studentNo).trim();
+  if (snoStr.length < 3) return false;
+  const last3 = parseInt(snoStr.slice(-3), 10);
+  const startVal = parseInt(start, 10);
+  const endVal = parseInt(end, 10);
+  if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
+  
+  return last3 >= startVal && last3 <= endVal;
+};
+
+const getStudentSectionName = (studentNo, defaultSection, sectionsList) => {
+  if (!studentNo || !sectionsList || sectionsList.length === 0) return defaultSection || "-";
+  const snoStr = String(studentNo).trim();
+  if (snoStr.length < 3) return defaultSection || "-";
+  const last3 = parseInt(snoStr.slice(-3), 10);
+  if (isNaN(last3)) return defaultSection || "-";
+  
+  for (const s of sectionsList) {
+    if (s.range_start && s.range_end) {
+      const start = parseInt(s.range_start, 10);
+      const end = parseInt(s.range_end, 10);
+      if (!isNaN(start) && !isNaN(end)) {
+        if (last3 >= start && last3 <= end) {
+          return s.name;
+        }
+      }
+    }
+  }
+  return defaultSection || "-";
+};
+
 function MultiSelect({ options, selectedValues, onChange, placeholder = "เลือก..." }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const ref = React.useRef(null);
@@ -67,7 +107,8 @@ function StudentRoster({
   allStudents = [],
   courseId,
   allowedEmails = [],
-  onUpdateAllowedEmails
+  onUpdateAllowedEmails,
+  sectionsList = []
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -133,6 +174,8 @@ function StudentRoster({
             progressPct = (submittedCount / totalAssignments) * 100;
           }
 
+          const displaySection = getStudentSectionName(s.student_no, s.section, sectionsList);
+
           return (
             <tr key={s.id}>
               <td className="num">
@@ -151,7 +194,7 @@ function StudentRoster({
                   )}
                 </div>
               </td>
-              <td>{s.section || "-"}</td>
+              <td>{displaySection}</td>
               <td className="hide-m">
                 <div className="flex items-center gap-3">
                   <Progress value={progressPct} />
@@ -313,10 +356,12 @@ export default function InstructorCourse() {
   const [savingTitle, setSavingTitle] = useState(false);
   const [masterYearLabels, setMasterYearLabels] = useState([]);
   const [gradesList, setGradesList] = useState([]);
+  const [editSection, setEditSection] = useState("");
+  const [sectionsList, setSectionsList] = useState([]);
 
   const loadData = async () => {
     if (!courseId || !user) return;
-    const [cRes, lRes, sRes, subRes, tsRes, aRes, ciRes, insRes, sgRes] = await Promise.all([
+    const [cRes, lRes, sRes, subRes, tsRes, aRes, ciRes, insRes, sgRes, secRes] = await Promise.all([
       supabase.from("courses").select("*").eq("id", courseId).single(),
       supabase.from("lessons").select("*").eq("course_id", courseId).order("index", { ascending: true }),
       supabase.from("users").select("*").eq("role", "student"),
@@ -325,7 +370,8 @@ export default function InstructorCourse() {
       supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId),
       supabase.from("course_instructors").select("user_id").eq("course_id", courseId),
       supabase.from("users").select("id, name, email, role, group_id").or("role.like.%instructor%,role.like.%course_manager%,role.like.%admin%"),
-      supabase.from("student_grades").select("prefix, year_label")
+      supabase.from("student_grades").select("prefix, year_label"),
+      supabase.from("sections").select("*").eq("status", "active")
     ]);
     
     if (cRes.data) {
@@ -354,7 +400,8 @@ export default function InstructorCourse() {
 
       setCourse(c);
       setEditTitle(c.title);
-      setEditYearLevels(c.year_level || []);
+      setEditYearLevels((c.year_level || []).map(y => typeof y === 'number' || !isNaN(Number(y)) ? `ชั้นปีที่ ${y}` : y));
+      setEditSection(c.section || "");
 
       const allInstructorsInDb = insRes.data || [];
       setAllInstructors(allInstructorsInDb);
@@ -395,6 +442,10 @@ export default function InstructorCourse() {
       setGradesList(sgRes.data);
       const uniqueYears = Array.from(new Set(sgRes.data.map(g => g.year_label).filter(Boolean))).sort();
       setMasterYearLabels(uniqueYears);
+    }
+
+    if (secRes?.data) {
+      setSectionsList(secRes.data);
     }
     
     setLoading(false);
@@ -494,6 +545,7 @@ export default function InstructorCourse() {
 
   const handleUpdateCourse = async () => {
     if (!editTitle) return toast("กรุณากรอกชื่อรายวิชา", "warning");
+
     setSavingTitle(true);
     try {
       const managerNames = editMainManagers
@@ -501,12 +553,22 @@ export default function InstructorCourse() {
         .filter(Boolean);
       const managerName = managerNames.length > 0 ? managerNames.join(", ") : course.instructor;
 
+      const updatedAccess = { ...(course.access || {}) };
+      delete updatedAccess.sectionRanges;
+
+      const finalYearLevels = editYearLevels.map(y => {
+        const parsed = parseInt(String(y).replace(/\D/g, ''), 10);
+        return isNaN(parsed) ? null : parsed;
+      }).filter(Boolean);
+
       const { error } = await supabase
         .from("courses")
         .update({
           title: editTitle,
-          year_level: editYearLevels,
-          instructor: managerName
+          year_level: finalYearLevels,
+          instructor: managerName,
+          section: editSection,
+          access: updatedAccess
         })
         .eq("id", course.id);
 
@@ -527,8 +589,10 @@ export default function InstructorCourse() {
       setCourse({ 
         ...course, 
         title: editTitle, 
-        year_level: editYearLevels,
-        instructor: managerName 
+        year_level: finalYearLevels,
+        instructor: managerName,
+        section: editSection,
+        access: updatedAccess
       });
       toast("บันทึกข้อมูลรายวิชาเรียบร้อยแล้ว");
       loadData();
@@ -617,6 +681,8 @@ export default function InstructorCourse() {
     }
   };
 
+
+
   if (loading) return <Loading className="container p-5 text-center muted" />;
   if (!course) {
     return (
@@ -640,8 +706,18 @@ export default function InstructorCourse() {
     if (allowedEmails.includes(s.email)) {
       return true;
     }
-    if (courseSection && courseSection !== "ไม่ระบุ Section" && s.section !== courseSection) {
-      return false;
+    if (courseSection && courseSection !== "ไม่ระบุ Section") {
+      const rangeMatch = getStudentSecFromMaster(s.student_no, courseSection, sectionsList);
+      if (rangeMatch === true) {
+        // matches by master range
+      } else if (rangeMatch === false) {
+        return false;
+      } else {
+        // fallback to profile section check
+        if (s.section !== courseSection) {
+          return false;
+        }
+      }
     }
     if (allowedYears.length > 0) {
       const prefix = s.student_no ? s.student_no.substring(0, 2) : "";
@@ -760,6 +836,7 @@ export default function InstructorCourse() {
           courseId={course.id}
           allowedEmails={course.access?.allowedEmails || []}
           onUpdateAllowedEmails={handleUpdateAllowedEmails}
+          sectionsList={sectionsList}
         />
       )}
       {tab === "settings" && (
@@ -822,14 +899,30 @@ export default function InstructorCourse() {
               )}
             </div>
 
+            {/* Section Configuration */}
+            <div className="field mb-4" style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+              <label className="label">กลุ่มเรียน / Section</label>
+              <select 
+                className="input" 
+                value={editSection} 
+                onChange={(e) => setEditSection(e.target.value)}
+              >
+                <option value="">ไม่ระบุ Section</option>
+                {sectionsList.map(s => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex justify-end">
               <button 
                 className={`btn btn-primary ${savingTitle ? "disabled" : ""}`} 
                 onClick={handleUpdateCourse} 
                 disabled={savingTitle || (
                   editTitle === course.title && 
-                  JSON.stringify(editYearLevels) === JSON.stringify(course.year_level || []) &&
-                  JSON.stringify(editMainManagers) === JSON.stringify(allInstructors.filter(u => course.instructor?.split(", ").includes(u.name)).map(u => u.id))
+                  JSON.stringify(editYearLevels.map(y => parseInt(String(y).replace(/\D/g, ''), 10)).filter(Boolean).sort()) === JSON.stringify((course.year_level || []).map(y => Number(y)).filter(Boolean).sort()) &&
+                  JSON.stringify(editMainManagers) === JSON.stringify(allInstructors.filter(u => course.instructor?.split(", ").includes(u.name)).map(u => u.id)) &&
+                  editSection === course.section
                 )}
               >
                 <Icon name={savingTitle ? "loader" : "check"} size={15} className={savingTitle ? "spin" : ""} />
