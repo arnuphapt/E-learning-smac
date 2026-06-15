@@ -29,6 +29,8 @@ export default function StudentTopNav() {
   const [bellOpen, setBellOpen] = useState(false);
   const bellRef = useRef(null);
   const [broadcasts, setBroadcasts] = useState([]);
+  const [hasNew, setHasNew] = useState(false);
+  const [shouldShake, setShouldShake] = useState(false);
 
   useEffect(() => {
     const now = new Date().toISOString();
@@ -39,7 +41,26 @@ export default function StudentTopNav() {
       .order("pinned", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(10)
-      .then(({ data }) => setBroadcasts(data || []));
+      .then(({ data }) => {
+        const list = data || [];
+        setBroadcasts(list);
+        
+        if (list.length > 0 && typeof window !== "undefined") {
+          const lastSeen = localStorage.getItem("last_seen_broadcast_time");
+          const newest = list[0].created_at;
+          if (!lastSeen) {
+            setHasNew(true);
+            setShouldShake(true);
+          } else {
+            const lastSeenTime = new Date(lastSeen).getTime();
+            const newestTime = new Date(newest).getTime();
+            if (newestTime > lastSeenTime) {
+              setHasNew(true);
+              setShouldShake(true);
+            }
+          }
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -51,8 +72,53 @@ export default function StudentTopNav() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const toggleBell = () => {
+    const nextOpen = !bellOpen;
+    setBellOpen(nextOpen);
+    if (nextOpen && broadcasts.length > 0) {
+      setHasNew(false);
+      setShouldShake(false);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("last_seen_broadcast_time", broadcasts[0].created_at);
+      }
+    }
+  };
+
   return (
     <div className="topnav">
+      <style>{`
+        @keyframes ring {
+          0% { transform: rotate(0); }
+          1% { transform: rotate(30deg); }
+          3% { transform: rotate(-28deg); }
+          5% { transform: rotate(34deg); }
+          7% { transform: rotate(-32deg); }
+          9% { transform: rotate(30deg); }
+          11% { transform: rotate(-28deg); }
+          13% { transform: rotate(26deg); }
+          15% { transform: rotate(-24deg); }
+          17% { transform: rotate(22deg); }
+          19% { transform: rotate(-20deg); }
+          21% { transform: rotate(18deg); }
+          23% { transform: rotate(-16deg); }
+          25% { transform: rotate(14deg); }
+          27% { transform: rotate(-12deg); }
+          29% { transform: rotate(10deg); }
+          31% { transform: rotate(-8deg); }
+          33% { transform: rotate(6deg); }
+          35% { transform: rotate(-4deg); }
+          37% { transform: rotate(2deg); }
+          39% { transform: rotate(-1deg); }
+          41% { transform: rotate(1deg); }
+          43% { transform: rotate(0); }
+          100% { transform: rotate(0); }
+        }
+        .ring-shake {
+          animation: ring 2.5s ease-in-out infinite;
+          transform-origin: 50% 0;
+          display: inline-block;
+        }
+      `}</style>
       <Link href="/s/courses" className="logo pointer" style={{ textDecoration: 'none' }}>
         <span className="mark"><Icon name="grad" size={17} /></span>
         <div>E-learning<small className="hide-m">การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></div>
@@ -69,9 +135,11 @@ export default function StudentTopNav() {
         <input className="input" style={{ width: 220, paddingLeft: 34, height: 38 }} placeholder="ค้นหารายวิชา บทเรียน…" />
       </div>
       <div className="rel" ref={bellRef}>
-        <button className="iconbtn ghost rel" onClick={() => setBellOpen(v => !v)} style={{ position: "relative" }}>
-          <Icon name="bell" size={18} />
-          {broadcasts.length > 0 && (
+        <button className="iconbtn ghost rel" onClick={toggleBell} style={{ position: "relative" }}>
+          <div className={shouldShake ? "ring-shake" : ""}>
+            <Icon name="bell" size={18} />
+          </div>
+          {hasNew && (
             <span style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: "#ef4444", border: "1.5px solid var(--surface, #fff)" }} />
           )}
         </button>
