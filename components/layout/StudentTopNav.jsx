@@ -34,34 +34,63 @@ export default function StudentTopNav() {
 
   useEffect(() => {
     const now = new Date().toISOString();
-    supabase
-      .from("broadcasts")
-      .select("id,title,body,pinned,created_at")
-      .or(`expires_at.is.null,expires_at.gt.${now}`)
-      .order("pinned", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(10)
-      .then(({ data }) => {
-        const list = data || [];
-        setBroadcasts(list);
+    
+    const fetchBroadcasts = async () => {
+      const { data } = await supabase
+        .from("broadcasts")
+        .select("id,title,body,pinned,created_at")
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+        .order("pinned", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(10);
         
-        if (list.length > 0 && typeof window !== "undefined") {
-          const lastSeen = localStorage.getItem("last_seen_broadcast_time");
-          const newest = list[0].created_at;
-          if (!lastSeen) {
+      const list = data || [];
+      setBroadcasts(list);
+      
+      if (list.length > 0 && typeof window !== "undefined") {
+        const lastSeen = localStorage.getItem("last_seen_broadcast_time");
+        const newest = list[0].created_at;
+        if (!lastSeen) {
+          setHasNew(true);
+          setShouldShake(true);
+        } else {
+          const lastSeenTime = new Date(lastSeen).getTime();
+          const newestTime = new Date(newest).getTime();
+          if (newestTime > lastSeenTime) {
             setHasNew(true);
             setShouldShake(true);
-          } else {
-            const lastSeenTime = new Date(lastSeen).getTime();
-            const newestTime = new Date(newest).getTime();
-            if (newestTime > lastSeenTime) {
-              setHasNew(true);
-              setShouldShake(true);
-            }
           }
         }
-      });
+      }
+    };
+
+    fetchBroadcasts();
+
+    const channel = supabase
+      .channel("public:broadcasts_nav")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "broadcasts" },
+        () => {
+          fetchBroadcasts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  useEffect(() => {
+    if (pathname === "/s/broadcasts" && broadcasts.length > 0) {
+      setHasNew(false);
+      setShouldShake(false);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("last_seen_broadcast_time", broadcasts[0].created_at);
+      }
+    }
+  }, [pathname, broadcasts]);
 
   useEffect(() => {
     function handleClickOutside(event) {

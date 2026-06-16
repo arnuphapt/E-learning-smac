@@ -25,11 +25,12 @@ function RowActions({ onEdit, onDelete }) {
   );
 }
 
-function SectionDialog({ mode, row, onClose, onSave }) {
+function SectionDialog({ mode, row, onClose, onSave, availableYears }) {
   const [name, setName] = React.useState(row ? row.name : "");
   const [status, setStatus] = React.useState(row ? row.status : "active");
   const [rangeStart, setRangeStart] = React.useState(row ? row.range_start || "" : "");
   const [rangeEnd, setRangeEnd] = React.useState(row ? row.range_end || "" : "");
+  const [yearLevel, setYearLevel] = React.useState(row ? row.year_level || "" : "");
 
   const handleSave = () => {
     if (!name) { toast("กรุณากรอกชื่อ Section"); return; }
@@ -52,16 +53,28 @@ function SectionDialog({ mode, row, onClose, onSave }) {
       students: row ? row.students || 0 : 0, 
       status,
       range_start: rangeStart || null,
-      range_end: rangeEnd || null
+      range_end: rangeEnd || null,
+      year_level: yearLevel || null
     });
   };
 
   return (
     <Dialog title={mode === "add" ? "เพิ่ม Section" : "แก้ไข Section"} desc="กลุ่มเรียนของนักศึกษาในระบบ" onClose={onClose}
       footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={handleSave}><Icon name="check" size={15} />บันทึก</button></>}>
-      <div className="field mb-3">
-        <label className="label">ชื่อ Section <span className="c-danger">*</span></label>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Sec 1, Sec A" />
+      <div className="grid grid-2 gap-3 mb-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="field">
+          <label className="label">ชื่อ Section <span className="c-danger">*</span></label>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Sec 1, Sec A" />
+        </div>
+        <div className="field">
+          <label className="label">ชั้นปี (ไม่ระบุได้)</label>
+          <select className="input" value={yearLevel} onChange={(e) => setYearLevel(e.target.value)}>
+            <option value="">ไม่ระบุชั้นปี</option>
+            {availableYears?.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
       </div>
       
       <div className="grid grid-2 gap-3 mb-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -123,18 +136,25 @@ const getStudentSectionName = (studentNo, defaultSection, sectionsList) => {
 export default function MasterSectionsPage() {
   const [sectionList, setSectionList] = useState([]);
   const [students, setStudents] = useState([]);
+  const [availableYears, setAvailableYears] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState(null); // {mode, row}
   const [confirmDlg, setConfirmDlg] = useState(null); // {title, desc, onConfirm}
 
   const loadData = async () => {
     setLoading(true);
-    const [secRes, uRes] = await Promise.all([
-      supabase.from("sections").select("*"),
-      supabase.from("users").select("student_no, section").eq("role", "student")
+    const [secRes, uRes, yrRes] = await Promise.all([
+      supabase.from("sections").select("*").order("name"),
+      supabase.from("users").select("student_no, section").eq("role", "student"),
+      supabase.from("student_grades").select("year_label").order("year_label")
     ]);
     if (!secRes.error) setSectionList(secRes.data || []);
     if (!uRes.error) setStudents(uRes.data || []);
+    if (!yrRes.error && yrRes.data) {
+      setAvailableYears(Array.from(new Set(yrRes.data.map(y => y.year_label))));
+    } else {
+      setAvailableYears([]);
+    }
     setLoading(false);
   };
 
@@ -192,9 +212,9 @@ export default function MasterSectionsPage() {
         }
         loading={loading}
         className="table"
-        headers={["Section", "ช่วงรหัสนักศึกษา (3 ตัวท้าย)", "จำนวนนักศึกษา", "สถานะ", ""]}
+        headers={["Section", "ชั้นปี", "ช่วงรหัสนักศึกษา (3 ตัวท้าย)", "จำนวนนักศึกษา", "สถานะ", ""]}
         data={sectionList}
-        colSpan={5}
+        colSpan={6}
         renderRow={(s) => {
           const count = students.filter(student => {
             const secName = getStudentSectionName(student.student_no, student.section, sectionList);
@@ -204,6 +224,7 @@ export default function MasterSectionsPage() {
           return (
             <tr key={s.id}>
               <td><Badge tone="primary">{s.name}</Badge></td>
+              <td>{s.year_level ? s.year_level : <span className="muted t-sm">ไม่ระบุ</span>}</td>
               <td>{s.range_start && s.range_end ? `${s.range_start}–${s.range_end}` : <span className="muted">—</span>}</td>
               <td className="num">{count}</td>
               <td>{mStatus(s.status)}</td>
@@ -224,7 +245,7 @@ export default function MasterSectionsPage() {
         }}
       />
 
-      {dlg && <SectionDialog mode={dlg.mode} row={dlg.row} onClose={() => setDlg(null)} onSave={handleSaveSection} />}
+      {dlg && <SectionDialog mode={dlg.mode} row={dlg.row} availableYears={availableYears} onClose={() => setDlg(null)} onSave={handleSaveSection} />}
       {confirmDlg && <ConfirmDialog title={confirmDlg.title} desc={confirmDlg.desc} onConfirm={confirmDlg.onConfirm} onClose={() => setConfirmDlg(null)} />}
     </div>
   );

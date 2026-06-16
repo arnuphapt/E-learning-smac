@@ -447,8 +447,20 @@ export default function CreateCourse() {
                     ) : (
                       <>
                         <option value="">ไม่ระบุ Section</option>
-                        {sections.map((s) => (
-                          <option key={s.id} value={s.name}>{s.name}</option>
+                        {Object.entries(
+                          sections.reduce((acc, s) => {
+                            const y = s.year_level || "ไม่ระบุชั้นปี";
+                            if (!acc[y]) acc[y] = [];
+                            acc[y].push(s);
+                            return acc;
+                          }, {})
+                        ).sort(([a], [b]) => a.localeCompare(b, "th"))
+                        .map(([year, secs]) => (
+                          <optgroup key={year} label={year}>
+                            {secs.map((s) => (
+                              <option key={s.id} value={s.name}>{s.name}</option>
+                            ))}
+                          </optgroup>
                         ))}
                       </>
                     )}
