@@ -8,6 +8,22 @@ import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import { toast } from "@/components/ui/Toast";
+
+const evaluateIsPastDue = (due, dueTime) => {
+  if (!due) return false;
+  const localDateTimeStr = `${due}T${dueTime || "23:59"}:00`;
+  const deadline = new Date(localDateTimeStr);
+  return new Date() > deadline;
+};
+
+const formatThaiDate = (dateStr, timeStr) => {
+  if (!dateStr) return "";
+  const dateObj = new Date(dateStr + "T" + (timeStr || "23:59") + ":00");
+  const options = { day: 'numeric', month: 'short', year: 'numeric' };
+  const thDate = dateObj.toLocaleDateString('th-TH', options);
+  return `${thDate} เวลา ${timeStr || "23:59"} น.`;
+};
 
 function ChecklistItem({ icon, label, sub, tone, action, onClick, active }) {
   const colors = { done: "var(--success)", current: "var(--primary)", todo: "var(--subtle)", locked: "var(--subtle)" };
@@ -28,7 +44,7 @@ function ChecklistItem({ icon, label, sub, tone, action, onClick, active }) {
   );
 }
 
-function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUpdate }) {
+function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUpdate, isPrePastDue }) {
   const [playing, setPlaying] = React.useState(false);
   const [simulatedPct, setSimulatedPct] = React.useState(watchProgress);
   const videoRef = React.useRef(null);
@@ -67,6 +83,8 @@ function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUp
   };
 
   if (gated) {
+    const preDue = lesson.pretest?.due;
+    const preDueTime = lesson.pretest?.due_time || "23:59";
     return (
       <div style={{ position: "relative", aspectRatio: "16/9", background: "#0b1220", borderRadius: 14, overflow: "hidden", display: "grid", placeItems: "center" }}>
         <div className="ph" style={{ position: "absolute", inset: 0, borderRadius: 0, opacity: .12, border: 0 }} />
@@ -75,12 +93,25 @@ function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUp
             <Icon name="lock" size={26} />
           </div>
           <div className="t-lg fw-7">บทเรียนนี้ถูกล็อกไว้</div>
-          <div style={{ color: "#94a3b8", marginTop: 6, fontSize: 13.5 }} className="pretty">
-            กรุณาทำแบบทดสอบก่อนเรียน (Pre-test) ให้เสร็จก่อน จึงจะสามารถเข้าชมวิดีโอและเนื้อหาบทเรียนได้
-          </div>
-          <button className="btn btn-primary btn-lg mt-4" onClick={() => nav("/s/test/" + lesson.id + "/pre")}>
-            <Icon name="clipboard" size={17} />เริ่มทำ Pre-test ({lesson.pretest?.questions || 10} ข้อ)
-          </button>
+          {isPrePastDue ? (
+            <>
+              <div style={{ color: "var(--danger)", marginTop: 6, fontSize: 13.5, fontWeight: 600 }} className="pretty">
+                แบบทดสอบก่อนเรียนเลยกำหนดเวลาส่งแล้วเมื่อ {formatThaiDate(preDue, preDueTime)} คุณจึงไม่สามารถเข้าทำแบบทดสอบหรือรับชมบทเรียนนี้ได้
+              </div>
+              <button className="btn btn-muted btn-lg mt-4 disabled" disabled>
+                <Icon name="lock" size={17} />เลยกำหนดเวลาทำข้อสอบแล้ว
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ color: "#94a3b8", marginTop: 6, fontSize: 13.5 }} className="pretty">
+                กรุณาทำแบบทดสอบก่อนเรียน (Pre-test) ให้เสร็จก่อน จึงจะสามารถเข้าชมวิดีโอและเนื้อหาบทเรียนได้
+              </div>
+              <button className="btn btn-primary btn-lg mt-4" onClick={() => nav("/s/test/" + lesson.id + "/pre")}>
+                <Icon name="clipboard" size={17} />เริ่มทำ Pre-test ({lesson.pretest?.questions || 10} ข้อ)
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -218,6 +249,96 @@ function LessonAssignTab({ assignments, submissions, nav }) {
   );
 }
 
+function NoVideoContentStage({ lesson, assignments, submissions, nav }) {
+  const docs = lesson?.documents || [];
+  const hasDocs = docs.length > 0;
+  const hasAssigns = assignments && assignments.length > 0;
+
+  if (!hasDocs && !hasAssigns) {
+    return (
+      <div className="card text-center animate-fade-in" style={{ padding: "48px 24px", background: "var(--muted)", borderRadius: 14 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 16, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
+          <Icon name="book" size={24} />
+        </div>
+        <div className="t-lg fw-7 fg">ไม่มีสื่อการเรียนการสอนแนบเพิ่มเติม</div>
+        <p className="muted t-sm mt-2" style={{ margin: 0 }}>บทเรียนนี้ไม่มีวิดีโอ เอกสารแนบ หรือใบงานเพิ่มในบทเรียน</p>
+      </div>
+    );
+  }
+
+  const getStatus = (asgId) => {
+    const sub = submissions.find(s => s.assignment_id === asgId);
+    return sub ? sub.status : "not-submitted";
+  };
+
+  return (
+    <div className="flex col gap-4 w-full">
+      {hasDocs && (
+        <div className="card" style={{ overflow: "hidden" }}>
+          <div className="card-h" style={{ background: "var(--primary-soft)", borderTopLeftRadius: 14, borderTopRightRadius: 14, padding: "14px 18px" }}>
+            <div className="title flex items-center gap-2 c-primary"><Icon name="folder" size={18} />เอกสารประกอบการเรียน</div>
+          </div>
+          <div className="card-p flex col gap-3" style={{ padding: 18 }}>
+            {docs.map((doc, i) => (
+              <div key={i} className="flex items-center gap-3" style={{ padding: "14px 18px", border: "1px solid var(--border)", borderRadius: 12, background: "#fff" }}>
+                <div style={{ width: 42, height: 42, borderRadius: 10, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}><Icon name="file" size={20} /></div>
+                <div className="flex-1" style={{ minWidth: 0 }}>
+                  <div className="fw-6 t-sm truncate fg">{doc.name}</div>
+                  <div className="t-xs muted">{doc.size}</div>
+                </div>
+                {lesson.allow_download ?? true ? (
+                  <a href={doc.url} download={doc.name} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Icon name="download" size={15} />ดาวน์โหลด
+                  </a>
+                ) : (
+                  <span className="t-xs muted flex items-center gap-1" style={{ padding: "6px 12px", background: "var(--muted)", borderRadius: 8 }}><Icon name="lock" size={13} />ไม่อนุญาตให้ดาวน์โหลด</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {hasAssigns && (
+        <div className="card" style={{ overflow: "hidden" }}>
+          <div className="card-h" style={{ background: "var(--primary-soft)", borderTopLeftRadius: 14, borderTopRightRadius: 14, padding: "14px 18px" }}>
+            <div className="title flex items-center gap-2 c-primary"><Icon name="file" size={18} />ใบงานสำหรับบทเรียนนี้</div>
+          </div>
+          <div className="card-p flex col gap-3" style={{ padding: 18 }}>
+            {assignments.map((a) => {
+              const status = getStatus(a.id);
+              return (
+                <div key={a.id} className="flex items-center justify-between gap-3 wrap" style={{ padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "#fff" }}>
+                  <div className="flex items-center gap-3">
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="file" size={22} /></div>
+                    <div>
+                      <div className="fw-7 t-sm fg">{a.title}</div>
+                      {a.instructions && (
+                        <p className="t-xs muted mt-1 pretty" style={{ whiteSpace: "pre-line", margin: "4px 0 0 0", maxWidth: 500 }}>
+                          {a.instructions}
+                        </p>
+                      )}
+                      <div className="t-xs muted flex items-center gap-2 mt-2">
+                        <Icon name="cal" size={13} />กำหนดส่ง {a.due} {a.due_time} <i className="dot-sep" /> {a.points} คะแนน
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {statusBadge(status)}
+                    <button className="btn btn-primary btn-sm" onClick={() => nav("/s/assignment/" + a.id)}>
+                      เปิดใบงาน<Icon name="arrR" size={15} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LessonNotes({ studentId, lessonId }) {
   const key = `notes_${studentId || "guest"}_${lessonId}`;
   const [note, setNote] = useState("");
@@ -334,8 +455,7 @@ export default function StudentLesson() {
       const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
       if (!lData) { setLoading(false); return; }
       
-      const isStaff = role === "instructor" || role === "admin";
-      if (lData.status === "draft" && !isStaff) {
+      if (lData.status === "draft") {
         setLesson(null);
         setLoading(false);
         return;
@@ -364,9 +484,7 @@ export default function StudentLesson() {
       setAssignments(fetchedAssignments);
 
       let fetchedAllLessons = allRes.data || [];
-      if (!isStaff) {
-        fetchedAllLessons = fetchedAllLessons.filter(l => l.status !== "draft");
-      }
+      fetchedAllLessons = fetchedAllLessons.filter(l => l.status !== "draft");
       setAllLessons(fetchedAllLessons);
       if (tsRes && tsRes.data) {
         setTestScore(tsRes.data);
@@ -415,8 +533,17 @@ export default function StudentLesson() {
   };
 
   const gated = pre.required && !pre.taken;
+  const hasNoVideo = !lesson.video || !lesson.video_url;
 
   const isPostGated = false;
+
+  const preDue = lesson.pretest?.due;
+  const preDueTime = lesson.pretest?.due_time || "23:59";
+  const isPrePastDue = !pre.taken && evaluateIsPastDue(preDue, preDueTime);
+
+  const postDue = lesson.posttest?.due;
+  const postDueTime = lesson.posttest?.due_time || "23:59";
+  const isPostPastDue = !post.taken && evaluateIsPastDue(postDue, postDueTime);
 
   const SideRail = (
     <div className="flex col gap-4">
@@ -424,13 +551,16 @@ export default function StudentLesson() {
         <div className="card-h"><div className="title t-base">ความคืบหน้าบทเรียน</div></div>
         <div style={{ padding: 8 }}>
           {pre.required && (
-            <ChecklistItem icon={pre.taken ? "checkC" : "clipboard"} tone={pre.taken ? "done" : "current"}
-              label="Pre-test" sub={pre.taken ? `ทำแล้ว · ${pre.score}/${pre.total} คะแนน` : "ต้องทำก่อนเข้าเรียน"}
-              onClick={() => nav("/s/test/" + lesson.id + "/pre")}
+            <ChecklistItem icon={pre.taken ? "checkC" : "clipboard"} tone={pre.taken ? "done" : isPrePastDue ? "locked" : "current"}
+              label="Pre-test" sub={pre.taken ? `ทำแล้ว · ${pre.score}/${pre.total} คะแนน` : isPrePastDue ? `เลยกำหนดส่งเมื่อ ${formatThaiDate(preDue, preDueTime)}` : "ต้องทำก่อนเข้าเรียน"}
+              onClick={() => isPrePastDue ? toast("เลยกำหนดเวลาทำแบบทดสอบก่อนเรียนแล้ว") : nav(pre.taken ? "/s/test/" + lesson.id + "/pre/result" : "/s/test/" + lesson.id + "/pre")}
               action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
           )}
-          <ChecklistItem icon={watchProgress === 100 ? "checkC" : "playC"} tone={gated ? "locked" : watchProgress === 100 ? "done" : "current"}
-            label="วิดีโอบทเรียน" sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
+          {!hasNoVideo && (
+            <ChecklistItem icon={watchProgress === 100 ? "checkC" : "playC"} tone={gated ? "locked" : watchProgress === 100 ? "done" : "current"}
+              label="วิดีโอบทเรียน" 
+              sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
+          )}
           {assignments.map((a) => {
             const sub = submissions.find((s) => s.assignment_id === a.id);
             const status = sub ? sub.status : "not-submitted";
@@ -443,10 +573,16 @@ export default function StudentLesson() {
                 action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
             );
           })}
-          {post.required && <ChecklistItem icon={post.taken ? "checkC" : "clipboard"} tone={post.taken ? "done" : (gated || isPostGated) ? "locked" : "todo"}
-            label="Post-test" sub={post.taken ? `ทำแล้ว · ${post.score}/${post.total}` : gated ? "ปลดล็อกหลังเรียนจบ" : isPostGated ? `ต้องดูวิดีโอให้ครบ 80% (ขณะนี้ ${watchProgress}%)` : "พร้อมให้ทำแล้ว"}
-            onClick={() => !(gated || isPostGated) && nav("/s/test/" + lesson.id + "/post")}
-            action={!(gated || isPostGated) && !post.taken ? <span className="btn btn-soft btn-sm">ทำเลย</span> : <Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />}
+          {post.required && <ChecklistItem icon={post.taken ? "checkC" : "clipboard"} tone={post.taken ? "done" : isPostPastDue ? "locked" : (gated || isPostGated) ? "locked" : "todo"}
+            label="Post-test" sub={post.taken ? `ทำแล้ว · ${post.score}/${post.total}` : isPostPastDue ? `เลยกำหนดส่งเมื่อ ${formatThaiDate(postDue, postDueTime)}` : gated ? "ปลดล็อกหลังเรียนจบ" : isPostGated ? `ต้องดูวิดีโอให้ครบ 80% (ขณะนี้ ${watchProgress}%)` : "พร้อมให้ทำแล้ว"}
+            onClick={() => {
+              if (isPostPastDue) {
+                toast("เลยกำหนดเวลาทำแบบทดสอบหลังเรียนแล้ว");
+              } else if (!(gated || isPostGated)) {
+                nav(post.taken ? "/s/test/" + lesson.id + "/post/result" : "/s/test/" + lesson.id + "/post");
+              }
+            }}
+            action={!(gated || isPostGated) && !post.taken && !isPostPastDue ? <span className="btn btn-soft btn-sm">ทำเลย</span> : <Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />}
         </div>
       </div>
       <LessonNotes studentId={studentId} lessonId={lesson.id} />
@@ -454,12 +590,49 @@ export default function StudentLesson() {
     </div>
   );
 
+  if (gated && hasNoVideo) {
+    return (
+      <div className="container">
+        <Crumb nav={nav} items={[{ label: "รายวิชาของฉัน", to: "/s/courses" }, { label: course.code, to: "/s/course/" + course.id }, { label: "บทที่ " + lesson.index }]} />
+        <div className="card text-center" style={{ maxWidth: 600, margin: "40px auto", padding: "40px 24px", borderRadius: 16 }}>
+          <div style={{ width: 80, height: 80, borderRadius: 20, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center", margin: "0 auto 24px" }}>
+            <Icon name="lock" size={32} />
+          </div>
+          <div className="t-xl fw-7 fg">บทเรียนนี้ถูกล็อกไว้</div>
+          {isPrePastDue ? (
+            <>
+              <p style={{ color: "var(--danger)", marginTop: 12, fontSize: 15, lineHeight: 1.6, maxWidth: 460, margin: "12px auto 24px" }} className="pretty fw-6">
+                แบบทดสอบก่อนเรียนเลยกำหนดเวลาส่งแล้วเมื่อ {formatThaiDate(preDue, preDueTime)} คุณจึงไม่สามารถเข้าทำแบบทดสอบหรือเข้าสู่บทเรียนนี้ได้
+              </p>
+              <button className="btn btn-muted btn-lg disabled" style={{ padding: "12px 28px" }} disabled>
+                <Icon name="lock" size={18} />เลยกำหนดเวลาทำข้อสอบแล้ว
+              </button>
+            </>
+          ) : (
+            <>
+              <p style={{ color: "var(--muted-fg)", marginTop: 12, fontSize: 15, lineHeight: 1.6, maxWidth: 460, margin: "12px auto 24px" }} className="pretty">
+                กรุณาทำแบบทดสอบก่อนเรียน (Pre-test) ให้เสร็จก่อน จึงจะสามารถเข้าเรียนและดูเนื้อหาบทเรียนได้
+              </p>
+              <button className="btn btn-primary btn-lg" onClick={() => nav("/s/test/" + lesson.id + "/pre")} style={{ padding: "12px 28px" }}>
+                <Icon name="clipboard" size={18} />เริ่มทำ Pre-test ({lesson.pretest?.questions || 10} ข้อ)
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container-wide">
       <Crumb nav={nav} items={[{ label: "รายวิชาของฉัน", to: "/s/courses" }, { label: course.code, to: "/s/course/" + course.id }, { label: "บทที่ " + lesson.index }]} />
       <div className="flex gap-5 items-start" style={{ flexDirection: mobile ? "column" : "row" }}>
         <div className="flex-1" style={{ minWidth: 0 }}>
-          <VideoStage lesson={lesson} studentId={studentId} nav={nav} gated={gated} watchProgress={watchProgress} onProgressUpdate={handleProgressUpdate} />
+          {hasNoVideo ? (
+            <NoVideoContentStage lesson={lesson} assignments={assignments} submissions={submissions} nav={nav} />
+          ) : (
+            <VideoStage lesson={lesson} studentId={studentId} nav={nav} gated={gated} watchProgress={watchProgress} onProgressUpdate={handleProgressUpdate} isPrePastDue={isPrePastDue} />
+          )}
           <div className="flex items-start justify-between gap-3 mt-4 wrap">
             <div>
               <div className="t-xs fw-6 c-primary uppercase mb-1">บทที่ {lesson.index} · {course.code}</div>
@@ -469,7 +642,7 @@ export default function StudentLesson() {
                 <i className="dot-sep" />{statusBadge(lesson.status)}
               </div>
             </div>
-            {!gated && (
+            {!gated && !hasNoVideo && (
               <button 
                 className={`btn btn-sm ${watchProgress === 100 ? "" : "btn-outline"}`}
                 style={
@@ -486,16 +659,24 @@ export default function StudentLesson() {
             )}
           </div>
 
-          <div className="tabs mt-5">
-            {[["overview", "ภาพรวม", "book"], ["docs", "เอกสารประกอบ", "folder"], ["assign", "ใบงาน", "file"]].map(([k, t, ic]) => (
-              <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}><Icon name={ic} size={15} />{t}</button>
-            ))}
-          </div>
-          <div className="mt-4">
-            {tab === "overview" && <LessonOverview lesson={lesson} />}
-            {tab === "docs" && <LessonDocs lesson={lesson} allowDownload={lesson.allow_download ?? true} />}
-            {tab === "assign" && <LessonAssignTab assignments={assignments} submissions={submissions} nav={nav} />}
-          </div>
+          {hasNoVideo ? (
+            <div className="mt-4">
+              <LessonOverview lesson={lesson} />
+            </div>
+          ) : (
+            <>
+              <div className="tabs mt-5">
+                {[["overview", "ภาพรวม", "book"], ["docs", "เอกสารประกอบ", "folder"], ["assign", "ใบงาน", "file"]].map(([k, t, ic]) => (
+                  <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}><Icon name={ic} size={15} />{t}</button>
+                ))}
+              </div>
+              <div className="mt-4">
+                {tab === "overview" && <LessonOverview lesson={lesson} />}
+                {tab === "docs" && <LessonDocs lesson={lesson} allowDownload={lesson.allow_download ?? true} />}
+                {tab === "assign" && <LessonAssignTab assignments={assignments} submissions={submissions} nav={nav} />}
+              </div>
+            </>
+          )}
           {mobile && <div className="mt-5">{SideRail}</div>}
         </div>
         {!mobile && <div style={{ width: 330, flex: "0 0 330px", position: "sticky", top: 18 }}>{SideRail}</div>}

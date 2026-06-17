@@ -103,7 +103,7 @@ export default function StudentCourses() {
       
       if (cData) {
         const isStaff = role === "instructor" || role === "admin";
-        const visibleLessons = lData ? (isStaff ? lData : lData.filter(l => l.status !== "draft")) : [];
+        const visibleLessons = lData ? lData.filter(l => l.status !== "draft") : [];
 
         const mappedCourses = cData.map(c => {
           const courseLessons = visibleLessons.filter(l => l.course_id === c.id);

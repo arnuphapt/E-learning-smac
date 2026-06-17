@@ -220,7 +220,7 @@ function VideoManage({ lesson, onSave, toast, isNew, onLessonChange }) {
       <div style={{ width: 300, flex: "0 0 300px" }}>
         <div className="card card-p">
           <div className="t-sm fw-7 mb-3">การตั้งค่าการเข้าถึง</div>
-          <ToggleRow label="ต้องทำ Pre-test ก่อนดูวิดีโอ" on={preReq} onChange={setPreReq} />
+          <ToggleRow label="ต้องทำ Pre-test ก่อนเข้าเรียน/ดูวิดีโอ" on={preReq} onChange={setPreReq} />
           <ToggleRow label="ต้องทำ Post-test หลังเรียน" on={postReq} onChange={setPostReq} />
           <ToggleRow label="อนุญาตให้ดาวน์โหลดเอกสาร" on={allowDownload} onChange={setAllowDownload} />
         </div>
@@ -261,34 +261,42 @@ function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
   const [qs, setQs] = React.useState(questions || []);
   const [editing, setEditing] = React.useState(null);
 
-  const [prePassing, setPrePassing] = React.useState(lesson.pretest?.passing_score ?? "");
+  const [prePassing, setPrePassing] = React.useState(lesson.pretest?.passing_score ?? 50);
   const [preTime, setPreTime] = React.useState(lesson.pretest?.time_limit ?? 30);
   const [preAttempts, setPreAttempts] = React.useState(lesson.pretest?.attempts ?? "1");
   const [preShuffle, setPreShuffle] = React.useState(lesson.pretest?.shuffle ?? true);
   const [preShowAnswers, setPreShowAnswers] = React.useState(lesson.pretest?.show_answers ?? true);
+  const [preDue, setPreDue] = React.useState(lesson.pretest?.due ?? "");
+  const [preDueTime, setPreDueTime] = React.useState(lesson.pretest?.due_time ?? "23:59");
 
-  const [postPassing, setPostPassing] = React.useState(lesson.posttest?.passing_score ?? 60);
+  const [postPassing, setPostPassing] = React.useState(lesson.posttest?.passing_score ?? 50);
   const [postTime, setPostTime] = React.useState(lesson.posttest?.time_limit ?? 30);
   const [postAttempts, setPostAttempts] = React.useState(lesson.posttest?.attempts ?? "1");
   const [postShuffle, setPostShuffle] = React.useState(lesson.posttest?.shuffle ?? true);
   const [postShowAnswers, setPostShowAnswers] = React.useState(lesson.posttest?.show_answers ?? true);
+  const [postDue, setPostDue] = React.useState(lesson.posttest?.due ?? "");
+  const [postDueTime, setPostDueTime] = React.useState(lesson.posttest?.due_time ?? "23:59");
 
   React.useEffect(() => {
     setQs(questions || []);
   }, [questions]);
 
   React.useEffect(() => {
-    setPrePassing(lesson.pretest?.passing_score ?? "");
+    setPrePassing(lesson.pretest?.passing_score ?? 50);
     setPreTime(lesson.pretest?.time_limit ?? 30);
     setPreAttempts(lesson.pretest?.attempts ?? "1");
     setPreShuffle(lesson.pretest?.shuffle ?? true);
     setPreShowAnswers(lesson.pretest?.show_answers ?? true);
+    setPreDue(lesson.pretest?.due ?? "");
+    setPreDueTime(lesson.pretest?.due_time ?? "23:59");
 
-    setPostPassing(lesson.posttest?.passing_score ?? 60);
+    setPostPassing(lesson.posttest?.passing_score ?? 50);
     setPostTime(lesson.posttest?.time_limit ?? 30);
     setPostAttempts(lesson.posttest?.attempts ?? "1");
     setPostShuffle(lesson.posttest?.shuffle ?? true);
     setPostShowAnswers(lesson.posttest?.show_answers ?? true);
+    setPostDue(lesson.posttest?.due ?? "");
+    setPostDueTime(lesson.posttest?.due_time ?? "23:59");
   }, [lesson]);
 
   const filteredQs = qs.filter((q) => q.kind === which);
@@ -301,7 +309,9 @@ function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
         time_limit: parseInt(preTime) || 0,
         attempts: preAttempts,
         shuffle: preShuffle,
-        show_answers: preShowAnswers
+        show_answers: preShowAnswers,
+        due: preDue || null,
+        due_time: preDueTime || null
       };
       await onSaveSettings({ pretest: updatedPretest });
     } else {
@@ -311,7 +321,9 @@ function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
         time_limit: parseInt(postTime) || 0,
         attempts: postAttempts,
         shuffle: postShuffle,
-        show_answers: postShowAnswers
+        show_answers: postShowAnswers,
+        due: postDue || null,
+        due_time: postDueTime || null
       };
       await onSaveSettings({ posttest: updatedPosttest });
     }
@@ -355,6 +367,15 @@ function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
   };
 
   const handleDeleteQuestion = async (id) => {
+    const qToDelete = qs.find(q => q.id === id);
+    if (qToDelete) {
+      const remainingCount = qs.filter(q => q.kind === qToDelete.kind && q.id !== id).length;
+      const isReq = qToDelete.kind === "pre" ? lesson.pretest?.required : lesson.posttest?.required;
+      if (isReq && remainingCount === 0) {
+        toast(`ไม่สามารถลบได้ เนื่องจากบทเรียนนี้กำหนดให้ต้องทำ ${qToDelete.kind === "pre" ? "Pre-test" : "Post-test"} แต่ระบบต้องการข้อสอบอย่างน้อย 1 ข้อ (กรุณาปิดการตั้งค่าความจำเป็นก่อนลบข้อสอบสุดท้าย)`);
+        return;
+      }
+    }
     const { error } = await supabase.from("questions").delete().eq("id", id);
     if (error) {
       toast("เกิดข้อผิดพลาด: " + error.message);
@@ -452,6 +473,34 @@ function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
               <option value="2">2 ครั้ง</option>
               <option value="unlimited">ไม่จำกัด</option>
             </select>
+          </div>
+          <div className="field">
+            <label className="label">กำหนดส่ง (วันที่)</label>
+            <input className="input" type="date" value={which === "pre" ? preDue : postDue} onChange={(e) => {
+              if (which === "pre") setPreDue(e.target.value);
+              else setPostDue(e.target.value);
+            }} />
+          </div>
+          <div className="field">
+            <label className="label">เวลาที่กำหนดส่ง</label>
+            <input className="input" value={which === "pre" ? preDueTime : postDueTime} onChange={(e) => {
+              let val = e.target.value;
+              let cleaned = val.replace(/[^0-9]/g, "").slice(0, 4);
+              if (cleaned.length >= 2) {
+                let hh = parseInt(cleaned.slice(0, 2), 10);
+                if (hh > 23) cleaned = "23" + cleaned.slice(2);
+              }
+              if (cleaned.length >= 4) {
+                let mm = parseInt(cleaned.slice(2, 4), 10);
+                if (mm > 59) cleaned = cleaned.slice(0, 2) + "59";
+              }
+              let formatted = cleaned;
+              if (cleaned.length > 2) {
+                formatted = cleaned.slice(0, 2) + ":" + cleaned.slice(2);
+              }
+              if (which === "pre") setPreDueTime(formatted);
+              else setPostDueTime(formatted);
+            }} placeholder="23:59" />
           </div>
           <ToggleRow label="สลับลำดับข้อสอบ" on={shuffleValue} onChange={setShuffleValue} />
           <ToggleRow label="แสดงเฉลยหลังส่ง" on={showAnswersValue} onChange={setShowAnswersValue} />
@@ -1012,8 +1061,8 @@ function InstructorLessonContent() {
         status: "draft",
         index: nextIndex,
         video: false,
-        pretest: { required: true },
-        posttest: { required: true },
+        pretest: { required: true, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
+        posttest: { required: true, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
         assignment: null,
         watch_limit: false,
         allow_download: true
@@ -1033,7 +1082,7 @@ function InstructorLessonContent() {
       supabase.from("assignments").select("*").eq("lesson_id", lessonId),
       supabase.from("rubrics").select("*"),
       supabase.from("submissions").select("*"),
-      supabase.from("test_scores").select("*"),
+      supabase.from("test_scores").select("*").eq("lesson_id", lessonId),
       supabase.from("users").select("*").eq("role", "student"),
       supabase.from("student_grades").select("prefix, year_label"),
       supabase.from("sections").select("*")
@@ -1065,6 +1114,28 @@ function InstructorLessonContent() {
 
   const handleSaveLessonDetails = async (updatedFields) => {
     const isNew = lessonId === "new";
+
+    // Validate that if pre-test or post-test is required, there must be at least 1 question
+    if (!isNew) {
+      const willBePreRequired = updatedFields.pretest ? updatedFields.pretest.required : lesson.pretest?.required;
+      if (willBePreRequired) {
+        const preQsCount = data.questions.filter(q => q.kind === "pre").length;
+        if (preQsCount === 0) {
+          toast("กรุณาเพิ่มข้อสอบ Pre-test อย่างน้อย 1 ข้อ ก่อนเปิดใช้งาน (ตั้งค่าให้จำเป็น)");
+          return;
+        }
+      }
+
+      const willBePostRequired = updatedFields.posttest ? updatedFields.posttest.required : lesson.posttest?.required;
+      if (willBePostRequired) {
+        const postQsCount = data.questions.filter(q => q.kind === "post").length;
+        if (postQsCount === 0) {
+          toast("กรุณาเพิ่มข้อสอบ Post-test อย่างน้อย 1 ข้อ ก่อนเปิดใช้งาน (ตั้งค่าให้จำเป็น)");
+          return;
+        }
+      }
+    }
+
     if (isNew) {
       const newLessonObj = {
         ...lesson,

@@ -435,7 +435,11 @@ export default function InstructorCourse() {
     if (lRes.data) setLessons(lRes.data);
     if (sRes.data) setStudents(sRes.data);
     if (subRes.data) setSubmissions(subRes.data);
-    if (tsRes.data) setTestScores(tsRes.data);
+    if (tsRes.data) {
+      const lessonIds = lRes.data ? lRes.data.map(l => l.id) : [];
+      const courseScores = tsRes.data.filter(ts => lessonIds.includes(ts.lesson_id));
+      setTestScores(courseScores);
+    }
     if (aRes.data) setAssignments(aRes.data);
     
     if (sgRes?.data) {

@@ -73,16 +73,35 @@ export function Ring({ value, total, size = 132, label }) {
   );
 }
 
-export function statusBadge(status) {
+export function StatusBadge({ status, showPublish = false }) {
+  if (!status) return null;
+  if (!showPublish && (status === "active" || status === "draft")) return null;
+  
   const map = {
+    // Lesson & Course Publish Status
+    "active": ["success", "เผยแพร่แล้ว"],
+    "draft": ["muted", "ฉบับร่าง"],
+    
+    // Assignment Submissions
     "graded": ["success", "ตรวจแล้ว"],
     "submitted": ["info", "ส่งแล้ว"],
     "not-submitted": ["muted", "ยังไม่ส่ง"],
-    "late": ["warning", "ส่งล่าช้า"],
+    "late": ["danger", "ส่งล่าช้า"],
+    
+    // Student Lesson Progress
     "in-progress": ["primary", "กำลังเรียน"],
     "not-started": ["outline", "ยังไม่เริ่ม"],
     "locked-pretest": ["warning", "ต้องทำ Pre-test"],
+    
+    // General Administration Statuses
+    "archived": ["muted", "จัดเก็บแล้ว"],
+    "upcoming": ["primary", "กำลังจะมาถึง"]
   };
+  
   const [tone, label] = map[status] || ["muted", status];
   return <Badge tone={tone} dot>{label}</Badge>;
+}
+
+export function statusBadge(status, showPublish = false) {
+  return <StatusBadge status={status} showPublish={showPublish} />;
 }

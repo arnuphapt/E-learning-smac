@@ -22,15 +22,26 @@ export default function TestTaking() {
   
   const [lesson, setLesson] = useState(null);
   const [qs, setQs] = useState([]);
+  const [testScore, setTestScore] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       if (!lessonId) return;
-      const [lRes, qRes] = await Promise.all([
+      
+      const queries = [
         supabase.from("lessons").select("*").eq("id", lessonId).single(),
         supabase.from("questions").select("*").eq("lesson_id", lessonId).eq("kind", kind).order("no", { ascending: true })
-      ]);
+      ];
+      if (studentId) {
+        queries.push(supabase.from("test_scores").select("*").eq("student_id", studentId).eq("lesson_id", lessonId).maybeSingle());
+      }
+      
+      const results = await Promise.all(queries);
+      const lRes = results[0];
+      const qRes = results[1];
+      const tsRes = studentId ? results[2] : null;
+
       const isStaff = role === "instructor" || role === "admin";
       if (lRes.data && lRes.data.status === "draft" && !isStaff) {
         setLesson(null);
@@ -40,10 +51,31 @@ export default function TestTaking() {
       }
       setLesson(lRes.data);
       setQs(qRes.data || []);
+      if (tsRes && tsRes.data) {
+        setTestScore(tsRes.data);
+      }
+
+      // Calculate time limit in seconds from database settings
+      const testConfig = kind === "pre" ? lRes.data?.pretest : lRes.data?.posttest;
+      const configLimit = testConfig?.time_limit ?? 30;
+      const limitSeconds = parseInt(configLimit, 10) * 60;
+
+      if (typeof window !== "undefined") {
+        const saved = sessionStorage.getItem(`test_timer_${lessonId}_${kind}`);
+        if (saved) {
+          const remaining = parseInt(saved, 10);
+          setTimeLeft(remaining > 0 ? remaining : limitSeconds);
+        } else {
+          setTimeLeft(limitSeconds);
+        }
+      } else {
+        setTimeLeft(limitSeconds);
+      }
+
       setLoading(false);
     }
     load();
-  }, [lessonId, role]);
+  }, [lessonId, role, studentId]);
 
   const [cur, setCur] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -52,7 +84,7 @@ export default function TestTaking() {
   
   const mobile = false;
 
-  // Real-time countdown timer starting at 30 minutes (1800 seconds)
+  // Real-time countdown timer starting at 30 minutes (1800 seconds) by default
   // Session storage ensures it survives accidental page refreshes
   const [timeLeft, setTimeLeft] = useState(() => {
     if (typeof window !== "undefined") {
@@ -71,6 +103,8 @@ export default function TestTaking() {
   }, [answers]);
 
   useEffect(() => {
+    if (loading) return;
+
     if (typeof window !== "undefined") {
       sessionStorage.setItem(`test_timer_${lessonId}_${kind}`, timeLeft.toString());
     }
@@ -85,7 +119,7 @@ export default function TestTaking() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, loading]);
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -93,8 +127,72 @@ export default function TestTaking() {
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
+  const evaluateIsPastDue = (due, dueTime) => {
+    if (!due) return false;
+    const localDateTimeStr = `${due}T${dueTime || "23:59"}:00`;
+    const deadline = new Date(localDateTimeStr);
+    return new Date() > deadline;
+  };
+
+  const formatThaiDate = (dateStr, timeStr) => {
+    if (!dateStr) return "";
+    const dateObj = new Date(dateStr + "T" + (timeStr || "23:59") + ":00");
+    const options = { day: 'numeric', month: 'short', year: 'numeric' };
+    const thDate = dateObj.toLocaleDateString('th-TH', options);
+    return `${thDate} เวลา ${timeStr || "23:59"} น.`;
+  };
+
+  const isStaff = role === "instructor" || role === "admin";
+  const testConfig = kind === "pre" ? lesson?.pretest : lesson?.posttest;
+  const maxAttempts = testConfig?.attempts ?? "1";
+  const existingScore = testScore ? (kind === "pre" ? testScore.pre : testScore.post) : null;
+  const hasTaken = existingScore !== null && existingScore !== undefined;
+  const blockedByAttempts = !isStaff && maxAttempts === "1" && hasTaken;
+
+  const due = testConfig?.due;
+  const dueTime = testConfig?.due_time || "23:59";
+  const isPastDue = !isStaff && evaluateIsPastDue(due, dueTime);
+
   if (loading) return <Loading text="กำลังโหลดข้อสอบ..." fullHeight />;
   if (!lesson || qs.length === 0) return <div style={{ background: "#f7f9fb", minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="muted">ไม่พบข้อสอบ</div></div>;
+
+  if (isPastDue) {
+    return (
+      <div style={{ background: "#f7f9fb", minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div className="card text-center" style={{ maxWidth: 480, padding: "32px 24px", borderRadius: 16 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 16, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
+            <Icon name="alert" size={24} />
+          </div>
+          <div className="t-lg fw-7 fg">เลยกำหนดเวลาทำข้อสอบแล้ว</div>
+          <p className="muted t-sm mt-2 mb-4" style={{ margin: "8px 0 24px 0" }}>
+            แบบทดสอบนี้ได้ปิดระบบแล้วเมื่อ {formatThaiDate(due, dueTime)} คุณจึงไม่สามารถเข้าทำข้อสอบหรือส่งคำตอบได้อีกต่อไป
+          </p>
+          <button className="btn btn-primary" onClick={() => nav("/s/lesson/" + lesson.id)}>
+            <Icon name="arrL" size={16} />กลับสู่บทเรียน
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (blockedByAttempts) {
+    return (
+      <div style={{ background: "#f7f9fb", minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div className="card text-center" style={{ maxWidth: 480, padding: "32px 24px", borderRadius: 16 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 16, background: "var(--warning-soft)", color: "var(--warning)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
+            <Icon name="alert" size={24} />
+          </div>
+          <div className="t-lg fw-7 fg">ไม่อนุญาตให้ทำแบบทดสอบเพิ่ม</div>
+          <p className="muted t-sm mt-2 mb-4" style={{ margin: "8px 0 24px 0" }}>
+            คุณได้ทำแบบทดสอบนี้ไปแล้ว และบทเรียนนี้กำหนดให้ทำแบบทดสอบได้เพียง 1 ครั้งเท่านั้น
+          </p>
+          <button className="btn btn-primary" onClick={() => nav("/s/lesson/" + lesson.id)}>
+            <Icon name="arrL" size={16} />กลับสู่บทเรียน
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const q = qs[cur];
   const answered = Object.keys(answers).length;

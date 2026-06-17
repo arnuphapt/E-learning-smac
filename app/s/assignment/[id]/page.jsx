@@ -89,6 +89,10 @@ export default function AssignmentDetail() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = React.useRef(null);
 
+  const [instructors, setInstructors] = useState([]);
+  const [selectedGraderId, setSelectedGraderId] = useState("");
+  const [studentInfo, setStudentInfo] = useState(null);
+
   useEffect(() => {
     async function load() {
       if (!asgId) return;
@@ -110,14 +114,34 @@ export default function AssignmentDetail() {
       setLesson(lData);
       setCourse(cData);
       setRubric(rData);
+
+      // Fetch instructors for the course
+      const { data: ciData } = await supabase.from("course_instructors").select("user_id").eq("course_id", aData.course_id);
+      const userIds = ciData ? ciData.map(ci => ci.user_id) : [];
+      if (userIds.length > 0) {
+        const { data: instData } = await supabase.from("users").select("id, name, email, role").in("id", userIds);
+        setInstructors(instData || []);
+      } else {
+        setInstructors([]);
+      }
       
       if (studentId) {
-        const { data: subData } = await supabase.from("submissions").select("*").eq("student_id", studentId).eq("assignment_id", asgId).maybeSingle();
-        if (subData) {
+        const [subRes, stuRes] = await Promise.all([
+          supabase.from("submissions").select("*").eq("student_id", studentId).eq("assignment_id", asgId).maybeSingle(),
+          supabase.from("users").select("*").eq("id", studentId).maybeSingle()
+        ]);
+        
+        if (stuRes.data) {
+          setStudentInfo(stuRes.data);
+        }
+
+        if (subRes.data) {
+          const subData = subRes.data;
           setSubmission(subData);
           setStatus(subData.status);
           setFile(subData.file);
           setText(subData.text || "");
+          setSelectedGraderId(subData.grader_id || "");
           setA(prev => ({
             ...prev,
             score: subData.score
@@ -131,7 +155,7 @@ export default function AssignmentDetail() {
   
   const mobile = false;
   const graded = status === "graded";
-  const canSubmit = (a?.allow_file && file) || (a?.allow_text && text.trim());
+  const canSubmit = ((a?.allow_file && file) || (a?.allow_text && text.trim())) && (instructors.length === 0 || selectedGraderId);
   const handleFileChange = async (e) => {
     const uploadedFile = e.target.files?.[0];
     if (!uploadedFile) return;
@@ -186,7 +210,8 @@ export default function AssignmentDetail() {
       text: text || null,
       score: null,
       total: a.points,
-      late: false
+      late: false,
+      grader_id: selectedGraderId || null
     };
 
     const { error } = await supabase.from("submissions").upsert([subObj]);
@@ -196,6 +221,74 @@ export default function AssignmentDetail() {
       setStatus("submitted");
       setSubmission(subObj);
       toast("ส่งใบงานเรียบร้อยแล้ว");
+
+      // Send email notification to the selected instructor/grader
+      if (selectedGraderId) {
+        const selectedGrader = instructors.find(ins => ins.id === selectedGraderId);
+        if (selectedGrader && selectedGrader.email) {
+          const graderEmail = selectedGrader.email;
+          const studentName = studentInfo?.name || session?.user?.name || "นักศึกษา";
+          const studentNo = studentInfo?.student_no ? ` (${studentInfo.student_no})` : "";
+          const courseCode = course?.code || "";
+          const courseTitle = course?.title || "";
+          const lessonIndex = lesson?.index || "";
+          const assignmentTitle = a?.title || "";
+          const gradeLink = `${window.location.origin}/i/grade/${subId}`;
+
+          fetch("/api/send-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: graderEmail,
+              subject: `[E-learning] มีการส่งใบงานใหม่: ${courseCode} - ${assignmentTitle}`,
+              html: `
+                <div style="font-family: sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                  <div style="background-color: #0d6e8c; color: white; padding: 20px; text-align: center;">
+                    <h2 style="margin: 0;">การส่งใบงานใหม่</h2>
+                  </div>
+                  <div style="padding: 24px;">
+                    <p>เรียน อาจารย์ <strong>${selectedGrader.name}</strong>,</p>
+                    <p>มีนักศึกษาส่งใบงานใหม่ในระบบ E-learning ดังรายละเอียดต่อไปนี้:</p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+                      <tr>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7; font-weight: bold; width: 140px;">วิชา:</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;">${courseCode} ${courseTitle}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7; font-weight: bold;">บทที่:</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;">บทที่ ${lessonIndex} · ${lesson?.title || ""}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7; font-weight: bold;">ใบงาน:</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;">${assignmentTitle}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7; font-weight: bold;">ผู้ส่ง:</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;">${studentName}${studentNo}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7; font-weight: bold;">เวลาที่ส่ง:</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;">${subObj.submitted_at}</td>
+                      </tr>
+                    </table>
+                    <div style="text-align: center; margin-top: 32px; margin-bottom: 16px;">
+                      <a href="${gradeLink}" target="_blank" style="background-color: #0d6e8c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                        คลิกเพื่อตรวจและให้คะแนนใบงาน
+                      </a>
+                    </div>
+                  </div>
+                  <div style="background-color: #f7fafc; color: #718096; padding: 16px; text-align: center; font-size: 12px; border-top: 1px solid #e2e8f0;">
+                    นี่เป็นอีเมลแจ้งเตือนอัตโนมัติจากระบบ E-learning SMAC กรุณาอย่าตอบกลับอีเมลนี้
+                  </div>
+                </div>
+              `,
+              text: `เรียน อาจารย์ ${selectedGrader.name},\n\nมีนักศึกษาส่งใบงานใหม่ในระบบ E-learning:\nวิชา: ${courseCode} ${courseTitle}\nบทที่: ${lessonIndex}\nใบงาน: ${assignmentTitle}\nผู้ส่ง: ${studentName}${studentNo}\nเวลาที่ส่ง: ${subObj.submitted_at}\n\nกรุณาเข้าสู่ระบบเพื่อตรวจใบงานได้ที่: ${gradeLink}`
+            })
+          }).catch(err => {
+            console.error("Failed to trigger send-email API:", err);
+          });
+        }
+      }
     }
   };
 
@@ -215,7 +308,8 @@ export default function AssignmentDetail() {
       text: text || null,
       score: null,
       total: a.points,
-      late: false
+      late: false,
+      grader_id: selectedGraderId || null
     };
 
     const { error } = await supabase.from("submissions").upsert([subObj]);
@@ -306,6 +400,12 @@ export default function AssignmentDetail() {
                 <div className="flex-1 t-sm">
                   <b style={{ color: "var(--info)" }}>ส่งงานเรียบร้อยแล้ว</b>
                   <div className="muted">ส่งเมื่อ {submission?.submitted_at || "—"} — อาจารย์จะแจ้งผลเมื่อตรวจเสร็จ</div>
+                  {submission?.grader_id && (
+                    <div className="mt-1" style={{ fontSize: 13 }}>
+                      <span className="muted">ส่งถึงผู้ตรวจ: </span>
+                      <strong className="fg">{instructors.find(ins => ins.id === submission.grader_id)?.name || "อาจารย์ผู้ตรวจ"}</strong>
+                    </div>
+                  )}
                 </div>
                 <button className="btn btn-outline btn-sm" onClick={cancelSubmit}>ยกเลิกการส่ง</button>
               </div>
@@ -356,6 +456,19 @@ export default function AssignmentDetail() {
               <div className="field">
                 <label className="label">คำตอบ / หมายเหตุถึงอาจารย์ <span className="muted fw-4">(ถ้ามี)</span></label>
                 <textarea className="input" rows={4} placeholder="พิมพ์คำตอบหรือคำอธิบายเพิ่มเติม…" value={text} onChange={(e) => setText(e.target.value)} disabled={status === "submitted"} />
+              </div>
+            )}
+            {status !== "submitted" && instructors.length > 0 && (
+              <div className="field">
+                <label className="label">ส่งงานให้ผู้ตรวจ <span className="c-danger">*</span></label>
+                <select className="input" value={selectedGraderId} onChange={(e) => setSelectedGraderId(e.target.value)}>
+                  <option value="">— เลือกอาจารย์ผู้ตรวจ —</option>
+                  {instructors.map((ins) => (
+                    <option key={ins.id} value={ins.id}>
+                      {ins.name} ({ins.role === "course_manager" ? "ผู้รับผิดชอบ" : ins.role === "admin" ? "ผู้ดูแลระบบ" : "อาจารย์ผู้สอน"})
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
             {status !== "submitted" && (

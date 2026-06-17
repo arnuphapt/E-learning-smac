@@ -86,10 +86,7 @@ export default function StudentCourse() {
       }
 
       let fetchedLessons = lRes.data || [];
-      const isStaff = role === "instructor" || role === "admin";
-      if (!isStaff) {
-        fetchedLessons = fetchedLessons.filter((l) => l.status !== "draft");
-      }
+      fetchedLessons = fetchedLessons.filter((l) => l.status !== "draft");
 
       if (studentId) {
         // Fetch student test scores and assignment submissions
