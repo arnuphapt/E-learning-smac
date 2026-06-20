@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Dialog } from "@/components/ui/Primitives";
+import { Badge, Dialog, Select } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
@@ -113,7 +113,7 @@ function GradeDialog({ mode, row, onClose, onSave, existingPrefixes }) {
             </label>
           </div>
           {!isCustom && (
-            <select
+            <Select
               className="input"
               value={yearLabel}
               onChange={(e) => setYearLabel(e.target.value)}
@@ -123,7 +123,7 @@ function GradeDialog({ mode, row, onClose, onSave, existingPrefixes }) {
               <option value="ชั้นปีที่ 2">ชั้นปีที่ 2</option>
               <option value="ชั้นปีที่ 3">ชั้นปีที่ 3</option>
               <option value="ชั้นปีที่ 4">ชั้นปีที่ 4</option>
-            </select>
+            </Select>
           )}
 
           <div className="flex gap-3 items-center mt-2">
@@ -292,11 +292,11 @@ export default function MasterStudentGradePage() {
             data={filteredGrades}
             colSpan={4}
             filter={
-              <select
+              <Select
                 className="input"
                 value={filterYearLabel}
                 onChange={(e) => setFilterYearLabel(e.target.value)}
-                style={{ width: 180, height: 38, padding: "0 12px", fontSize: 13, background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8 }}
+                style={{ width: 180, height: 38 }}
               >
                 <option value="all">ระดับชั้นปี: ทั้งหมด</option>
                 {uniqueYearLabels.map((lbl) => (
@@ -304,7 +304,7 @@ export default function MasterStudentGradePage() {
                     {lbl}
                   </option>
                 ))}
-              </select>
+              </Select>
             }
             renderRow={(g) => (
               <tr key={g.id}>

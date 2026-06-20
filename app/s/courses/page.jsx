@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Progress } from "@/components/ui/Primitives";
+import { Badge, Progress, Select } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
 
 function PageHead({ kicker, title, desc, right }) {
@@ -212,10 +212,10 @@ export default function StudentCourses() {
       <div className="flex items-center justify-between gap-3 mb-4 wrap">
         <div className="flex items-center gap-2">
           <span className="t-sm muted flex items-center gap-1"><Icon name="filter" size={15} />ปีการศึกษา</span>
-          <select className="input" style={{ width: 190, height: 36 }} value={year} onChange={(e) => setYear(e.target.value)}>
+          <Select className="input" style={{ width: 190, height: 36 }} value={year} onChange={(e) => setYear(e.target.value)}>
             <option value="all">ทุกปีการศึกษา</option>
             {years.map((y) => <option key={y.id} value={y.year}>{y.label}{y.status === "active" ? " (ปัจจุบัน)" : ""}</option>)}
-          </select>
+          </Select>
           <span className="t-sm muted ml-2">{list.length} รายวิชา</span>
         </div>
         <div className="proto-seg" style={{ background: "var(--muted)", border: "1px solid var(--border)" }}>

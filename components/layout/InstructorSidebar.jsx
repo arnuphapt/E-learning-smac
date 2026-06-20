@@ -36,6 +36,7 @@ function InstructorSidebarContent({ open, onClose }) {
   if (hasPermission(user, PERMISSIONS.REPORTS_VIEW)) {
     items2.push(["/i/reports", "chart", "รายงาน / ส่งออก Excel", pathname.startsWith("/i/reports")]);
   }
+  items2.push(["/i/ai-logs", "sparkle", "ประวัติการใช้งาน AI", pathname.startsWith("/i/ai-logs")]);
   
   let academicMasterItems = [];
   let studentMasterItems = [];

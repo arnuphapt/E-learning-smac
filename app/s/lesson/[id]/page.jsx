@@ -30,9 +30,11 @@ function ChecklistItem({ icon, label, sub, tone, action, onClick, active }) {
   return (
     <div className={"flex items-center gap-3 " + (onClick ? "pointer" : "")} onClick={onClick}
       style={{ padding: "11px 12px", borderRadius: 11, background: active ? "var(--primary-soft)" : "transparent", transition: ".12s" }}>
-      <div style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", flex: "0 0 30px",
+      <div style={{
+        width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", flex: "0 0 30px",
         background: tone === "done" ? "var(--success-soft)" : tone === "current" ? "var(--primary-soft)" : "var(--muted)",
-        color: colors[tone] }}>
+        color: colors[tone]
+      }}>
         <Icon name={icon} size={16} />
       </div>
       <div className="flex-1" style={{ minWidth: 0 }}>
@@ -44,7 +46,7 @@ function ChecklistItem({ icon, label, sub, tone, action, onClick, active }) {
   );
 }
 
-function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUpdate, isPrePastDue }) {
+function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUpdate, isPrePastDue, preCount }) {
   const [playing, setPlaying] = React.useState(false);
   const [simulatedPct, setSimulatedPct] = React.useState(watchProgress);
   const videoRef = React.useRef(null);
@@ -108,7 +110,7 @@ function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUp
                 กรุณาทำแบบทดสอบก่อนเรียน (Pre-test) ให้เสร็จก่อน จึงจะสามารถเข้าชมวิดีโอและเนื้อหาบทเรียนได้
               </div>
               <button className="btn btn-primary btn-lg mt-4" onClick={() => nav("/s/test/" + lesson.id + "/pre")}>
-                <Icon name="clipboard" size={17} />เริ่มทำ Pre-test ({lesson.pretest?.questions || 10} ข้อ)
+                <Icon name="clipboard" size={17} />เริ่มทำ Pre-test ({preCount} ข้อ)
               </button>
             </>
           )}
@@ -119,12 +121,12 @@ function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUp
   if (lesson.video_url) {
     return (
       <div style={{ position: "relative", aspectRatio: "16/9", background: "#000", borderRadius: 14, overflow: "hidden" }}>
-        <video 
+        <video
           ref={videoRef}
-          src={lesson.video_url} 
-          controls 
-          className="w-full h-full" 
-          style={{ display: "block", outline: "none" }} 
+          src={lesson.video_url}
+          controls
+          className="w-full h-full"
+          style={{ display: "block", outline: "none" }}
           onTimeUpdate={handleTimeUpdate}
         />
       </div>
@@ -348,7 +350,7 @@ function LessonNotes({ studentId, lessonId }) {
     try {
       const val = localStorage.getItem(key);
       if (val) setNote(val);
-    } catch (e) {}
+    } catch (e) { }
   }, [key]);
 
   const handleSave = () => {
@@ -356,19 +358,19 @@ function LessonNotes({ studentId, lessonId }) {
       localStorage.setItem(key, note);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   return (
     <div className="card">
       <div className="card-h"><div className="title t-base flex items-center gap-2"><Icon name="pencil" size={15} className="c-primary" />สมุดบันทึกของฉัน</div></div>
       <div className="card-p" style={{ paddingTop: 0 }}>
-        <textarea 
-          className="input" 
-          rows={5} 
-          placeholder="จดบันทึกระหว่างเรียน…" 
-          value={note} 
-          onChange={(e) => setNote(e.target.value)} 
+        <textarea
+          className="input"
+          rows={5}
+          placeholder="จดบันทึกระหว่างเรียน…"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
           style={{ width: "100%", resize: "vertical" }}
         />
         <div className="flex justify-end mt-3">
@@ -425,6 +427,7 @@ export default function StudentLesson() {
   const [testScore, setTestScore] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [watchProgress, setWatchProgress] = useState(0);
+  const [questionCounts, setQuestionCounts] = useState({ pre: 0, post: 0 });
 
   useEffect(() => {
     if (typeof window !== "undefined" && studentId && lessonId) {
@@ -454,17 +457,18 @@ export default function StudentLesson() {
       if (!lessonId) return;
       const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
       if (!lData) { setLoading(false); return; }
-      
+
       if (lData.status === "draft") {
         setLesson(null);
         setLoading(false);
         return;
       }
-      
+
       const queries = [
         supabase.from("courses").select("*").eq("id", lData.course_id).single(),
         supabase.from("assignments").select("*").eq("lesson_id", lessonId),
-        supabase.from("lessons").select("*").eq("course_id", lData.course_id).order("index", { ascending: true })
+        supabase.from("lessons").select("*").eq("course_id", lData.course_id).order("index", { ascending: true }),
+        supabase.from("questions").select("id, kind").eq("lesson_id", lessonId)
       ];
 
       if (studentId) {
@@ -475,17 +479,24 @@ export default function StudentLesson() {
       const cRes = results[0];
       const aRes = results[1];
       const allRes = results[2];
-      const tsRes = studentId ? results[3] : null;
+      const qRes = results[3];
+      const tsRes = studentId ? results[4] : null;
 
       setLesson(lData);
       setCourse(cRes.data || { id: "c1", code: "Unknown" });
-      
+
       const fetchedAssignments = aRes.data || [];
       setAssignments(fetchedAssignments);
 
       let fetchedAllLessons = allRes.data || [];
       fetchedAllLessons = fetchedAllLessons.filter(l => l.status !== "draft");
       setAllLessons(fetchedAllLessons);
+
+      const qsList = qRes.data || [];
+      const preCount = qsList.filter(q => q.kind === "pre").length;
+      const postCount = qsList.filter(q => q.kind === "post").length;
+      setQuestionCounts({ pre: preCount, post: postCount });
+
       if (tsRes && tsRes.data) {
         setTestScore(tsRes.data);
       }
@@ -522,14 +533,14 @@ export default function StudentLesson() {
     required: lesson.pretest?.required ?? true,
     taken: testScore ? (testScore.pre !== null && testScore.pre !== undefined) : false,
     score: testScore ? testScore.pre : 0,
-    total: testScore ? testScore.total : (lesson.pretest?.questions || 10)
+    total: testScore ? testScore.total : questionCounts.pre
   };
 
   const post = {
     required: lesson.posttest?.required ?? true,
     taken: testScore ? (testScore.post !== null && testScore.post !== undefined) : false,
     score: testScore ? testScore.post : 0,
-    total: testScore ? testScore.total : (lesson.posttest?.questions || 10)
+    total: testScore ? testScore.total : questionCounts.post
   };
 
   const gated = pre.required && !pre.taken;
@@ -547,6 +558,29 @@ export default function StudentLesson() {
 
   const SideRail = (
     <div className="flex col gap-4">
+      {/* AI Tutor Card */}
+      {lesson.allow_ai !== false && (
+        <div className="card animate-fade-in" style={{
+          background: "linear-gradient(135deg, var(--primary-soft) 0%, rgba(8,145,178,0.06) 100%)",
+          border: "1px solid rgba(13,110,140,0.18)",
+          borderRadius: 14,
+          overflow: "hidden"
+        }}>
+          <div className="card-p" style={{ padding: "16px 18px" }}>
+            <div className="flex items-center gap-2 mb-2" style={{ color: "var(--primary)" }}>
+              <Icon name="sparkle" size={17} />
+              <span className="fw-7 style-sm" style={{ fontSize: "14px", fontWeight: 700 }}>AI ผู้ช่วยเรียนรู้</span>
+            </div>
+            <p className="muted t-xs mb-3" style={{ margin: 0, lineHeight: 1.5 }}>
+              มีข้อสงสัยเกี่ยวกับบทเรียนหรือต้องการสรุปเนื้อหาสำคัญ? ถาม AI ติวเตอร์ได้ทันที!
+            </p>
+            <button className="btn btn-primary btn-sm w-full" onClick={() => nav(`/s/lesson/${lesson.id}/ai`)} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Icon name="sparkle" size={14} />คุยกับ AI ติวเตอร์
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-h"><div className="title t-base">ความคืบหน้าบทเรียน</div></div>
         <div style={{ padding: 8 }}>
@@ -558,7 +592,7 @@ export default function StudentLesson() {
           )}
           {!hasNoVideo && (
             <ChecklistItem icon={watchProgress === 100 ? "checkC" : "playC"} tone={gated ? "locked" : watchProgress === 100 ? "done" : "current"}
-              label="วิดีโอบทเรียน" 
+              label="วิดีโอบทเรียน"
               sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
           )}
           {assignments.map((a) => {
@@ -614,7 +648,7 @@ export default function StudentLesson() {
                 กรุณาทำแบบทดสอบก่อนเรียน (Pre-test) ให้เสร็จก่อน จึงจะสามารถเข้าเรียนและดูเนื้อหาบทเรียนได้
               </p>
               <button className="btn btn-primary btn-lg" onClick={() => nav("/s/test/" + lesson.id + "/pre")} style={{ padding: "12px 28px" }}>
-                <Icon name="clipboard" size={18} />เริ่มทำ Pre-test ({lesson.pretest?.questions || 10} ข้อ)
+                <Icon name="clipboard" size={18} />เริ่มทำ Pre-test ({questionCounts.pre} ข้อ)
               </button>
             </>
           )}
@@ -631,7 +665,7 @@ export default function StudentLesson() {
           {hasNoVideo ? (
             <NoVideoContentStage lesson={lesson} assignments={assignments} submissions={submissions} nav={nav} />
           ) : (
-            <VideoStage lesson={lesson} studentId={studentId} nav={nav} gated={gated} watchProgress={watchProgress} onProgressUpdate={handleProgressUpdate} isPrePastDue={isPrePastDue} />
+            <VideoStage lesson={lesson} studentId={studentId} nav={nav} gated={gated} watchProgress={watchProgress} onProgressUpdate={handleProgressUpdate} isPrePastDue={isPrePastDue} preCount={questionCounts.pre} />
           )}
           <div className="flex items-start justify-between gap-3 mt-4 wrap">
             <div>
@@ -643,10 +677,10 @@ export default function StudentLesson() {
               </div>
             </div>
             {!gated && !hasNoVideo && (
-              <button 
+              <button
                 className={`btn btn-sm ${watchProgress === 100 ? "" : "btn-outline"}`}
                 style={
-                  watchProgress === 100 
+                  watchProgress === 100
                     ? { background: "var(--success-soft)", color: "var(--success)", border: "1px solid var(--success)", cursor: "default" }
                     : {}
                 }

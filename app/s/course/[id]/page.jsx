@@ -11,14 +11,54 @@ import Loading from "@/components/ui/Loading";
 
 function LessonRow({ l, nav }) {
   const locked = l.status === "locked-pretest";
+  
+  // Check if lesson actually has a video
+  const hasVideo = !!(l.video_url || l.video);
+  
   const chips = [];
-  if (l.pretest) chips.push(["Pre-test", l.pretest.taken ? "success" : "warning", l.pretest.taken ? "checkC" : "clipboard"]);
-  if (l.posttest && l.posttest.required) chips.push(["Post-test", l.posttest.taken ? "success" : "muted", l.posttest.taken ? "checkC" : "clipboard"]);
+  
+  // Pre-test status
+  if (l.pretest) {
+    if (l.pretest.required) {
+      if (l.pretest.taken) {
+        const scoreText = (l.pretest.score !== null && l.pretest.score !== undefined) 
+          ? ` (${l.pretest.score}/${l.pretest.total} คะแนน)` 
+          : " (ทำแล้ว)";
+        chips.push([`Pre-test${scoreText}`, "success", "checkC"]);
+      } else {
+        chips.push(["Pre-test (ต้องทำ)", "warning", "clipboard"]);
+      }
+    } else {
+      // Optional pre-test
+      if (l.pretest.taken) {
+        const scoreText = (l.pretest.score !== null && l.pretest.score !== undefined) 
+          ? ` (${l.pretest.score}/${l.pretest.total} คะแนน)` 
+          : " (ทำแล้ว)";
+        chips.push([`Pre-test${scoreText}`, "success", "checkC"]);
+      } else {
+        chips.push(["Pre-test (ไม่บังคับ)", "muted", "clipboard"]);
+      }
+    }
+  }
+
+  // Post-test status
+  if (l.posttest && l.posttest.required) {
+    if (l.posttest.taken) {
+      const scoreText = (l.posttest.score !== null && l.posttest.score !== undefined) 
+        ? ` (${l.posttest.score}/${l.posttest.total} คะแนน)` 
+        : " (ทำแล้ว)";
+      chips.push([`Post-test${scoreText}`, "success", "checkC"]);
+    } else {
+      chips.push(["Post-test (ยังไม่ได้ทำ)", "muted", "clipboard"]);
+    }
+  }
+
+  // Assignments status
   if (l.assignments && l.assignments.length > 0) {
     const completedCount = l.assignments.filter(a => a.status === "graded" || a.status === "submitted").length;
     const allGraded = l.assignments.every(a => a.status === "graded");
     const tone = allGraded ? "success" : (completedCount > 0 ? "info" : "muted");
-    chips.push([`ใบงาน (${completedCount}/${l.assignments.length})`, tone, "file"]);
+    chips.push([`ใบงาน (ส่งแล้ว ${completedCount}/${l.assignments.length})`, tone, "file"]);
   }
   
   return (
@@ -36,14 +76,43 @@ function LessonRow({ l, nav }) {
               <span className="fw-6 t-base">{l.title}</span>
               {statusBadge(l.status)}
             </div>
-            <div className="flex items-center gap-2 mt-1 t-xs muted wrap">
-              <span className="flex items-center gap-1"><Icon name="video" size={13} />{l.duration}</span>
-              <i className="dot-sep" />
-              {chips.map(([txt, tone, ic], i) => (
-                <span key={i} className="flex items-center gap-1" style={{ color: tone === "success" ? "var(--success)" : tone === "warning" ? "var(--warning)" : "var(--muted-fg)" }}>
-                  <Icon name={ic} size={13} />{txt}
-                </span>
-              ))}
+            
+            {/* Descriptive badges layout */}
+            <div className="flex items-center gap-2 mt-2 t-xs wrap">
+              {/* Video Badge */}
+              <span className="flex items-center gap-1" style={{ 
+                padding: "3px 8px", 
+                borderRadius: "6px", 
+                background: hasVideo ? "var(--primary-soft)" : "var(--muted)", 
+                color: hasVideo ? "var(--primary)" : "var(--subtle)",
+                fontWeight: 600
+              }}>
+                <Icon name={hasVideo ? "video" : "book"} size={12} />
+                {hasVideo ? `มีวิดีโอ (${l.duration || "ไม่ระบุ"})` : "ไม่มีวิดีโอ"}
+              </span>
+
+              {/* Status Chips */}
+              {chips.map(([txt, tone, ic], i) => {
+                const colorMap = {
+                  success: { bg: "var(--success-soft)", fg: "var(--success)" },
+                  warning: { bg: "var(--warning-soft)", fg: "var(--warning)" },
+                  info: { bg: "var(--primary-soft)", fg: "var(--primary)" },
+                  muted: { bg: "var(--muted)", fg: "var(--subtle)" }
+                };
+                const colors = colorMap[tone] || colorMap.muted;
+                return (
+                  <span key={i} className="flex items-center gap-1" style={{ 
+                    padding: "3px 8px", 
+                    borderRadius: "6px", 
+                    background: colors.bg, 
+                    color: colors.fg,
+                    fontWeight: 600
+                  }}>
+                    <Icon name={ic} size={12} />
+                    {txt}
+                  </span>
+                );
+              })}
             </div>
           </div>
           <div style={{ width: 120 }} className="hide-m">
@@ -132,11 +201,15 @@ export default function StudentCourse() {
             progress,
             pretest: l.pretest ? {
               ...l.pretest,
-              taken: preTaken
+              taken: preTaken,
+              score: myScore ? myScore.pre : null,
+              total: myScore ? myScore.total : null
             } : null,
             posttest: l.posttest ? {
               ...l.posttest,
-              taken: postTaken
+              taken: postTaken,
+              score: myScore ? myScore.post : null,
+              total: myScore ? myScore.total : null
             } : null,
             assignments: mappedAssignments
           };

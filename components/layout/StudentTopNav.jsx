@@ -23,6 +23,7 @@ export default function StudentTopNav() {
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
   const onCal = pathname === "/s/calendar";
   const onBroadcasts = pathname === "/s/broadcasts";
+  const onAi = pathname.startsWith("/s/ai");
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -84,11 +85,14 @@ export default function StudentTopNav() {
 
   useEffect(() => {
     if (pathname === "/s/broadcasts" && broadcasts.length > 0) {
-      setHasNew(false);
-      setShouldShake(false);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("last_seen_broadcast_time", broadcasts[0].created_at);
-      }
+      const timer = setTimeout(() => {
+        setHasNew(false);
+        setShouldShake(false);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("last_seen_broadcast_time", broadcasts[0].created_at);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [pathname, broadcasts]);
 
@@ -157,6 +161,7 @@ export default function StudentTopNav() {
         <Link href="/s/assignments" className={onAssignments ? "on" : ""} style={{ textDecoration: 'none' }}>ใบงาน</Link>
         <Link href="/s/calendar" className={onCal ? "on" : ""} style={{ textDecoration: 'none' }}>ปฏิทิน</Link>
         <Link href="/s/broadcasts" className={onBroadcasts ? "on" : ""} style={{ textDecoration: 'none' }}>ประกาศ</Link>
+        <Link href="/s/ai" className={onAi ? "on" : ""} style={{ textDecoration: 'none' }}>AI ผู้ช่วย</Link>
       </nav>
       <div className="proto-spacer" />
       <div className="rel hide-m">

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Dialog } from "@/components/ui/Primitives";
+import { Badge, Dialog, Select } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
@@ -68,12 +68,12 @@ function SectionDialog({ mode, row, onClose, onSave, availableYears }) {
         </div>
         <div className="field">
           <label className="label">ชั้นปี (ไม่ระบุได้)</label>
-          <select className="input" value={yearLevel} onChange={(e) => setYearLevel(e.target.value)}>
+          <Select className="input" value={yearLevel} onChange={(e) => setYearLevel(e.target.value)}>
             <option value="">ไม่ระบุชั้นปี</option>
             {availableYears?.map(y => (
               <option key={y} value={y}>{y}</option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
       

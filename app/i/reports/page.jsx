@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
 import Icon from "@/components/ui/Icon";
-import { statusBadge } from "@/components/ui/Primitives";
+import { statusBadge, Select } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
@@ -99,9 +99,9 @@ export default function Reports() {
           <div className="card card-p mb-4">
             <div className="t-sm fw-7 mb-3 flex items-center gap-2"><Icon name="filter" size={16} className="c-primary" />ตัวกรองข้อมูล</div>
             <div className="grid grid-3 gap-3">
-              <div><label className="label">รายวิชา</label><select className="input" value={course || ""} onChange={(e) => setCourse(e.target.value)}>{courses.map((c) => <option key={c.id} value={c.id}>{c.code} {c.title}</option>)}</select></div>
-              <div><label className="label">บทเรียน / ใบงาน</label><select className="input"><option>ทุกบทเรียน</option><option>บทที่ 1 — หัวใจล้มเหลว</option><option>ใบงานที่ 1</option></select></div>
-              <div><label className="label">Section</label><select className="input"><option>ทุก Section</option><option>Sec 1</option><option>Sec 2</option></select></div>
+              <div><label className="label">รายวิชา</label><Select className="input" value={course || ""} onChange={(e) => setCourse(e.target.value)}>{courses.map((c) => <option key={c.id} value={c.id}>{c.code} {c.title}</option>)}</Select></div>
+              <div><label className="label">บทเรียน / ใบงาน</label><Select className="input"><option>ทุกบทเรียน</option><option>บทที่ 1 — หัวใจล้มเหลว</option><option>ใบงานที่ 1</option></Select></div>
+              <div><label className="label">Section</label><Select className="input"><option>ทุก Section</option><option>Sec 1</option><option>Sec 2</option></Select></div>
             </div>
           </div>
 

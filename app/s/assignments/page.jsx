@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { PageHead, Crumb } from "@/components/ui/Shared";
-import { Avatar, Badge, statusBadge } from "@/components/ui/Primitives";
+import { Avatar, Badge, statusBadge, Select } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
 
 export default function StudentAssignments() {
@@ -169,7 +169,7 @@ export default function StudentAssignments() {
             />
           </div>
 
-          <select
+          <Select
             className="input"
             style={{ width: 180, height: 36 }}
             value={courseFilter}
@@ -181,9 +181,9 @@ export default function StudentAssignments() {
                 {c.code}
               </option>
             ))}
-          </select>
+          </Select>
 
-          <select
+          <Select
             className="input"
             style={{ width: 150, height: 36 }}
             value={statusFilter}
@@ -193,7 +193,7 @@ export default function StudentAssignments() {
             <option value="not-submitted">ยังไม่ส่ง</option>
             <option value="submitted">ส่งแล้ว</option>
             <option value="graded">ตรวจแล้ว</option>
-          </select>
+          </Select>
         </div>
 
         <span className="t-sm muted">{filteredAssignments.length} ใบงาน</span>

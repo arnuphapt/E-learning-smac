@@ -28,7 +28,7 @@ export default function Calendar() {
     async function load() {
       const [aRes, lRes] = await Promise.all([
         supabase.from("assignments").select("*, course:courses(code)"),
-        supabase.from("lessons").select("*")
+        supabase.from("lessons").select("*, course:courses(code)")
       ]);
       
       if (aRes.data) {
@@ -84,6 +84,8 @@ export default function Calendar() {
   // Compute events for viewed month
   const getEventsForViewedMonth = () => {
     const evs = {};
+
+    // 1. Add assignments
     assignmentsList.forEach(a => {
       if (!a.due) return;
       const d = new Date(a.due);
@@ -99,6 +101,45 @@ export default function Calendar() {
         });
       }
     });
+
+    // 2. Add Pre-tests and Post-tests from lessons
+    lessons.forEach(l => {
+      const isStaff = role === "instructor" || role === "admin";
+      if (l.status === "draft" && !isStaff) return;
+
+      // Pre-test due date
+      if (l.pretest?.required && l.pretest?.due) {
+        const d = new Date(l.pretest.due);
+        if (d.getFullYear() === viewedDate.getFullYear() && d.getMonth() === viewedDate.getMonth()) {
+          const day = d.getDate();
+          if (!evs[day]) evs[day] = [];
+          evs[day].push({
+            t: `Pre-test บทที่ ${l.index} · ${l.title}`,
+            course: l.course?.code || "NUR301",
+            tone: "info",
+            kind: "pretest",
+            to: `/s/lesson/${l.id}`
+          });
+        }
+      }
+
+      // Post-test due date
+      if (l.posttest?.required && l.posttest?.due) {
+        const d = new Date(l.posttest.due);
+        if (d.getFullYear() === viewedDate.getFullYear() && d.getMonth() === viewedDate.getMonth()) {
+          const day = d.getDate();
+          if (!evs[day]) evs[day] = [];
+          evs[day].push({
+            t: `Post-test บทที่ ${l.index} · ${l.title}`,
+            course: l.course?.code || "NUR301",
+            tone: "info",
+            kind: "posttest",
+            to: `/s/lesson/${l.id}`
+          });
+        }
+      }
+    });
+
     return evs;
   };
 
@@ -109,20 +150,52 @@ export default function Calendar() {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     
-    return assignmentsList
-      .map(a => {
-        if (!a.due) return null;
-        const d = new Date(a.due);
-        return {
-          t: a.title,
-          course: a.course?.code || "NUR301",
-          tone: "primary",
-          kind: "assignment",
-          to: "/s/assignment/" + a.id,
-          date: d
-        };
-      })
-      .filter(item => item && item.date >= now)
+    const items = [];
+
+    // Add assignments
+    assignmentsList.forEach(a => {
+      if (!a.due) return;
+      const d = new Date(a.due);
+      items.push({
+        t: a.title,
+        course: a.course?.code || "NUR301",
+        tone: "primary",
+        kind: "assignment",
+        to: "/s/assignment/" + a.id,
+        date: d
+      });
+    });
+
+    // Add Pre/Post tests
+    lessons.forEach(l => {
+      const isStaff = role === "instructor" || role === "admin";
+      if (l.status === "draft" && !isStaff) return;
+
+      if (l.pretest?.required && l.pretest?.due) {
+        items.push({
+          t: `Pre-test บทที่ ${l.index} · ${l.title}`,
+          course: l.course?.code || "NUR301",
+          tone: "info",
+          kind: "pretest",
+          to: `/s/lesson/${l.id}`,
+          date: new Date(l.pretest.due)
+        });
+      }
+
+      if (l.posttest?.required && l.posttest?.due) {
+        items.push({
+          t: `Post-test บทที่ ${l.index} · ${l.title}`,
+          course: l.course?.code || "NUR301",
+          tone: "info",
+          kind: "posttest",
+          to: `/s/lesson/${l.id}`,
+          date: new Date(l.posttest.due)
+        });
+      }
+    });
+
+    return items
+      .filter(item => item.date >= now)
       .sort((a, b) => a.date - b.date);
   };
 

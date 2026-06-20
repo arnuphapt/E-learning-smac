@@ -92,6 +92,36 @@ function MoreSheet({ onClose }) {
           </div>
         )}
  
+        {/* Additional tools section */}
+        <div style={{ padding: "4px 16px 8px" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--subtle)", textTransform: "uppercase", letterSpacing: ".5px", padding: "8px 4px 6px" }}>
+            เครื่องมือเพิ่มเติม (Tools)
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <Link
+              href="/i/ai-logs"
+              onClick={onClose}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: pathname.startsWith("/i/ai-logs") ? "var(--primary-soft)" : "var(--muted)",
+                color: pathname.startsWith("/i/ai-logs") ? "var(--primary)" : "var(--fg)",
+                fontWeight: 500,
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
+              <Icon name="sparkle" size={16} />
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                ประวัติการใช้งาน AI
+              </span>
+            </Link>
+          </div>
+        </div>
+
         {/* Master data section */}
         {masterItems.length > 0 && (
           <div style={{ padding: "4px 16px 8px" }}>

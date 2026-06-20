@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Dialog } from "@/components/ui/Primitives";
+import { Badge, Dialog, Select } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
@@ -89,15 +89,15 @@ function TermDialog({ mode, row, academicYears, onClose, onSave }) {
       <div className="field">
         <label className="label">ปีการศึกษา <span className="c-danger">*</span></label>
         {academicYears && academicYears.length > 0 ? (
-          <select className="input" value={year} onChange={(e) => setYear(e.target.value)}>
+          <Select className="input" value={year} onChange={(e) => setYear(e.target.value)}>
             {academicYears.map((ay) => (
               <option key={ay.id} value={String(ay.year)}>ปีการศึกษา {ay.year}</option>
             ))}
-          </select>
+          </Select>
         ) : (
-          <select className="input" disabled>
+          <Select className="input" disabled>
             <option value="">— ยังไม่มีปีการศึกษา กรุณาเพิ่มก่อน —</option>
-          </select>
+          </Select>
         )}
       </div>
       <div className="grid grid-2 gap-3">

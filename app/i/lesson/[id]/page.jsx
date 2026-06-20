@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Progress, Avatar, Dialog, Ph, statusBadge } from "@/components/ui/Primitives";
+import { Badge, Progress, Avatar, Dialog, Ph, statusBadge, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
@@ -72,6 +72,7 @@ function VideoManage({ lesson, onSave, toast, isNew, onLessonChange }) {
   const [preReq, setPreReq] = useState(lesson.pretest?.required ?? true);
   const [postReq, setPostReq] = useState(lesson.posttest?.required ?? true);
   const [allowDownload, setAllowDownload] = useState(lesson.allow_download ?? true);
+  const [allowAi, setAllowAi] = useState(lesson.allow_ai ?? true);
 
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoProgress, setVideoProgress] = useState("");
@@ -102,6 +103,7 @@ function VideoManage({ lesson, onSave, toast, isNew, onLessonChange }) {
       pretest: { ...lesson.pretest, required: preReq },
       posttest: { ...lesson.posttest, required: postReq },
       allow_download: allowDownload,
+      allow_ai: allowAi,
       video: lesson.video,
       video_url: lesson.video_url,
       video_path: lesson.video_path
@@ -204,10 +206,10 @@ function VideoManage({ lesson, onSave, toast, isNew, onLessonChange }) {
             <div className="grid grid-2 gap-3">
               <div className="field" style={{ margin: 0 }}><label className="label">ความยาว (เช่น 42 นาที)</label><input className="input" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="เช่น 30 นาที" /></div>
               <div className="field" style={{ margin: 0 }}><label className="label">สถานะการเผยแพร่</label>
-                <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
+                <Select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
                   <option value="active">เผยแพร่แล้ว</option>
                   <option value="draft">ฉบับร่าง</option>
-                </select>
+                </Select>
               </div>
             </div>
           </div>
@@ -223,6 +225,7 @@ function VideoManage({ lesson, onSave, toast, isNew, onLessonChange }) {
           <ToggleRow label="ต้องทำ Pre-test ก่อนเข้าเรียน/ดูวิดีโอ" on={preReq} onChange={setPreReq} />
           <ToggleRow label="ต้องทำ Post-test หลังเรียน" on={postReq} onChange={setPostReq} />
           <ToggleRow label="อนุญาตให้ดาวน์โหลดเอกสาร" on={allowDownload} onChange={setAllowDownload} />
+          <ToggleRow label="เปิดให้ใช้ AI ในการสรุปและติว" on={allowAi} onChange={setAllowAi} />
         </div>
       </div>
     </div>
@@ -468,11 +471,11 @@ function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
           </div>
           <div className="field">
             <label className="label">จำนวนครั้งที่ทำได้</label>
-            <select className="input" value={attemptsValue} onChange={(e) => setAttemptsValue(e.target.value)}>
+            <Select className="input" value={attemptsValue} onChange={(e) => setAttemptsValue(e.target.value)}>
               <option value="1">1 ครั้ง</option>
               <option value="2">2 ครั้ง</option>
               <option value="unlimited">ไม่จำกัด</option>
-            </select>
+            </Select>
           </div>
           <div className="field">
             <label className="label">กำหนดส่ง (วันที่)</label>
@@ -1065,7 +1068,8 @@ function InstructorLessonContent() {
         posttest: { required: true, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
         assignment: null,
         watch_limit: false,
-        allow_download: true
+        allow_download: true,
+        allow_ai: true
       });
       setCourse(cData || { code: "วิชาใหม่", title: "ไม่มีวิชา" });
       setLoading(false);

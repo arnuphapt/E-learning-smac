@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Dialog, Avatar } from "@/components/ui/Primitives";
+import { Badge, Dialog, Avatar, Select } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
@@ -141,22 +141,22 @@ function UserDialog({ mode, row, rolesList, subjectGroups, onClose, onSave }) {
         )}
         <div className="field">
           <label className="label">สถานะการใช้งาน</label>
-          <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <Select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="active">ใช้งานปกติ</option>
             <option value="suspended">ระงับการใช้งาน</option>
-          </select>
+          </Select>
         </div>
       </div>
 
       {!isStudent && (
         <div className="field">
           <label className="label">กลุ่มวิชา / สาขาวิชา</label>
-          <select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+          <Select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
             <option value="">ไม่ระบุกลุ่มวิชา</option>
             {subjectGroups && subjectGroups.map(g => (
               <option key={g.id} value={g.id}>{g.name}</option>
             ))}
-          </select>
+          </Select>
         </div>
       )}
     </Dialog>
@@ -344,7 +344,7 @@ export default function MasterUsersPage() {
         colSpan={6}
         filter={
           <>
-            <select
+            <Select
               className="input"
               value={filterRole}
               onChange={(e) => {
@@ -353,26 +353,26 @@ export default function MasterUsersPage() {
                   setFilterGrade("all");
                 }
               }}
-              style={{ width: 160, height: 38, padding: "0 12px", fontSize: 13, background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8 }}
+              style={{ width: 160, height: 38 }}
             >
               <option value="all">บทบาท: ทั้งหมด</option>
               {rolesList.map(r => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
-            </select>
+            </Select>
 
             {(filterRole === "all" || filterRole === "student") && (
-              <select
+              <Select
                 className="input"
                 value={filterGrade}
                 onChange={(e) => setFilterGrade(e.target.value)}
-                style={{ width: 160, height: 38, padding: "0 12px", fontSize: 13, background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8 }}
+                style={{ width: 160, height: 38 }}
               >
                 <option value="all">ชั้นปี: ทั้งหมด</option>
                 {Array.from(new Set(gradesList.map(g => g.year_label))).sort().map(lbl => (
                   <option key={lbl} value={lbl}>{lbl}</option>
                 ))}
-              </select>
+              </Select>
             )}
           </>
         }

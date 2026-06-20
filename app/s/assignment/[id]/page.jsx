@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Progress, statusBadge, Avatar } from "@/components/ui/Primitives";
+import { Badge, Progress, statusBadge, Avatar, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
@@ -461,14 +461,14 @@ export default function AssignmentDetail() {
             {status !== "submitted" && instructors.length > 0 && (
               <div className="field">
                 <label className="label">ส่งงานให้ผู้ตรวจ <span className="c-danger">*</span></label>
-                <select className="input" value={selectedGraderId} onChange={(e) => setSelectedGraderId(e.target.value)}>
+                <Select className="input" value={selectedGraderId} onChange={(e) => setSelectedGraderId(e.target.value)}>
                   <option value="">— เลือกอาจารย์ผู้ตรวจ —</option>
                   {instructors.map((ins) => (
                     <option key={ins.id} value={ins.id}>
                       {ins.name} ({ins.role === "course_manager" ? "ผู้รับผิดชอบ" : ins.role === "admin" ? "ผู้ดูแลระบบ" : "อาจารย์ผู้สอน"})
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
             {status !== "submitted" && (

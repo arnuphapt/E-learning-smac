@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Progress, Avatar } from "@/components/ui/Primitives";
+import { Badge, Progress, Avatar, Dialog, Ph, statusBadge, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
@@ -358,6 +358,7 @@ export default function InstructorCourse() {
   const [gradesList, setGradesList] = useState([]);
   const [editSection, setEditSection] = useState("");
   const [sectionsList, setSectionsList] = useState([]);
+  const [draggedIndex, setDraggedIndex] = useState(null);
 
   const loadData = async () => {
     if (!courseId || !user) return;
@@ -685,6 +686,59 @@ export default function InstructorCourse() {
     }
   };
 
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e, targetIndex) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    const reorderedLessons = [...lessons];
+    const [draggedItem] = reorderedLessons.splice(draggedIndex, 1);
+    reorderedLessons.splice(targetIndex, 0, draggedItem);
+
+    const updatedLessons = reorderedLessons.map((item, idx) => ({
+      ...item,
+      index: idx + 1
+    }));
+
+    // Optimistically update state
+    setLessons(updatedLessons);
+    setDraggedIndex(null);
+
+    try {
+      toast("กำลังบันทึกลำดับบทเรียนใหม่...");
+      
+      const updates = updatedLessons.map(l => 
+        supabase
+          .from("lessons")
+          .update({ index: l.index })
+          .eq("id", l.id)
+      );
+
+      const results = await Promise.all(updates);
+      const failed = results.find(r => r.error);
+      if (failed) throw failed.error;
+
+      toast("จัดลำดับบทเรียนสำเร็จ", "success");
+    } catch (error) {
+      console.error("Error updating lesson order:", error);
+      toast("เกิดข้อผิดพลาดในการจัดลำดับบทเรียน: " + error.message, "error");
+      loadData();
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
 
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
@@ -796,34 +850,53 @@ export default function InstructorCourse() {
 
       {tab === "lessons" && (
         <div className="flex col gap-3">
-          {lessons.map((l) => (
-            <div key={l.id} className="card card-p flex items-center gap-3 pointer" style={{ padding: "14px 18px" }} onClick={() => nav("/i/lesson/" + l.id)}>
-              <div className="iconbtn ghost" style={{ cursor: "grab" }}><Icon name="more" size={16} style={{ transform: "rotate(90deg)" }} /></div>
-              <div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--muted)", display: "grid", placeItems: "center", fontWeight: 700, color: "var(--primary)", flex: "0 0 40px" }}>{String(l.index).padStart(2, "0")}</div>
-              <div className="flex-1" style={{ minWidth: 0 }}>
-                <div className="fw-6">{l.title}</div>
-                <div className="flex items-center gap-2 t-xs muted mt-1 wrap">
-                  <span className="flex items-center gap-1"><Icon name="video" size={13} />{l.video ? "มีวิดีโอ" : "ไม่มีวิดีโอ"}</span><i className="dot-sep" />
-                  <span className="flex items-center gap-1"><Icon name="clipboard" size={13} />Pre/Post-test</span><i className="dot-sep" />
-                  <span className="flex items-center gap-1"><Icon name="file" size={13} />{
-                    (() => {
-                      const count = assignments.filter(a => a.lesson_id === l.id).length;
-                      return count > 0 ? `${count} ใบงาน` : "ไม่มีใบงาน";
-                    })()
-                  }</span>
+          {lessons.map((l, index) => {
+            const isDragging = draggedIndex === index;
+            return (
+              <div 
+                key={l.id} 
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={handleDragEnd}
+                className="card card-p flex items-center gap-3 pointer" 
+                style={{ 
+                  padding: "14px 18px",
+                  opacity: isDragging ? 0.4 : 1,
+                  border: isDragging ? "2px dashed var(--primary)" : "1px solid var(--border)",
+                  cursor: "grab",
+                  transition: "all 0.15s ease"
+                }} 
+                onClick={() => nav("/i/lesson/" + l.id)}
+              >
+                <div className="iconbtn ghost" style={{ cursor: "grab" }} draggable={false}><Icon name="more" size={16} style={{ transform: "rotate(90deg)" }} /></div>
+                <div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--muted)", display: "grid", placeItems: "center", fontWeight: 700, color: "var(--primary)", flex: "0 0 40px" }} draggable={false}>{String(l.index).padStart(2, "0")}</div>
+                <div className="flex-1" style={{ minWidth: 0 }} draggable={false}>
+                  <div className="fw-6">{l.title}</div>
+                  <div className="flex items-center gap-2 t-xs muted mt-1 wrap">
+                    <span className="flex items-center gap-1"><Icon name="video" size={13} />{l.video || l.video_url ? "มีวิดีโอ" : "ไม่มีวิดีโอ"}</span><i className="dot-sep" />
+                    <span className="flex items-center gap-1"><Icon name="clipboard" size={13} />Pre/Post-test</span><i className="dot-sep" />
+                    <span className="flex items-center gap-1"><Icon name="file" size={13} />{
+                      (() => {
+                        const count = assignments.filter(a => a.lesson_id === l.id).length;
+                        return count > 0 ? `${count} ใบงาน` : "ไม่มีใบงาน";
+                      })()
+                    }</span>
+                  </div>
+                </div>
+                {(() => {
+                  const lessonAsgIds = assignments.filter(a => a.lesson_id === l.id).map(a => a.id);
+                  const pendingCount = submissions.filter(sub => lessonAsgIds.includes(sub.assignment_id) && sub.status === "submitted").length;
+                  return pendingCount > 0 ? <Badge tone="warning" dot draggable={false}>{pendingCount} รอตรวจ</Badge> : null;
+                })()}
+                <div className="flex items-center gap-2" draggable={false}>
+                  <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); nav("/i/lesson/" + l.id); }} style={{ height: 32, padding: "0 12px", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="pencil" size={14} />จัดการ</button>
+                  <button className="iconbtn ghost c-danger" onClick={(e) => { e.stopPropagation(); handleDeleteLesson(l.id, l.title); }} style={{ height: 32, width: 32 }}><Icon name="trash" size={15} /></button>
                 </div>
               </div>
-              {(() => {
-                const lessonAsgIds = assignments.filter(a => a.lesson_id === l.id).map(a => a.id);
-                const pendingCount = submissions.filter(sub => lessonAsgIds.includes(sub.assignment_id) && sub.status === "submitted").length;
-                return pendingCount > 0 ? <Badge tone="warning" dot>{pendingCount} รอตรวจ</Badge> : null;
-              })()}
-              <div className="flex items-center gap-2">
-                <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); nav("/i/lesson/" + l.id); }} style={{ height: 32, padding: "0 12px", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="pencil" size={14} />จัดการ</button>
-                <button className="iconbtn ghost c-danger" onClick={(e) => { e.stopPropagation(); handleDeleteLesson(l.id, l.title); }} style={{ height: 32, width: 32 }}><Icon name="trash" size={15} /></button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           <button className="card card-p flex items-center justify-center gap-2 pointer muted" style={{ borderStyle: "dashed", background: "#fbfcfd" }} onClick={() => nav("/i/lesson/new?course_id=" + course.id)}>
             <Icon name="plus" size={17} />เพิ่มบทเรียนใหม่
           </button>
@@ -906,7 +979,7 @@ export default function InstructorCourse() {
             {/* Section Configuration */}
             <div className="field mb-4" style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
               <label className="label">กลุ่มเรียน / Section</label>
-              <select 
+              <Select 
                 className="input" 
                 value={editSection} 
                 onChange={(e) => setEditSection(e.target.value)}
@@ -927,7 +1000,7 @@ export default function InstructorCourse() {
                     ))}
                   </optgroup>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="flex justify-end">

@@ -6,6 +6,28 @@ import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "../ui/Icon";
 
+const TabItem = ({ href, icon, label, active, showDot, shake }) => (
+  <Link
+    href={href}
+    className={active ? "on" : ""}
+    style={{ textDecoration: "none", position: "relative" }}
+  >
+    <div style={{
+      width: 32, height: 32, borderRadius: 10, display: "grid", placeItems: "center",
+      background: active ? "var(--primary-soft)" : "transparent",
+      transition: ".12s"
+    }}>
+      <div className={shake ? "ring-shake" : ""}>
+        <Icon name={icon} size={20} />
+      </div>
+    </div>
+    <span>{label}</span>
+    {showDot && (
+      <span style={{ position: "absolute", top: 2, right: 12, width: 7, height: 7, borderRadius: "50%", background: "#ef4444", border: "1.5px solid var(--surface, #fff)" }} />
+    )}
+  </Link>
+);
+
 export default function StudentMobileTabbar() {
   const pathname = usePathname() || "";
   
@@ -72,28 +94,6 @@ export default function StudentMobileTabbar() {
   const onCal = pathname === "/s/calendar";
   const onBroadcasts = pathname === "/s/broadcasts";
   const onProfile = pathname === "/s/profile";
-
-  const TabItem = ({ href, icon, label, active, showDot, shake }) => (
-    <Link
-      href={href}
-      className={active ? "on" : ""}
-      style={{ textDecoration: "none", position: "relative" }}
-    >
-      <div style={{
-        width: 32, height: 32, borderRadius: 10, display: "grid", placeItems: "center",
-        background: active ? "var(--primary-soft)" : "transparent",
-        transition: ".12s"
-      }}>
-        <div className={shake ? "ring-shake" : ""}>
-          <Icon name={icon} size={20} />
-        </div>
-      </div>
-      <span>{label}</span>
-      {showDot && (
-        <span style={{ position: "absolute", top: 2, right: 12, width: 7, height: 7, borderRadius: "50%", background: "#ef4444", border: "1.5px solid var(--surface, #fff)" }} />
-      )}
-    </Link>
-  );
 
   return (
     <div className="tabbar" style={{ background: "rgba(255,255,255,.92)", backdropFilter: "saturate(1.4) blur(12px)" }}>

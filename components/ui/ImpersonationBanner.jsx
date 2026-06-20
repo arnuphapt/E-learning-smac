@@ -17,19 +17,25 @@ export default function ImpersonationBanner() {
       if (status === "unauthenticated") {
         localStorage.removeItem("original_admin_id");
         localStorage.removeItem("original_admin_name");
-        setOriginalAdminId(null);
-        setOriginalAdminName(null);
+        const timer = setTimeout(() => {
+          setOriginalAdminId(null);
+          setOriginalAdminName(null);
+        }, 0);
+        return () => clearTimeout(timer);
       } else if (status === "authenticated") {
         const adminId = localStorage.getItem("original_admin_id");
         const adminName = localStorage.getItem("original_admin_name");
         
-        if (adminId && session?.user?.id !== adminId) {
-          setOriginalAdminId(adminId);
-          setOriginalAdminName(adminName);
-        } else {
-          setOriginalAdminId(null);
-          setOriginalAdminName(null);
-        }
+        const timer = setTimeout(() => {
+          if (adminId && session?.user?.id !== adminId) {
+            setOriginalAdminId(adminId);
+            setOriginalAdminName(adminName);
+          } else {
+            setOriginalAdminId(null);
+            setOriginalAdminName(null);
+          }
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
   }, [session, status]);

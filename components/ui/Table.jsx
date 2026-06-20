@@ -174,7 +174,12 @@ export default function Table({
   const [sortConfig, setSortConfig] = React.useState({ keyIndex: null, direction: null });
 
   // Reset to page 1 whenever data, search query, or sorting changes
-  React.useEffect(() => { setPage(1); }, [data.length, searchQuery, sortConfig]);
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [data.length, searchQuery, sortConfig]);
 
   const filteredData = React.useMemo(() => {
     if (!searchQuery.trim()) return data;

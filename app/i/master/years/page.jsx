@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Dialog } from "@/components/ui/Primitives";
+import { Badge, Dialog, Select } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
@@ -90,11 +90,11 @@ function YearDialog({ mode, row, onClose, onSave }) {
       footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={handleSave}><Icon name="check" size={15} />บันทึก</button></>}>
       <div className="field">
         <label className="label">ปีการศึกษา (พ.ศ.) <span className="c-danger">*</span></label>
-        <select className="input" value={year} onChange={(e) => setYear(e.target.value)}>
+        <Select className="input" value={year} onChange={(e) => setYear(e.target.value)}>
           {yearsOptions.map((y) => (
             <option key={y} value={String(y)}>{y}</option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="grid grid-2 gap-3">
         <div className="field"><label className="label">วันเริ่มต้น</label><input className="input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>

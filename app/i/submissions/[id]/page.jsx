@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Avatar, statusBadge, Badge } from "@/components/ui/Primitives";
+import { Avatar, statusBadge, Badge, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
@@ -138,29 +138,29 @@ export default function SubmissionList() {
         searchPlaceholder="ค้นหานักศึกษา..."
         filter={
           <>
-            <select
+            <Select
               className="input"
               value={filterSection}
               onChange={(e) => setFilterSection(e.target.value)}
-              style={{ width: 160, height: 38, padding: "0 12px", fontSize: 13, background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8 }}
+              style={{ width: 160, height: 38 }}
             >
               <option value="all">กลุ่ม: ทั้งหมด</option>
               {Array.from(new Set(enrichedSubs.map((s) => s.section))).filter(Boolean).sort().map((sec) => (
                 <option key={sec} value={sec}>{sec}</option>
               ))}
-            </select>
+            </Select>
 
-            <select
+            <Select
               className="input"
               value={filterGrade}
               onChange={(e) => setFilterGrade(e.target.value)}
-              style={{ width: 160, height: 38, padding: "0 12px", fontSize: 13, background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8 }}
+              style={{ width: 160, height: 38 }}
             >
               <option value="all">ชั้นปี: ทั้งหมด</option>
               {Array.from(new Set(gradesList.map((g) => g.year_label))).sort().map((lbl) => (
                 <option key={lbl} value={lbl}>{lbl}</option>
               ))}
-            </select>
+            </Select>
           </>
         }
         headers={[

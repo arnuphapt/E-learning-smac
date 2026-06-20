@@ -4,6 +4,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
+import { Badge, Progress, Avatar, Dialog, Ph, statusBadge, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import { toast } from "@/components/ui/Toast";
 import { useSession } from "next-auth/react";
@@ -409,7 +410,7 @@ export default function CreateCourse() {
               <div className="grid grid-2 gap-3">
                 <div className="field"><label className="label">รหัสวิชา <span className="c-danger">*</span></label><input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="เช่น NUR301" /></div>
                 <div className="field"><label className="label">กลุ่มวิชา</label>
-                  <select 
+                  <Select 
                     className="input" 
                     value={subjectGroup} 
                     onChange={(e) => setSubjectGroup(e.target.value)}
@@ -425,12 +426,12 @@ export default function CreateCourse() {
                         ))}
                       </>
                     )}
-                  </select>
+                  </Select>
                 </div>
               </div>
               <div className="grid grid-2 gap-3">
                 <div className="field"><label className="label">ภาคเรียน</label>
-                  <select className="input" value={term} onChange={(e) => setTerm(e.target.value)}>
+                  <Select className="input" value={term} onChange={(e) => setTerm(e.target.value)}>
                     {terms.length === 0 ? (
                       <option value="">(ไม่มีข้อมูลภาคเรียน - กรุณาเพิ่มในระบบหลักก่อน)</option>
                     ) : (
@@ -438,10 +439,10 @@ export default function CreateCourse() {
                         <option key={t.id} value={`${t.name} ${t.year}`}>{t.name} {t.year}</option>
                       ))
                     )}
-                  </select>
+                  </Select>
                 </div>
                 <div className="field"><label className="label">Section / กลุ่มเรียน</label>
-                  <select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
+                  <Select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
                     {sections.length === 0 ? (
                       <option value="">— ยังไม่มี Section กรุณาเพิ่มในระบบหลักก่อน —</option>
                     ) : (
@@ -464,7 +465,7 @@ export default function CreateCourse() {
                         ))}
                       </>
                     )}
-                  </select>
+                  </Select>
                 </div>
               </div>
               <div className="field">

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Icon from "./Icon";
 
 export function Avatar({ name, size = 34, color, src }) {
@@ -104,4 +105,167 @@ export function StatusBadge({ status, showPublish = false }) {
 
 export function statusBadge(status, showPublish = false) {
   return <StatusBadge status={status} showPublish={showPublish} />;
+}
+
+export function Select({ value, onChange, children, className, style, disabled }) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const containerRef = React.useRef(null);
+
+  // Recursively extract option elements from children
+  const options = [];
+  const parseChildren = (childrenArray) => {
+    React.Children.forEach(childrenArray, child => {
+      if (!child) return;
+      if (child.type === "option" || (child.props && child.props.value !== undefined && child.type !== "optgroup")) {
+        options.push({
+          type: "option",
+          value: child.props.value,
+          label: child.props.children,
+          disabled: child.props.disabled
+        });
+      } else if (child.type === "optgroup") {
+        options.push({
+          type: "group-header",
+          label: child.props.label
+        });
+        if (child.props.children) {
+          parseChildren(React.Children.toArray(child.props.children));
+        }
+      } else if (child.type === React.Fragment && child.props.children) {
+        parseChildren(React.Children.toArray(child.props.children));
+      } else if (Array.isArray(child)) {
+        parseChildren(child);
+      }
+    });
+  };
+  parseChildren(React.Children.toArray(children));
+
+  const selectedOption = options.find(o => o.type === "option" && String(o.value) === String(value)) || options.find(o => o.type === "option");
+
+  React.useEffect(() => {
+    function handleClickOutside(event) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSelect = (val) => {
+    if (onChange) {
+      onChange({ target: { value: val } });
+    }
+    setIsOpen(false);
+  };
+
+  const cleanClassName = (className || "")
+    .split(" ")
+    .filter((c) => c.trim() !== "input")
+    .join(" ");
+
+  return (
+    <div ref={containerRef} className={`custom-select-container ${cleanClassName}`} style={{ position: "relative", ...style }}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsOpen(!isOpen)}
+        className="input flex items-center justify-between"
+        style={{
+          textAlign: "left",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: disabled ? "not-allowed" : "pointer",
+          gap: 8
+        }}
+      >
+        <span className="truncate" style={{ flex: 1 }}>{selectedOption?.label || ""}</span>
+        <Icon name="chevD" size={16} className="muted" style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.25s", flexShrink: 0 }} />
+      </button>
+
+      {isOpen && (
+        <div
+          className="card shadow-lg"
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            marginTop: 6,
+            zIndex: 9999,
+            maxHeight: 260,
+            overflowY: "auto",
+            padding: 4,
+            background: "var(--card)",
+            borderColor: "var(--border)",
+            animation: "selectFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)"
+          }}
+        >
+          {options.map((o, idx) => {
+            if (o.type === "group-header") {
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    padding: "6px 12px 2px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: "var(--subtle)",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5
+                  }}
+                >
+                  {o.label}
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={idx}
+                type="button"
+                disabled={o.disabled}
+                onClick={() => handleSelect(o.value)}
+                className="flex items-center"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: 0,
+                  textAlign: "left",
+                  fontSize: 13.5,
+                  background: String(o.value) === String(value) ? "var(--primary-soft)" : "transparent",
+                  color: String(o.value) === String(value) ? "var(--primary-soft-fg)" : "var(--fg)",
+                  cursor: o.disabled ? "not-allowed" : "pointer",
+                  fontWeight: String(o.value) === String(value) ? 600 : 400,
+                  transition: "background 0.12s",
+                  opacity: o.disabled ? 0.5 : 1
+                }}
+                onMouseOver={(e) => {
+                  if (String(o.value) !== String(value) && !o.disabled) {
+                    e.currentTarget.style.background = "var(--muted)";
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (String(o.value) !== String(value)) {
+                    e.currentTarget.style.background = "transparent";
+                  }
+                }}
+              >
+                <span className="truncate">{o.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <style>{`
+        @keyframes selectFadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
 }
