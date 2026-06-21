@@ -224,7 +224,7 @@ export default function StudentSeparateAiPage() {
     loadData();
   }, [studentId, role]);
 
-  const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
+  function getStudentSecFromMaster(studentNo, sectionName, sections) {
     if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
     const masterSec = sections.find(s => s.name === sectionName);
     if (!masterSec) return false;
@@ -241,7 +241,7 @@ export default function StudentSeparateAiPage() {
     if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
     
     return last3 >= startVal && last3 <= endVal;
-  };
+  }
 
   // Find objects based on selection
   const selectedCourse = courses.find(c => c.id === selectedCourseId);

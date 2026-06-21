@@ -250,6 +250,45 @@ export default function InstructorCourses() {
     }
   };
 
+  const handleCreateLesson = async (courseId, lessonsCount) => {
+    try {
+      toast("กำลังสร้างบทเรียนใหม่...");
+      const nextIndex = lessonsCount + 1;
+      const newId = "l_" + Date.now();
+      const newLessonObj = {
+        id: newId,
+        course_id: courseId,
+        title: "บทเรียนใหม่",
+        description: "",
+        duration: "",
+        status: "draft",
+        index: nextIndex,
+        video: false,
+        pretest: { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
+        posttest: { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
+        assignment: null,
+        watch_limit: false,
+        allow_download: true,
+        allow_ai: true,
+        has_docs: true,
+        has_pretest: true,
+        has_posttest: true,
+        has_assignment: true
+      };
+
+      const { error } = await supabase.from("lessons").insert([newLessonObj]);
+      if (error) {
+        toast("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message, "error");
+      } else {
+        toast("สร้างบทเรียนใหม่สำเร็จแล้ว", "success");
+        nav(`/i/lesson/${newId}`);
+      }
+    } catch (error) {
+      console.error(error);
+      toast("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message, "error");
+    }
+  };
+
   return (
     <div className="container">
       <PageHead kicker="พื้นที่อาจารย์ผู้สอน" title="จัดการรายวิชา"
@@ -329,7 +368,7 @@ export default function InstructorCourses() {
                       <div className="flex col gap-2" style={{ padding: "8px 0" }}>
                         <div className="t-xs fw-7 muted mb-2 flex items-center justify-between">
                           <span>บทเรียนในรายวิชานี้ ({c.lessonsCount} บทเรียน)</span>
-                          <button className="btn btn-ghost btn-sm c-primary" onClick={(e) => { e.stopPropagation(); nav("/i/lesson/new?course_id=" + c.id); }} style={{ height: 24, fontSize: 11, padding: "0 8px" }}>
+                          <button className="btn btn-ghost btn-sm c-primary" onClick={(e) => { e.stopPropagation(); handleCreateLesson(c.id, c.lessonsCount); }} style={{ height: 24, fontSize: 11, padding: "0 8px" }}>
                             <Icon name="plus" size={12} /> เพิ่มบทเรียนใหม่
                           </button>
                         </div>

@@ -170,6 +170,24 @@ function MoreSheet({ onClose }) {
   );
 }
  
+const TabItem = ({ href, icon, label, active, onClick }) => (
+  <Link
+    href={href || "#"}
+    className={active ? "on" : ""}
+    onClick={onClick}
+    style={{ textDecoration: "none", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontSize: 10.5, fontWeight: 500, color: active ? "var(--primary)" : "var(--subtle)", transition: ".12s" }}
+  >
+    <div style={{
+      width: 32, height: 32, borderRadius: 10, display: "grid", placeItems: "center",
+      background: active ? "var(--primary-soft)" : "transparent",
+      transition: ".12s"
+    }}>
+      <Icon name={icon} size={20} />
+    </div>
+    <span>{label}</span>
+  </Link>
+);
+
 export default function InstructorMobileTabbar() {
   const pathname = usePathname() || "";
   const [showMore, setShowMore] = useState(false);
@@ -180,24 +198,6 @@ export default function InstructorMobileTabbar() {
   const onSubmissions = pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade");
   const onReports = pathname.startsWith("/i/reports");
   const onMaster = pathname.startsWith("/i/master");
- 
-  const TabItem = ({ href, icon, label, active, onClick }) => (
-    <Link
-      href={href || "#"}
-      className={active ? "on" : ""}
-      onClick={onClick}
-      style={{ textDecoration: "none", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontSize: 10.5, fontWeight: 500, color: active ? "var(--primary)" : "var(--subtle)", transition: ".12s" }}
-    >
-      <div style={{
-        width: 32, height: 32, borderRadius: 10, display: "grid", placeItems: "center",
-        background: active ? "var(--primary-soft)" : "transparent",
-        transition: ".12s"
-      }}>
-        <Icon name={icon} size={20} />
-      </div>
-      <span>{label}</span>
-    </Link>
-  );
  
   return (
     <>

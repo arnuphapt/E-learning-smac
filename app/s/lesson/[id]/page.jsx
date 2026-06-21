@@ -424,6 +424,19 @@ export default function StudentLesson() {
   const [allLessons, setAllLessons] = useState([]);
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+
+  const isTabVisible = (t) => {
+    if (t === "overview") return true;
+    if (t === "docs") return !!lesson?.has_docs;
+    if (t === "assign") return !!lesson?.has_assignment;
+    return false;
+  };
+
+  useEffect(() => {
+    if (lesson && !isTabVisible(tab)) {
+      setTab("overview");
+    }
+  }, [lesson?.has_docs, lesson?.has_assignment, tab]);
   const [testScore, setTestScore] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [watchProgress, setWatchProgress] = useState(0);
@@ -543,7 +556,7 @@ export default function StudentLesson() {
     total: testScore ? testScore.total : questionCounts.post
   };
 
-  const gated = pre.required && !pre.taken;
+  const gated = lesson.has_pretest && pre.required && !pre.taken;
   const hasNoVideo = !lesson.video || !lesson.video_url;
 
   const isPostGated = false;
@@ -584,7 +597,7 @@ export default function StudentLesson() {
       <div className="card">
         <div className="card-h"><div className="title t-base">ความคืบหน้าบทเรียน</div></div>
         <div style={{ padding: 8 }}>
-          {pre.required && (
+          {lesson.has_pretest && pre.required && (
             <ChecklistItem icon={pre.taken ? "checkC" : "clipboard"} tone={pre.taken ? "done" : isPrePastDue ? "locked" : "current"}
               label="Pre-test" sub={pre.taken ? `ทำแล้ว · ${pre.score}/${pre.total} คะแนน` : isPrePastDue ? `เลยกำหนดส่งเมื่อ ${formatThaiDate(preDue, preDueTime)}` : "ต้องทำก่อนเข้าเรียน"}
               onClick={() => isPrePastDue ? toast("เลยกำหนดเวลาทำแบบทดสอบก่อนเรียนแล้ว") : nav(pre.taken ? "/s/test/" + lesson.id + "/pre/result" : "/s/test/" + lesson.id + "/pre")}
@@ -595,7 +608,7 @@ export default function StudentLesson() {
               label="วิดีโอบทเรียน"
               sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
           )}
-          {assignments.map((a) => {
+          {lesson.has_assignment && assignments.map((a) => {
             const sub = submissions.find((s) => s.assignment_id === a.id);
             const status = sub ? sub.status : "not-submitted";
             const tone = status === "graded" ? "done" : status === "submitted" ? "current" : "todo";
@@ -607,7 +620,7 @@ export default function StudentLesson() {
                 action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
             );
           })}
-          {post.required && <ChecklistItem icon={post.taken ? "checkC" : "clipboard"} tone={post.taken ? "done" : isPostPastDue ? "locked" : (gated || isPostGated) ? "locked" : "todo"}
+          {lesson.has_posttest && post.required && <ChecklistItem icon={post.taken ? "checkC" : "clipboard"} tone={post.taken ? "done" : isPostPastDue ? "locked" : (gated || isPostGated) ? "locked" : "todo"}
             label="Post-test" sub={post.taken ? `ทำแล้ว · ${post.score}/${post.total}` : isPostPastDue ? `เลยกำหนดส่งเมื่อ ${formatThaiDate(postDue, postDueTime)}` : gated ? "ปลดล็อกหลังเรียนจบ" : isPostGated ? `ต้องดูวิดีโอให้ครบ 80% (ขณะนี้ ${watchProgress}%)` : "พร้อมให้ทำแล้ว"}
             onClick={() => {
               if (isPostPastDue) {
@@ -693,14 +706,18 @@ export default function StudentLesson() {
             )}
           </div>
 
-          {hasNoVideo ? (
+          {hasNoVideo && !lesson.has_docs && !lesson.has_assignment ? (
             <div className="mt-4">
               <LessonOverview lesson={lesson} />
             </div>
           ) : (
             <>
               <div className="tabs mt-5">
-                {[["overview", "ภาพรวม", "book"], ["docs", "เอกสารประกอบ", "folder"], ["assign", "ใบงาน", "file"]].map(([k, t, ic]) => (
+                {[
+                  ["overview", "ภาพรวม", "book"],
+                  ...(lesson.has_docs ? [["docs", "เอกสารประกอบ", "folder"]] : []),
+                  ...(lesson.has_assignment ? [["assign", "ใบงาน", "file"]] : [])
+                ].map(([k, t, ic]) => (
                   <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}><Icon name={ic} size={15} />{t}</button>
                 ))}
               </div>

@@ -83,6 +83,10 @@ export default function TestResult() {
 
   const mobile = false;
 
+  const showAnswers = kind === "pre"
+    ? lesson?.pretest?.show_answers !== false
+    : lesson?.posttest?.show_answers !== false;
+
   return (
     <div style={{ background: "#f7f9fb", minHeight: '100vh' }}>
       <div style={{ maxWidth: 860, margin: "0 auto", padding: mobile ? "20px 16px 64px" : "40px 24px 80px" }}>
@@ -123,39 +127,52 @@ export default function TestResult() {
           <div className="t-md fw-7">เฉลยและคำอธิบาย</div>
           <span className="t-xs muted">{questions.length} ข้อ</span>
         </div>
-        <div className="flex col gap-3">
-          {questions.map((q, i) => {
-            const isCorrect = i < correct;
-            const chosen = isCorrect ? q.answer : (q.choices.find((c) => c.id !== q.answer) || {}).id;
-            return (
-              <div key={q.id} className="card card-p">
-                <div className="flex items-start gap-3">
-                  <div style={{ flex: "0 0 26px", width: 26, height: 26, borderRadius: 8, display: "grid", placeItems: "center",
-                    background: isCorrect ? "var(--success-soft)" : "var(--danger-soft)", color: isCorrect ? "var(--success)" : "var(--danger)" }}>
-                    <Icon name={isCorrect ? "check" : "x"} size={15} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="t-sm fw-6 pretty">{q.no}. {q.text}</div>
-                    <div className="flex col gap-1 mt-2">
-                       {q.choices && q.choices.map((ch) => {
-                        const right = ch.id === q.answer; const picked = ch.id === chosen;
-                        const wrongPick = picked && !right;
-                        return (
-                          <div key={ch.id} className="flex items-center gap-2 t-sm" style={{ padding: "6px 10px", borderRadius: 8,
-                            background: right ? "var(--success-soft)" : wrongPick ? "var(--danger-soft)" : "transparent",
-                            color: right ? "var(--success)" : wrongPick ? "var(--danger)" : "var(--muted-fg)", fontWeight: right || wrongPick ? 600 : 400 }}>
-                            {right ? <Icon name="check" size={14} /> : wrongPick ? <Icon name="x" size={14} /> : <span style={{ width: 14 }} />}
-                            {ch.text}{picked && <span className="t-xs" style={{ opacity: .7 }}>· คำตอบของคุณ</span>}
-                          </div>
-                        );
-                      })}
+
+        {showAnswers ? (
+          <div className="flex col gap-3">
+            {questions.map((q, i) => {
+              const isCorrect = i < correct;
+              const chosen = isCorrect ? q.answer : (q.choices.find((c) => c.id !== q.answer) || {}).id;
+              return (
+                <div key={q.id} className="card card-p">
+                  <div className="flex items-start gap-3">
+                    <div style={{ flex: "0 0 26px", width: 26, height: 26, borderRadius: 8, display: "grid", placeItems: "center",
+                      background: isCorrect ? "var(--success-soft)" : "var(--danger-soft)", color: isCorrect ? "var(--success)" : "var(--danger)" }}>
+                      <Icon name={isCorrect ? "check" : "x"} size={15} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="t-sm fw-6 pretty">{q.no}. {q.text}</div>
+                      <div className="flex col gap-1 mt-2">
+                         {q.choices && q.choices.map((ch) => {
+                          const right = ch.id === q.answer; const picked = ch.id === chosen;
+                          const wrongPick = picked && !right;
+                          return (
+                            <div key={ch.id} className="flex items-center gap-2 t-sm" style={{ padding: "6px 10px", borderRadius: 8,
+                              background: right ? "var(--success-soft)" : wrongPick ? "var(--danger-soft)" : "transparent",
+                              color: right ? "var(--success)" : wrongPick ? "var(--danger)" : "var(--muted-fg)", fontWeight: right || wrongPick ? 600 : 400 }}>
+                              {right ? <Icon name="check" size={14} /> : wrongPick ? <Icon name="x" size={14} /> : <span style={{ width: 14 }} />}
+                              {ch.text}{picked && <span className="t-xs" style={{ opacity: .7 }}>· คำตอบของคุณ</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="card card-p text-center py-5" style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 99, background: "var(--muted)", color: "var(--muted-fg)", display: "grid", placeItems: "center" }}>
+              <Icon name="lock" size={18} />
+            </div>
+            <div>
+              <div className="fw-6 fg" style={{ fontSize: "15px" }}>ผู้สอนปิดการแสดงเฉลยคำตอบ</div>
+              <div className="t-xs muted mt-1">คะแนนสอบของคุณถูกบันทึกเข้าระบบเรียบร้อยแล้ว แต่การแสดงเฉลยข้อสอบถูกระงับไว้โดยผู้สอน</div>
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-between mt-6 gap-3 wrap">
           <button className="btn btn-outline" onClick={() => nav("/s/lesson/" + lesson.id)}><Icon name="arrL" size={16} />กลับสู่บทเรียน</button>

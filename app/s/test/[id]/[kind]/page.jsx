@@ -199,7 +199,7 @@ export default function TestTaking() {
 
   const choose = (qid, cid) => setAnswers((a) => ({ ...a, [qid]: cid }));
   
-  const submit = async (isAuto = false) => {
+  async function submit(isAuto = false) {
     if (!studentId) {
       toast("ไม่พบข้อมูลนักศึกษา กรุณาเข้าสู่ระบบใหม่", "error");
       return;
@@ -256,7 +256,7 @@ export default function TestTaking() {
       console.error("Error saving test score:", err);
       toast("เกิดข้อผิดพลาดในการบันทึกคะแนน: " + err.message, "error");
     }
-  };
+  }
 
   return (
     <div style={{ background: "#f7f9fb", minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>

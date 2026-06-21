@@ -501,6 +501,45 @@ export default function InstructorCourse() {
     }
   };
 
+  const handleCreateLesson = async () => {
+    try {
+      toast("กำลังสร้างบทเรียนใหม่...");
+      const nextIndex = lessons ? lessons.length + 1 : 1;
+      const newId = "l_" + Date.now();
+      const newLessonObj = {
+        id: newId,
+        course_id: courseId,
+        title: "บทเรียนใหม่",
+        description: "",
+        duration: "",
+        status: "draft",
+        index: nextIndex,
+        video: false,
+        pretest: { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
+        posttest: { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
+        assignment: null,
+        watch_limit: false,
+        allow_download: true,
+        allow_ai: true,
+        has_docs: true,
+        has_pretest: true,
+        has_posttest: true,
+        has_assignment: true
+      };
+
+      const { error } = await supabase.from("lessons").insert([newLessonObj]);
+      if (error) {
+        toast("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message, "error");
+      } else {
+        toast("สร้างบทเรียนใหม่สำเร็จแล้ว", "success");
+        nav(`/i/lesson/${newId}`);
+      }
+    } catch (error) {
+      console.error(error);
+      toast("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message, "error");
+    }
+  };
+
   const handleDeleteLesson = async (lId, lTitle) => {
     const confirmed = await confirm({
       title: "ลบบทเรียน",
@@ -817,7 +856,7 @@ export default function InstructorCourse() {
                 <Icon name="settings" size={16} />ตั้งค่า
               </button>
             )}
-            <button className="btn btn-primary" onClick={() => nav("/i/lesson/new?course_id=" + course.id)}>
+            <button className="btn btn-primary" onClick={handleCreateLesson}>
               <Icon name="plus" size={16} />เพิ่มบทเรียน
             </button>
           </div>
@@ -897,7 +936,7 @@ export default function InstructorCourse() {
               </div>
             );
           })}
-          <button className="card card-p flex items-center justify-center gap-2 pointer muted" style={{ borderStyle: "dashed", background: "#fbfcfd" }} onClick={() => nav("/i/lesson/new?course_id=" + course.id)}>
+          <button className="card card-p flex items-center justify-center gap-2 pointer muted" style={{ borderStyle: "dashed", background: "#fbfcfd" }} onClick={handleCreateLesson}>
             <Icon name="plus" size={17} />เพิ่มบทเรียนใหม่
           </button>
         </div>
