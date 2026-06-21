@@ -1,8 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 async function fileToGenerativePart(url, mimeType) {
   try {
@@ -50,7 +50,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "messages array is required" }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+    // Model is configured directly inside the chat initialization below
 
     // Build system context about the lesson
     const lessonInfo = lessonContext
@@ -129,20 +129,21 @@ ${lessonInfo}
       });
     }
 
-    const chat = model.startChat({
+    const chat = ai.chats.create({
+      model: "gemini-2.5-flash",
       history: [
         { role: "user", parts: [{ text: "สวัสดี คุณทำอะไรได้บ้าง?" }] },
         { role: "model", parts: [{ text: systemPrompt }] },
         ...history,
       ],
-      generationConfig: {
+      config: {
         maxOutputTokens: 8192,
         temperature: 0.7,
       },
     });
 
-    const result = await chat.sendMessage(messageParts);
-    const text = result.response.text();
+    const result = await chat.sendMessage({ message: messageParts });
+    const text = result.text;
 
     // Log the interaction in the database
     if (studentId && lessonContext?.id && lessonContext?.courseId) {

@@ -188,7 +188,27 @@ export default function Grader() {
                     <Icon name="download" size={14} />ดาวน์โหลด
                   </a>
                 </div>
-                <Ph label="ตัวอย่างเอกสารงานนักศึกษา (PDF preview)" h={mobile ? 320 : 520} />
+                {sub.file.toLowerCase().endsWith(".pdf") ? (
+                  <div style={{ width: "100%", height: mobile ? 450 : 680, borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", background: "#fff" }}>
+                    <iframe
+                      src={`${sub.file}#toolbar=1`}
+                      width="100%"
+                      height="100%"
+                      style={{ border: "none" }}
+                      title="PDF Preview"
+                    />
+                  </div>
+                ) : (/\.(jpe?g|png|webp|gif)$/i.test(sub.file)) ? (
+                  <div style={{ width: "100%", display: "flex", justifyContent: "center", borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", background: "#fff", padding: 12 }}>
+                    <img
+                      src={sub.file}
+                      alt="Student submission preview"
+                      style={{ maxWidth: "100%", maxHeight: mobile ? 450 : 680, objectFit: "contain", borderRadius: 8 }}
+                    />
+                  </div>
+                ) : (
+                  <Ph label="ไม่รองรับการแสดงตัวอย่างไฟล์ประเภทนี้" h={mobile ? 320 : 520} />
+                )}
               </>
             ) : null}
 

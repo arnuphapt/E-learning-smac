@@ -26,22 +26,51 @@ export default function SubmissionList() {
   const [filterSection, setFilterSection] = useState("all");
   const [filterGrade, setFilterGrade] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [allAssignments, setAllAssignments] = useState([]);
 
   useEffect(() => {
     async function load() {
       if (!asgId) return;
-      const { data: aData } = await supabase.from("assignments").select("*").eq("id", asgId).single();
-      if (!aData) { setLoading(false); return; }
+
+      // Fetch all assignments and courses to populate selector & find fallback
+      const [allAsgRes, allCoursesRes] = await Promise.all([
+        supabase.from("assignments").select("*"),
+        supabase.from("courses").select("*")
+      ]);
+
+      const formattedAsgs = (allAsgRes.data || []).map(asg => {
+        const c = (allCoursesRes.data || []).find(co => co.id === asg.course_id) || { code: "Unknown" };
+        return {
+          ...asg,
+          courseCode: c.code,
+          courseTitle: c.title
+        };
+      });
+      setAllAssignments(formattedAsgs);
+
+      // Check if current asgId is valid
+      let currentAsg = formattedAsgs.find(asg => asg.id === asgId);
+      
+      if (!currentAsg) {
+        // If current is not found (like mock 'a1'), redirect to the first available assignment
+        if (formattedAsgs.length > 0) {
+          router.replace("/i/submissions/" + formattedAsgs[0].id);
+          return;
+        } else {
+          setLoading(false);
+          return;
+        }
+      }
       
       const [lRes, cRes, subRes, stRes, gRes] = await Promise.all([
-        supabase.from("lessons").select("*").eq("id", aData.lesson_id).single(),
-        supabase.from("courses").select("*").eq("id", aData.course_id).single(),
-        supabase.from("submissions").select("*").eq("assignment_id", asgId),
+        supabase.from("lessons").select("*").eq("id", currentAsg.lesson_id).single(),
+        supabase.from("courses").select("*").eq("id", currentAsg.course_id).single(),
+        supabase.from("submissions").select("*").eq("assignment_id", currentAsg.id),
         supabase.from("users").select("*").eq("role", "student"),
         supabase.from("student_grades").select("*")
       ]);
       
-      setA(aData);
+      setA(currentAsg);
       setLesson(lRes.data || { id: "l1", index: 1 });
       setCourse(cRes.data || { id: "c1", code: "Unknown" });
       setSubs(subRes.data || []);
@@ -50,7 +79,7 @@ export default function SubmissionList() {
       setLoading(false);
     }
     load();
-  }, [asgId]);
+  }, [asgId, router]);
 
   const enrichedSubs = React.useMemo(() => {
     return subs.map((sub) => {
@@ -119,7 +148,22 @@ export default function SubmissionList() {
     <div className="container">
       <Crumb nav={nav} items={[{ label: "รายวิชา", to: "/i/courses" }, { label: course.code, to: "/i/course/" + course.id }, { label: "บทที่ " + lesson.index, to: "/i/lesson/" + lesson.id }, { label: "การส่งงาน" }]} />
       <PageHead kicker={"ใบงาน · " + course.code} title={a.title}
-        right={<button className="btn btn-soft" onClick={() => nav("/i/reports")}><Icon name="excel" size={16} />ส่งออก Excel</button>} />
+        right={
+          <div className="flex items-center gap-2 wrap">
+            <Select
+              value={asgId}
+              onChange={(e) => nav("/i/submissions/" + e.target.value)}
+              style={{ width: 240, height: 38 }}
+            >
+              {allAssignments.map((asg) => (
+                <option key={asg.id} value={asg.id}>
+                  {asg.courseCode}: {asg.title}
+                </option>
+              ))}
+            </Select>
+            <button className="btn btn-soft" onClick={() => nav("/i/reports")}><Icon name="excel" size={16} />ส่งออก Excel</button>
+          </div>
+        } />
 
       <div className="grid grid-4 gap-3 mb-4">
         {[["ทั้งหมด", counts.all, "all", "users"], ["รอตรวจ", counts.submitted, "submitted", "clock"], ["ตรวจแล้ว", counts.graded, "graded", "checkC"], ["ยังไม่ส่ง", counts["not-submitted"], "not-submitted", "alert"]].map((s) => (
@@ -197,7 +241,19 @@ export default function SubmissionList() {
               </td>
               <td className="t-sm">{sub.yearLabel}</td>
               <td>{statusBadge(sub.status)}</td>
-              <td className="hide-m">{sub.file ? <span className="flex items-center gap-2 t-sm c-primary"><Icon name="file" size={15} />{sub.file}</span> : <span className="muted t-sm">—</span>}</td>
+              <td className="hide-m">
+                {sub.file ? (
+                  sub.file.toLowerCase().endsWith(".pdf") ? (
+                    <Badge tone="danger" dot>PDF</Badge>
+                  ) : /\.(jpe?g|png|webp|gif)$/i.test(sub.file) ? (
+                    <Badge tone="success" dot>รูปภาพ</Badge>
+                  ) : (
+                    <Badge tone="primary" dot>ไฟล์แนบ</Badge>
+                  )
+                ) : (
+                  <span className="muted t-sm">—</span>
+                )}
+              </td>
               <td className="hide-m muted t-sm">{sub.submitted_at || "—"}</td>
               <td>{sub.score != null ? <span className="num fw-7">{sub.score}/{sub.total}</span> : can ? <span className="muted t-sm">รอตรวจ</span> : <span className="muted t-sm">—</span>}</td>
               <td>{can && <button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); nav("/i/grade/" + sub.id); }}>{sub.status === "graded" ? "แก้คะแนน" : "ตรวจงาน"}</button>}</td>
