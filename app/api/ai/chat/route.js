@@ -130,7 +130,7 @@ ${lessonInfo}
     }
 
     const chat = ai.chats.create({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       history: [
         { role: "user", parts: [{ text: "สวัสดี คุณทำอะไรได้บ้าง?" }] },
         { role: "model", parts: [{ text: systemPrompt }] },
