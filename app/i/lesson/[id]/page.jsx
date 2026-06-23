@@ -73,16 +73,24 @@ function Chk({ label, on, onChange }) {
 const VideoManage = forwardRef(function VideoManage({ lesson, onSave, toast, isNew, onLessonChange }, ref) {
   const [title, setTitle] = useState(lesson.title || "");
   const [desc, setDesc] = useState(lesson.description || "");
-  const [hasDocs, setHasDocs] = useState(lesson.has_docs ?? true);
-  const [hasPretest, setHasPretest] = useState(lesson.has_pretest ?? true);
-  const [hasPosttest, setHasPosttest] = useState(lesson.has_posttest ?? true);
-  const [hasAssignment, setHasAssignment] = useState(lesson.has_assignment ?? true);
-  const [allowAi, setAllowAi] = useState(lesson.allow_ai ?? true);
+
+  const hasDocs = lesson.has_docs ?? true;
+  const hasPretest = lesson.has_pretest ?? true;
+  const hasPosttest = lesson.has_posttest ?? true;
+  const hasAssignment = lesson.has_assignment ?? true;
+  const allowAi = lesson.allow_ai ?? true;
 
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoProgress, setVideoProgress] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+
+  React.useEffect(() => {
+    if (lesson) {
+      setTitle(lesson.title || "");
+      setDesc(lesson.description || "");
+    }
+  }, [lesson?.id]);
 
   React.useEffect(() => {
     if (!selectedFile) {
@@ -239,11 +247,11 @@ const VideoManage = forwardRef(function VideoManage({ lesson, onSave, toast, isN
       <div style={{ width: 300, flex: "0 0 300px" }}>
         <div className="card card-p">
           <div className="t-sm fw-7 mb-3">การตั้งค่าการเข้าถึง</div>
-          <ToggleRow label="มีเอกสารประกอบการเรียน" on={hasDocs} onChange={setHasDocs} />
-          <ToggleRow label="มีข้อสอบ Pre-test" on={hasPretest} onChange={setHasPretest} />
-          <ToggleRow label="มีข้อสอบ Post-test" on={hasPosttest} onChange={setHasPosttest} />
-          <ToggleRow label="มีใบงาน" on={hasAssignment} onChange={setHasAssignment} />
-          <ToggleRow label="เปิดให้ใช้ AI ในการสรุปและติว" on={allowAi} onChange={setAllowAi} />
+          <ToggleRow label="มีเอกสารประกอบการเรียน" on={hasDocs} onChange={(val) => onLessonChange?.({ has_docs: val })} />
+          <ToggleRow label="มีข้อสอบ Pre-test" on={hasPretest} onChange={(val) => onLessonChange?.({ has_pretest: val })} />
+          <ToggleRow label="มีข้อสอบ Post-test" on={hasPosttest} onChange={(val) => onLessonChange?.({ has_posttest: val })} />
+          <ToggleRow label="มีใบงาน" on={hasAssignment} onChange={(val) => onLessonChange?.({ has_assignment: val })} />
+          <ToggleRow label="เปิดให้ใช้ AI ในการสรุปและติว" on={allowAi} onChange={(val) => onLessonChange?.({ allow_ai: val })} />
         </div>
       </div>
     </div>
@@ -279,9 +287,22 @@ function QuestionEditor({ q, onClose, onSave }) {
 }
 
 function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
-  const [which, setWhich] = React.useState("pre");
+  const [which, setWhich] = React.useState(() => {
+    if (lesson?.has_pretest === false && lesson?.has_posttest !== false) {
+      return "post";
+    }
+    return "pre";
+  });
   const [qs, setQs] = React.useState(questions || []);
   const [editing, setEditing] = React.useState(null);
+
+  React.useEffect(() => {
+    if (which === "pre" && !lesson?.has_pretest && lesson?.has_posttest) {
+      setWhich("post");
+    } else if (which === "post" && !lesson?.has_posttest && lesson?.has_pretest) {
+      setWhich("pre");
+    }
+  }, [lesson?.has_pretest, lesson?.has_posttest, which]);
 
   const [prePassing, setPrePassing] = React.useState(lesson.pretest?.passing_score ?? 50);
   const [preTime, setPreTime] = React.useState(lesson.pretest?.time_limit ?? 30);
@@ -452,8 +473,22 @@ function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
       <div className="flex-1" style={{ minWidth: 300 }}>
         <div className="flex items-center justify-between mb-3">
           <div className="tabs pill">
-            <button className={which === "pre" ? "on" : ""} onClick={() => setWhich("pre")}>Pre-test</button>
-            <button className={which === "post" ? "on" : ""} onClick={() => setWhich("post")}>Post-test</button>
+            <button 
+              className={(which === "pre" ? "on" : "") + (!lesson?.has_pretest ? " disabled" : "")} 
+              onClick={lesson?.has_pretest ? () => setWhich("pre") : undefined}
+              disabled={!lesson?.has_pretest}
+              style={!lesson?.has_pretest ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            >
+              Pre-test
+            </button>
+            <button 
+              className={(which === "post" ? "on" : "") + (!lesson?.has_posttest ? " disabled" : "")} 
+              onClick={lesson?.has_posttest ? () => setWhich("post") : undefined}
+              disabled={!lesson?.has_posttest}
+              style={!lesson?.has_posttest ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            >
+              Post-test
+            </button>
           </div>
           <button className="btn btn-primary btn-sm" onClick={() => setEditing({ no: filteredQs.length + 1, type: "single", text: "", choices: [{ id: "a", text: "" }, { id: "b", text: "" }], answer: "a", id: "temp_" + Date.now() })}><Icon name="plus" size={15} />เพิ่มข้อสอบ</button>
         </div>
@@ -809,12 +844,18 @@ function AssignmentBuilder({ lesson, toast, assignment, rubric, onBack, onLoad }
 function DocsManage({ lesson, onSave, toast }) {
   const confirm = useConfirm();
   const [docs, setDocs] = useState(lesson.documents || []);
+  const [aiDocs, setAiDocs] = useState(lesson.ai_documents || []);
   const [uploading, setUploading] = useState(false);
+  const [uploadingAi, setUploadingAi] = useState(false);
   const [allowDownload, setAllowDownload] = useState(lesson.allow_download ?? true);
 
   useEffect(() => {
     setDocs(lesson.documents || []);
   }, [lesson.documents]);
+
+  useEffect(() => {
+    setAiDocs(lesson.ai_documents || []);
+  }, [lesson.ai_documents]);
 
   useEffect(() => {
     setAllowDownload(lesson.allow_download ?? true);
@@ -872,6 +913,53 @@ function DocsManage({ lesson, onSave, toast }) {
     }
   };
 
+  const handleUploadAi = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAi(true);
+    try {
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          filetype: file.type,
+          folder: `lessons/${lesson.id}/ai_documents`
+        })
+      });
+      if (!presignRes.ok) throw new Error("Failed to get upload signature");
+
+      const { uploadUrl, publicUrl, key } = await presignRes.json();
+
+      if (uploadUrl) {
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file
+        });
+        if (!uploadRes.ok) throw new Error("Failed to upload file to Cloudflare R2");
+      }
+
+      const newDoc = {
+        name: file.name,
+        size: formatBytes(file.size),
+        path: key,
+        url: publicUrl
+      };
+
+      const updatedAiDocs = [...aiDocs, newDoc];
+      setAiDocs(updatedAiDocs);
+      await onSave({ ai_documents: updatedAiDocs });
+      toast("อัปโหลดเอกสารสำหรับ AI สำเร็จ");
+    } catch (error) {
+      console.error(error);
+      toast("เกิดข้อผิดพลาดในการอัปโหลด: " + error.message);
+    } finally {
+      setUploadingAi(false);
+    }
+  };
+
   const handleDelete = async (docToDelete) => {
     const confirmed = await confirm({
       title: "ลบเอกสารประกอบการเรียน",
@@ -903,6 +991,37 @@ function DocsManage({ lesson, onSave, toast }) {
     }
   };
 
+  const handleDeleteAi = async (docToDelete) => {
+    const confirmed = await confirm({
+      title: "ลบเอกสารสำหรับ AI",
+      message: `คุณต้องการลบเอกสารสำหรับ AI "${docToDelete.name}" ใช่หรือไม่? (เอกสารนี้จะถูกถอนออกจากระบบความรู้ของ AI)`,
+      danger: true,
+      confirmText: "ลบเอกสาร",
+      cancelText: "ยกเลิก"
+    });
+
+    if (!confirmed) return;
+
+    try {
+      if (docToDelete.path) {
+        const { error } = await supabase.storage
+          .from("lesson-documents")
+          .remove([docToDelete.path]);
+        if (error) {
+          console.warn("Storage deletion error (continuing database update):", error.message);
+        }
+      }
+
+      const updatedAiDocs = aiDocs.filter((d) => d.path !== docToDelete.path || d.name !== docToDelete.name);
+      setAiDocs(updatedAiDocs);
+      await onSave({ ai_documents: updatedAiDocs });
+      toast("ลบเอกสารสำหรับ AI สำเร็จ");
+    } catch (error) {
+      console.error(error);
+      toast("เกิดข้อผิดพลาดในการลบ: " + error.message);
+    }
+  };
+
   function formatBytes(bytes, decimals = 1) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -914,12 +1033,13 @@ function DocsManage({ lesson, onSave, toast }) {
 
   return (
     <div className="flex gap-5 items-start wrap">
-      <div className="flex-1" style={{ minWidth: 300 }}>
-        <div className="card mb-4">
+      <div className="flex-1 flex col gap-4" style={{ minWidth: 300 }}>
+        {/* Student Documents Card */}
+        <div className="card">
           <div className="card-h flex items-center justify-between">
             <div>
-              <div className="title">เอกสารประกอบการเรียน</div>
-              <div className="desc">เอกสารสำหรับให้นักศึกษาเปิดดูหรือดาวน์โหลด (รองรับ PDF, Word, PowerPoint, รูปภาพ)</div>
+              <div className="title">เอกสารประกอบการเรียน (สำหรับนักศึกษา)</div>
+              <div className="desc">เอกสารสำหรับให้นักศึกษาเปิดดูหรือดาวน์โหลด (รองรับ PDF, Word, PowerPoint, รูปภาพ, ข้อความ)</div>
             </div>
             <label className={`btn btn-primary btn-sm ${uploading ? "disabled" : ""}`} style={{ cursor: "pointer", position: "relative" }}>
               <Icon name="upload" size={15} />
@@ -957,7 +1077,55 @@ function DocsManage({ lesson, onSave, toast }) {
             )}
           </div>
         </div>
+
+        {/* AI Reference Documents Card */}
+        <div className="card">
+          <div className="card-h flex items-center justify-between">
+            <div>
+              <div className="title flex items-center gap-2">
+                <Icon name="sparkle" size={16} className="c-primary" />
+                เอกสารประกอบความรู้สำหรับ AI (นักศึกษาจะไม่เห็น)
+              </div>
+              <div className="desc">เอกสารเสริมข้อมูลเพื่อให้ AI ติวเตอร์ใช้ศึกษาและตอบคำถามได้อย่างเจาะลึกเฉพาะทาง</div>
+            </div>
+            <label className={`btn btn-primary btn-sm ${uploadingAi ? "disabled" : ""}`} style={{ cursor: "pointer", position: "relative", background: "linear-gradient(135deg, var(--primary), #0891b2)" }}>
+              <Icon name="upload" size={15} />
+              {uploadingAi ? "กำลังอัปโหลด..." : "อัปโหลดเอกสาร AI"}
+              <input type="file" onChange={handleUploadAi} style={{ display: "none" }} disabled={uploadingAi} />
+            </label>
+          </div>
+
+          <div style={{ padding: 8 }}>
+            {aiDocs.length === 0 ? (
+              <div className="empty" style={{ padding: "40px 0" }}>
+                <div className="ec"><Icon name="sparkle" size={22} style={{ color: "var(--subtle)" }} /></div>
+                <div className="t-sm muted">ยังไม่มีเอกสารเสริมสำหรับ AI ในบทเรียนนี้ (AI จะใช้ข้อมูลบทเรียนปกติเป็นหลัก)</div>
+              </div>
+            ) : (
+              aiDocs.map((doc, i) => (
+                <div key={i} className="flex items-center gap-3" style={{ padding: "12px 14px", borderBottom: i < aiDocs.length - 1 ? "1px solid var(--border)" : "none" }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--primary-soft, #eef6ff)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
+                    <Icon name="file" size={18} />
+                  </div>
+                  <div className="flex-1" style={{ minWidth: 0 }}>
+                    <div className="t-sm fw-6 truncate">{doc.name}</div>
+                    <div className="t-xs muted">{doc.size}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ height: 32, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <Icon name="eye" size={14} /> เปิดดู
+                    </a>
+                    <button className="iconbtn ghost c-danger" onClick={() => handleDeleteAi(doc)}>
+                      <Icon name="trash" size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
+
       <div style={{ width: 300, flex: "0 0 300px" }}>
         <div className="card card-p mb-4">
           <div className="t-sm fw-7 mb-3">การตั้งค่าเอกสาร</div>
@@ -966,8 +1134,8 @@ function DocsManage({ lesson, onSave, toast }) {
         <div className="card card-p">
           <div className="t-sm fw-7 mb-3">คำแนะนำ</div>
           <div className="t-xs muted lead pretty" style={{ fontSize: 13, lineHeight: 1.5 }}>
-            • เอกสารที่อัปโหลดจะถูกแสดงในหน้าบทเรียนของนักศึกษาในแถบ &quot;เอกสารประกอบ&quot;<br />
-            • หากปิดการอนุญาตดาวน์โหลด นักศึกษาจะสามารถเปิดดูเอกสารออนไลน์ได้เท่านั้น ไม่สามารถดาวน์โหลดไฟล์ลงเครื่องได้
+            • <strong>เอกสารทั่วไป</strong> จะถูกแสดงให้นักศึกษาเห็นและศึกษาในบทเรียนในแถบ &quot;เอกสารประกอบ&quot;<br />
+            • <strong>เอกสารสำหรับ AI</strong> จะถูกป้อนให้กับโมเดล AI โดยตรงเป็นคลังความรู้เบื้องหลังเพื่อใช้อ้างอิงขณะติว โดยนักศึกษาทั่วไปจะไม่เห็นรายชื่อไฟล์และไม่สามารถเข้าถึงไฟล์เหล่านี้ได้เด็ดขาด
           </div>
         </div>
       </div>
@@ -1336,12 +1504,21 @@ function InstructorLessonContent() {
         <>
           <div className="tabs mb-5">
             {[
-              ["video", "วิดีโอ", "video"],
-              ...(lesson.has_docs ? [["docs", "เอกสารประกอบ", "folder"]] : []),
-              ...(lesson.has_pretest || lesson.has_posttest ? [["test", "ข้อสอบ Pre/Post", "clipboard"]] : []),
-              ...(lesson.has_assignment ? [["assign", "ใบงาน + Rubric", "file"]] : [])
-            ].map(([k, t, ic]) => (
-              <button key={k} className={tab === k ? "on" : ""} onClick={() => handleTabChange(k)}><Icon name={ic} size={15} />{t}</button>
+              ["video", "วิดีโอ", "video", true],
+              ["docs", "เอกสารประกอบ", "folder", !!lesson.has_docs],
+              ["test", "ข้อสอบ Pre/Post", "clipboard", !!(lesson.has_pretest || lesson.has_posttest)],
+              ["assign", "ใบงาน + Rubric", "file", !!lesson.has_assignment]
+            ].map(([k, t, ic, enabled]) => (
+              <button
+                key={k}
+                className={(tab === k ? "on" : "") + (!enabled ? " disabled" : "")}
+                onClick={enabled ? () => handleTabChange(k) : undefined}
+                disabled={!enabled}
+                style={!enabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              >
+                <Icon name={ic} size={15} />
+                {t}
+              </button>
             ))}
           </div>
 

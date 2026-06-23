@@ -50,10 +50,23 @@ export async function POST(req) {
       return NextResponse.json({ error: "messages array is required" }, { status: 400 });
     }
 
+    // Fetch AI-only documents from lessons table
+    let aiDocs = [];
+    if (lessonContext?.id) {
+      const { data: dbLesson } = await supabase
+        .from("lessons")
+        .select("ai_documents")
+        .eq("id", lessonContext.id)
+        .single();
+      if (dbLesson && Array.isArray(dbLesson.ai_documents)) {
+        aiDocs = dbLesson.ai_documents;
+      }
+    }
+
     // Model is configured directly inside the chat initialization below
 
     // Build system context about the lesson
-    const lessonInfo = lessonContext
+    let lessonInfo = lessonContext
       ? `
 ข้อมูลบทเรียนที่นักศึกษากำลังเรียนอยู่:
 - ชื่อบทเรียน: ${lessonContext.title || "ไม่ระบุ"}
@@ -64,16 +77,20 @@ export async function POST(req) {
 `
       : "";
 
+    if (aiDocs && aiDocs.length > 0) {
+      lessonInfo += `\n- เอกสารอ้างอิงของบทเรียนนี้สำหรับระบบ AI (นักศึกษาจะไม่เห็นเนื้อหาหรือไฟล์โดยตรง): ${aiDocs.map((d) => d.name).join(", ")}`;
+    }
+
     const systemPrompt = mode === "summarize"
       ? `คุณเป็น AI ผู้ช่วยสรุปเนื้อหาบทเรียนสำหรับระบบ E-learning
 ${lessonInfo}
-กรุณาสรุปเนื้อหาและจุดสำคัญของบทเรียนนี้ให้กระชับและเข้าใจง่าย โดยอ้างอิงจากคำอธิบายที่ให้มา
+กรุณาสรุปเนื้อหาและจุดสำคัญของบทเรียนนี้ให้กระชับและเข้าใจง่าย โดยอ้างอิงจากคำอธิบายและเอกสารอ้างอิงที่ให้มา
 ตอบเป็นภาษาไทย จัดระเบียบด้วย bullet points และ headings ให้สวยงาม
 หากไม่มีข้อมูลเพียงพอ ให้บอกว่าต้องการข้อมูลเพิ่มเติมอะไรบ้าง`
       : `คุณเป็น AI ผู้ช่วยสอน (Tutor) สำหรับระบบ E-learning ที่คอยให้คำตอบและความรู้แก่นักศึกษา
 ${lessonInfo}
 หน้าที่ของคุณ:
-1. ตอบคำถามที่เกี่ยวข้องกับเนื้อหาบทเรียน รวมถึงเอกสารที่แนบมา (หากมี)
+1. ตอบคำถามที่เกี่ยวข้องกับเนื้อหาบทเรียน รวมถึงเอกสารของระบบ AI ที่แนบมาเป็นบริบทอ้างอิง และเอกสารที่นักศึกษาแนบมาเพิ่มเติม (หากมี)
 2. อธิบายแนวคิดที่ยากให้เข้าใจง่ายขึ้น
 3. ยกตัวอย่างประกอบการอธิบาย
 4. ส่งเสริมการเรียนรู้เชิงรุก
@@ -102,10 +119,25 @@ ${lessonInfo}
       : lastMessage.content;
 
     // Process current attachments
-    const messageParts = [{ text: userMessage }];
+    const messageParts = [];
     const attachedFileNames = [];
     const unsupportedFileNames = [];
 
+    // 1. Process AI-only documents (automatically attached as reference context)
+    if (aiDocs && aiDocs.length > 0) {
+      for (const file of aiDocs) {
+        const mimeType = getMimeType(file.name);
+        if (mimeType) {
+          const part = await fileToGenerativePart(file.url, mimeType);
+          if (part) {
+            messageParts.push(part);
+            attachedFileNames.push(`[AI-only] ${file.name}`);
+          }
+        }
+      }
+    }
+
+    // 2. Process user-attached files
     if (attachments && attachments.length > 0) {
       for (const file of attachments) {
         const mimeType = getMimeType(file.name);
@@ -128,6 +160,9 @@ ${lessonInfo}
         text: `\n\n[ไฟล์แนบเพิ่มเติมที่ไม่รองรับการอ่านเนื้อหา: ${unsupportedFileNames.join(", ")}]`
       });
     }
+
+    // 3. Append the user prompt last
+    messageParts.push({ text: userMessage });
 
     const chat = ai.chats.create({
       model: "gemini-3.5-flash",
