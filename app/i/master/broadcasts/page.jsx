@@ -20,24 +20,38 @@ function RowActions({ onEdit, onDelete }) {
   );
 }
 
-function BroadcastDialog({ mode, row, onClose, onSave }) {
+function BroadcastDialog({ mode, row, masterYearLabels, onClose, onSave }) {
   const [title, setTitle] = useState(row?.title || "");
   const [body, setBody] = useState(row?.body || "");
   const [pinned, setPinned] = useState(row?.pinned || false);
   const [expiresAt, setExpiresAt] = useState(row?.expires_at ? row.expires_at.slice(0, 10) : "");
+  const [editYearLevels, setEditYearLevels] = useState(
+    (row?.year_level || []).map(y => typeof y === 'number' || !isNaN(Number(y)) ? `ชั้นปีที่ ${y}` : y)
+  );
 
   const handleSave = () => {
     if (!title.trim() || !body.trim()) {
       toast("กรุณากรอกหัวข้อและเนื้อหาประกาศ");
       return;
     }
-    onSave({ title: title.trim(), body: body.trim(), pinned, expires_at: expiresAt || null });
+    const finalYearLevels = editYearLevels.map(y => {
+      const parsed = parseInt(String(y).replace(/\D/g, ''), 10);
+      return isNaN(parsed) ? null : parsed;
+    }).filter(Boolean);
+
+    onSave({ 
+      title: title.trim(), 
+      body: body.trim(), 
+      pinned, 
+      expires_at: expiresAt || null,
+      year_level: finalYearLevels
+    });
   };
 
   return (
     <Dialog
       title={mode === "add" ? "สร้างประกาศใหม่" : "แก้ไขประกาศ"}
-      desc="ประกาศจะแสดงในหน้าของนักศึกษาทุกคน"
+      desc="ประกาศจะแสดงในหน้าของนักศึกษาตามชั้นปีที่กำหนด"
       onClose={onClose}
       footer={
         <>
@@ -61,6 +75,41 @@ function BroadcastDialog({ mode, row, onClose, onSave }) {
           style={{ resize: "vertical" }}
         />
       </div>
+
+      {/* Target Year Levels */}
+      <div className="field mb-4">
+        <label className="label">ชั้นปีที่ประกาศถึง <span className="t-xs muted fw-4">(ไม่เลือก = ทุกชั้นปี)</span></label>
+        <div className="flex items-center gap-3 flex-wrap" style={{ paddingTop: 6 }}>
+          {masterYearLabels.length === 0 ? (
+            <span className="t-sm muted">กำลังโหลดข้อมูลชั้นปี...</span>
+          ) : masterYearLabels.map((yrLabel) => {
+            const numberMatch = parseInt(yrLabel.replace(/\D/g, ''));
+            const checked = editYearLevels.includes(yrLabel) || (!isNaN(numberMatch) && editYearLevels.includes(numberMatch)) || editYearLevels.includes(String(numberMatch));
+            
+            return (
+              <label key={yrLabel} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
+                padding: "7px 14px", borderRadius: 9, border: `1.5px solid ${checked ? "var(--primary)" : "var(--border)"}`,
+                background: checked ? "var(--primary-soft, #eef6ff)" : "var(--surface)", transition: ".15s", fontWeight: checked ? 700 : 400,
+                color: checked ? "var(--primary)" : "var(--fg)" }}>
+                <input type="checkbox" style={{ display: "none" }} checked={checked}
+                  onChange={() => setEditYearLevels(prev => checked ? prev.filter(y => y !== yrLabel && (!isNaN(numberMatch) ? String(y) !== String(numberMatch) : true)) : [...prev, yrLabel].sort())} />
+                <span style={{ width: 16, height: 16, borderRadius: 5, border: `2px solid ${checked ? "var(--primary)" : "var(--border-strong)"}`,
+                  background: checked ? "var(--primary)" : "transparent", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                  {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </span>
+                {yrLabel}
+              </label>
+            );
+          })}
+        </div>
+        {editYearLevels.length === 0 && (
+          <div className="t-xs muted mt-2" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M10 9v5M10 7v.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            นักศึกษาทุกชั้นปีจะมองเห็นประกาศนี้
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-2 gap-3">
         <div className="field">
           <label className="label">วันหมดอายุ (ไม่บังคับ)</label>
@@ -82,18 +131,29 @@ export default function BroadcastsPage() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState(null);
+  const [masterYearLabels, setMasterYearLabels] = useState([]);
   const confirm = useConfirm();
 
   const canManage = hasPermission(session?.user, PERMISSIONS.BROADCASTS_MANAGE);
 
   const loadData = async () => {
     setLoading(true);
-    const { data: rows } = await supabase
-      .from("broadcasts")
-      .select("*")
-      .order("pinned", { ascending: false })
-      .order("created_at", { ascending: false });
-    setData(rows || []);
+    const [bRes, sgRes] = await Promise.all([
+      supabase
+        .from("broadcasts")
+        .select("*")
+        .order("pinned", { ascending: false })
+        .order("created_at", { ascending: false }),
+      supabase.from("student_grades").select("prefix, year_label")
+    ]);
+    
+    setData(bRes.data || []);
+    
+    if (sgRes?.data) {
+      const uniqueYears = Array.from(new Set(sgRes.data.map(g => g.year_label).filter(Boolean))).sort();
+      setMasterYearLabels(uniqueYears);
+    }
+    
     setLoading(false);
   };
 
@@ -156,9 +216,9 @@ export default function BroadcastsPage() {
         }
         loading={loading}
         className="table"
-        headers={["หัวข้อ", "เนื้อหา", "หมดอายุ", "สถานะ", ""]}
+        headers={["หัวข้อ", "กลุ่มเป้าหมาย", "เนื้อหา", "หมดอายุ", "สถานะ", ""]}
         data={data}
-        colSpan={5}
+        colSpan={6}
         renderRow={(row) => (
           <tr key={row.id}>
             <td>
@@ -167,6 +227,17 @@ export default function BroadcastsPage() {
                 <span className="fw-6">{row.title}</span>
               </div>
               <div className="t-xs muted mt-1">{formatDate(row.created_at)}</div>
+            </td>
+            <td>
+              {row.year_level && row.year_level.length > 0 ? (
+                <div className="flex gap-1 flex-wrap">
+                  {row.year_level.map(y => (
+                    <Badge key={y} tone="primary">ปี {y}</Badge>
+                  ))}
+                </div>
+              ) : (
+                <span className="t-xs muted">ทุกชั้นปี</span>
+              )}
             </td>
             <td>
               <div className="t-sm muted" style={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.body}</div>
@@ -194,6 +265,7 @@ export default function BroadcastsPage() {
         <BroadcastDialog
           mode={dialog.mode}
           row={dialog.row}
+          masterYearLabels={masterYearLabels}
           onClose={() => setDialog(null)}
           onSave={handleSave}
         />

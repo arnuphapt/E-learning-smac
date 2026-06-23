@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import Icon from "../ui/Icon";
 
@@ -30,23 +31,60 @@ const TabItem = ({ href, icon, label, active, showDot, shake }) => (
 
 export default function StudentMobileTabbar() {
   const pathname = usePathname() || "";
+  const { data: session } = useSession();
   
   const [hasNew, setHasNew] = useState(false);
   const [shouldShake, setShouldShake] = useState(false);
 
   useEffect(() => {
-    const now = new Date().toISOString();
+    if (!session) return;
+
+    let gradesList = [];
+    let studentProfile = null;
     
     const fetchBroadcasts = async () => {
-      const { data } = await supabase
-        .from("broadcasts")
-        .select("id,title,body,pinned,created_at")
-        .or(`expires_at.is.null,expires_at.gt.${now}`)
-        .order("pinned", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(10);
+      const freshNow = new Date().toISOString();
+      const studentId = session?.dbId;
+      const studentYear = session?.user?.study_year ? Number(session.user.study_year) : null;
+
+      const [bRes, sgRes, uRes] = await Promise.all([
+        supabase
+          .from("broadcasts")
+          .select("id,title,body,pinned,created_at,year_level")
+          .or(`expires_at.is.null,expires_at.gt.${freshNow}`)
+          .order("pinned", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(50),
+        gradesList.length === 0 ? supabase.from("student_grades").select("prefix, year_label") : Promise.resolve({ data: gradesList }),
+        (studentId && !studentProfile) ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: studentProfile })
+      ]);
         
-      const list = data || [];
+      if (sgRes?.data && gradesList.length === 0) gradesList = sgRes.data;
+      if (uRes?.data && !studentProfile) studentProfile = uRes.data;
+
+      const rawBroadcasts = bRes.data || [];
+      const email = session?.user?.email || "";
+      const match = email.match(/^(\d+)@/);
+      const parsedStudentNo = match ? match[1] : "";
+      const finalStudentNo = studentProfile?.student_no || parsedStudentNo;
+      const prefix = finalStudentNo ? String(finalStudentNo).substring(0, 2) : "";
+      const mapping = gradesList.find(g => g.prefix === prefix);
+      const studentLabel = mapping ? mapping.year_label : null;
+      const studentFallback = studentYear;
+
+      const filtered = rawBroadcasts.filter(b => {
+        const allowed = b.year_level;
+        if (!allowed || allowed.length === 0) return true; // no restriction
+
+        return allowed.some(ay => {
+          if (typeof ay === 'number' || !isNaN(Number(ay))) {
+            return Number(ay) === studentFallback || ay == studentFallback;
+          }
+          return ay === studentLabel;
+        });
+      });
+
+      const list = filtered.slice(0, 10);
       if (list.length > 0 && typeof window !== "undefined") {
         const lastSeen = localStorage.getItem("last_seen_broadcast_time");
         const newest = list[0].created_at;
@@ -87,7 +125,7 @@ export default function StudentMobileTabbar() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [pathname]);
+  }, [pathname, session]);
 
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
