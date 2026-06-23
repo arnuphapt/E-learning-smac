@@ -11,11 +11,12 @@ import { toast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { hasPermission, PERMISSIONS } from "@/lib/rbac";
 
-function RowActions({ onEdit, onDelete }) {
+function RowActions({ onEdit, onDelete, onResend }) {
   return (
     <div className="flex items-center gap-1 justify-end">
-      <button className="iconbtn ghost" onClick={onEdit}><Icon name="pencil" size={15} /></button>
-      <button className="iconbtn ghost c-danger" onClick={onDelete}><Icon name="trash" size={15} /></button>
+      <button className="iconbtn ghost" onClick={onResend} title="ส่งประกาศซ้ำ"><Icon name="refresh" size={15} /></button>
+      <button className="iconbtn ghost" onClick={onEdit} title="แก้ไขประกาศ"><Icon name="pencil" size={15} /></button>
+      <button className="iconbtn ghost c-danger" onClick={onDelete} title="ลบประกาศ"><Icon name="trash" size={15} /></button>
     </div>
   );
 }
@@ -194,6 +195,36 @@ export default function BroadcastsPage() {
     loadData();
   };
 
+  const handleResend = async (row) => {
+    if (!(await confirm({
+      title: "ส่งประกาศซ้ำ",
+      message: `คุณต้องการส่งประกาศ "${row.title}" ซ้ำอีกครั้งใช่หรือไม่? การส่งซ้ำจะอัปเดตเวลาการประกาศเป็นปัจจุบันเพื่อส่งแจ้งเตือนไปยังนักศึกษาอีกครั้ง`,
+      confirmText: "ส่งซ้ำ",
+      cancelText: "ยกเลิก",
+    }))) return;
+
+    try {
+      const now = new Date().toISOString();
+      const updatedValues = { created_at: now };
+      
+      // If the broadcast has expired, clear the expires_at so it becomes active again
+      if (row.expires_at && new Date(row.expires_at) < new Date()) {
+        updatedValues.expires_at = null;
+      }
+
+      const { error } = await supabase
+        .from("broadcasts")
+        .update(updatedValues)
+        .eq("id", row.id);
+
+      if (error) throw error;
+      toast("ส่งประกาศซ้ำเรียบร้อยแล้ว");
+      loadData();
+    } catch (e) {
+      toast("เกิดข้อผิดพลาดในการส่งซ้ำ: " + e.message, "error");
+    }
+  };
+
   const formatDate = (iso) => iso ? new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
   return (
@@ -254,6 +285,7 @@ export default function BroadcastsPage() {
                 <RowActions
                   onEdit={() => setDialog({ mode: "edit", row })}
                   onDelete={() => handleDelete(row)}
+                  onResend={() => handleResend(row)}
                 />
               )}
             </td>
