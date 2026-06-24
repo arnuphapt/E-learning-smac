@@ -47,6 +47,7 @@ function InstructorSidebarContent({ open, onClose }) {
     academicMasterItems.push(["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"]);
     studentMasterItems.push(["/i/master/sections", "users", "Section / กลุ่มเรียน", pathname === "/i/master/sections"]);
     studentMasterItems.push(["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา", pathname === "/i/master/studentgrade"]);
+    systemMasterItems.push(["/i/master/ai-persona", "settings", "กำหนด Persona AI", pathname === "/i/master/ai-persona"]);
   }
   
   if (hasPermission(user, PERMISSIONS.USERS_MANAGE)) {

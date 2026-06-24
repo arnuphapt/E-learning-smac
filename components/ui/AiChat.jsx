@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Icon from "@/components/ui/Icon";
+import AiAvatar from "./AiAvatar";
 
 // ---- Simple markdown renderer (bold, bullets, code) ----
 function MarkdownText({ text }) {
@@ -123,20 +124,47 @@ export default function AiChat({ lesson, course, open, onClose }) {
   const attachmentRef = useRef(null);
 
   useEffect(() => {
+    let active = true;
     if (open && messages.length === 0) {
+      const defaultGreeting = `สวัสดีครับ! ผมคือ AI ผู้ช่วยสำหรับบทเรียน **"${lesson?.title || "บทเรียนนี้"}"** 🎓\n\nคุณสามารถถามคำถามเกี่ยวกับเนื้อหา ขอให้อธิบายเพิ่มเติม หรือกดปุ่ม **"สรุปบทเรียน"** เพื่อให้ผมสรุปเนื้อหาให้ได้เลยครับ`;
       const timer = setTimeout(() => {
+        if (!active) return;
         setMessages([
           {
             role: "assistant",
-            content: `สวัสดีครับ! ผมคือ AI ผู้ช่วยสำหรับบทเรียน **"${lesson?.title || "บทเรียนนี้"}"** 🎓\n\nคุณสามารถถามคำถามเกี่ยวกับเนื้อหา ขอให้อธิบายเพิ่มเติม หรือกดปุ่ม **"สรุปบทเรียน"** เพื่อให้ผมสรุปเนื้อหาให้ได้เลยครับ`,
+            content: defaultGreeting,
           },
         ]);
+
+        fetch("/api/ai/persona")
+          .then((res) => res.json())
+          .then((data) => {
+            if (!active) return;
+            if (data.greetingTemplate) {
+              const customMsg = data.greetingTemplate.replace(/{lesson_title}/g, lesson?.title || "บทเรียนนี้");
+              setMessages([
+                {
+                  role: "assistant",
+                  content: customMsg,
+                },
+              ]);
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to load custom greeting:", err);
+          });
       }, 0);
-      return () => clearTimeout(timer);
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
     }
     if (open) {
       const focusTimer = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => clearTimeout(focusTimer);
+      return () => {
+        active = false;
+        clearTimeout(focusTimer);
+      };
     }
   }, [open, lesson?.title, messages.length]);
 
@@ -287,9 +315,13 @@ export default function AiChat({ lesson, course, open, onClose }) {
           flexShrink: 0,
         }}>
           <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: "rgba(255,255,255,0.2)",
-            display: "grid", placeItems: "center",
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: "rgba(255,255,255,0.15)",
+            color: "#fff",
+            display: "grid",
+            placeItems: "center",
             flexShrink: 0,
           }}>
             <Icon name="sparkle" size={18} />
@@ -368,14 +400,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
               }}
             >
               {msg.role === "assistant" && (
-                <div style={{
-                  width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                  background: "linear-gradient(135deg, var(--primary), #0891b2)",
-                  display: "grid", placeItems: "center", color: "#fff",
-                  marginBottom: 2,
-                }}>
-                  <Icon name="sparkle" size={13} />
-                </div>
+                <AiAvatar size={28} style={{ marginBottom: 2 }} />
               )}
               <div style={{
                 maxWidth: "80%",
@@ -425,13 +450,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
 
           {loading && !summarizing && (
             <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                background: "linear-gradient(135deg, var(--primary), #0891b2)",
-                display: "grid", placeItems: "center", color: "#fff",
-              }}>
-                <Icon name="sparkle" size={13} />
-              </div>
+              <AiAvatar size={28} />
               <div style={{
                 padding: "9px 13px",
                 borderRadius: "16px 16px 16px 4px",

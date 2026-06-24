@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import Loading from "@/components/ui/Loading";
 import { Select } from "@/components/ui/Primitives";
+import AiAvatar from "@/components/ui/AiAvatar";
 
 // ---- Simple markdown renderer (bold, bullets, code) ----
 function MarkdownText({ text }) {
@@ -103,6 +104,20 @@ function TypingDots() {
   );
 }
 
+const parseEmotionAndReply = (text) => {
+  if (!text) return { emotion: "smile", cleanText: "" };
+  let emotion = "smile";
+  let cleanText = text;
+
+  const match = text.match(/\[emotion:\s*(impressive|mad|smile|idle)\]/i);
+  if (match) {
+    emotion = match[1].toLowerCase();
+    cleanText = text.replace(/\[emotion:\s*(impressive|mad|smile|idle)\]/gi, "").trim();
+  }
+
+  return { emotion, cleanText };
+};
+
 const SUGGESTIONS = [
   "สรุปเนื้อหาบทเรียนนี้ให้หน่อย",
   "อธิบายจุดสำคัญของบทเรียนนี้",
@@ -132,6 +147,31 @@ export default function StudentSeparateAiPage() {
   const [summarizing, setSummarizing] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [showAttachmentDropdown, setShowAttachmentDropdown] = useState(false);
+  const [currentEmotion, setCurrentEmotion] = useState("idle");
+  const [aiStatus, setAiStatus] = useState("checking"); // "checking", "online", "offline", "degraded"
+  const [aiStatusReason, setAiStatusReason] = useState("");
+
+  const checkAiHealth = async () => {
+    setAiStatus("checking");
+    try {
+      const res = await fetch("/api/ai/health");
+      if (res.ok) {
+        const data = await res.json();
+        setAiStatus(data.status);
+        setAiStatusReason(data.reason || "");
+      } else {
+        setAiStatus("offline");
+        setAiStatusReason("HTTP request failed");
+      }
+    } catch (e) {
+      setAiStatus("offline");
+      setAiStatusReason(e.message);
+    }
+  };
+
+  useEffect(() => {
+    checkAiHealth();
+  }, []);
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -199,7 +239,7 @@ export default function StudentSeparateAiPage() {
 
           const hasMatch = allowed.some(ay => {
             if (typeof ay === 'number' || !isNaN(Number(ay))) {
-               return Number(ay) === studentFallback || ay == studentFallback;
+              return Number(ay) === studentFallback || ay == studentFallback;
             }
             return ay === studentLabel;
           });
@@ -228,18 +268,18 @@ export default function StudentSeparateAiPage() {
     if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
     const masterSec = sections.find(s => s.name === sectionName);
     if (!masterSec) return false;
-    
+
     const start = masterSec.range_start;
     const end = masterSec.range_end;
     if (!start || !end) return null;
-    
+
     const snoStr = String(studentNo).trim();
     if (snoStr.length < 3) return false;
     const last3 = parseInt(snoStr.slice(-3), 10);
     const startVal = parseInt(start, 10);
     const endVal = parseInt(end, 10);
     if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
-    
+
     return last3 >= startVal && last3 <= endVal;
   }
 
@@ -250,17 +290,45 @@ export default function StudentSeparateAiPage() {
 
   // Initialize and reset chat greeting when selected lesson changes
   useEffect(() => {
+    let active = true;
     if (selectedLesson) {
+      const defaultGreeting = `สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${selectedLesson.title || "บทเรียนนี้"}"** 🎓\n\nผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`;
       setMessages([
         {
           role: "assistant",
-          content: `สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${selectedLesson.title || "บทเรียนนี้"}"** 🎓\n\nผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`,
+          content: defaultGreeting,
         },
       ]);
+      setCurrentEmotion("idle");
+
+      // Fetch custom greeting from persona config
+      fetch("/api/ai/persona")
+        .then((res) => res.json())
+        .then((data) => {
+          if (!active) return;
+          if (data.greetingTemplate) {
+            const customMsg = data.greetingTemplate.replace(/{lesson_title}/g, selectedLesson.title || "บทเรียนนี้");
+            const { emotion, cleanText } = parseEmotionAndReply(customMsg);
+            setCurrentEmotion(emotion === "smile" ? "idle" : emotion);
+            setMessages([
+              {
+                role: "assistant",
+                content: cleanText,
+              },
+            ]);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load custom greeting:", err);
+        });
     } else {
       setMessages([]);
+      setCurrentEmotion("idle");
     }
     setInput("");
+    return () => {
+      active = false;
+    };
   }, [selectedLessonId]);
 
   useEffect(() => {
@@ -269,15 +337,15 @@ export default function StudentSeparateAiPage() {
 
   const lessonContext = selectedLesson
     ? {
-        id: selectedLesson.id,
-        courseId: selectedCourse?.id || selectedLesson.course_id,
-        title: selectedLesson.title,
-        index: selectedLesson.index,
-        courseCode: selectedCourse?.code,
-        courseName: selectedCourse?.title,
-        description: selectedLesson.description,
-        duration: selectedLesson.duration,
-      }
+      id: selectedLesson.id,
+      courseId: selectedCourse?.id || selectedLesson.course_id,
+      title: selectedLesson.title,
+      index: selectedLesson.index,
+      courseCode: selectedCourse?.code,
+      courseName: selectedCourse?.title,
+      description: selectedLesson.description,
+      duration: selectedLesson.duration,
+    }
     : null;
 
   const sendMessage = async (userText, mode = "chat") => {
@@ -323,16 +391,18 @@ export default function StudentSeparateAiPage() {
 
       const data = await res.json();
       const reply = data.reply || "ขออภัย ไม่สามารถตอบได้ในขณะนี้";
+      const { emotion, cleanText } = parseEmotionAndReply(reply);
+      setCurrentEmotion(emotion);
 
       if (mode === "summarize") {
         setMessages([
           ...messages,
           { role: "user", content: "📋 ขอสรุปเนื้อหาบทเรียนนี้" },
-          { role: "assistant", content: reply },
+          { role: "assistant", content: cleanText },
         ]);
         setSummarizing(false);
       } else {
-        setMessages([...newMessages, { role: "assistant", content: reply }]);
+        setMessages([...newMessages, { role: "assistant", content: cleanText }]);
       }
     } catch (err) {
       const errMsg = "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ AI กรุณาลองใหม่อีกครั้ง";
@@ -360,7 +430,7 @@ export default function StudentSeparateAiPage() {
   const handleCourseChange = (e) => {
     const courseId = e.target.value;
     setSelectedCourseId(courseId);
-    
+
     const courseLessons = allLessons.filter(l => l.course_id === courseId);
     if (courseLessons.length > 0) {
       setSelectedLessonId(courseLessons[0].id);
@@ -386,17 +456,17 @@ export default function StudentSeparateAiPage() {
             </span>
             <div className="t-lg fw-7 serif" style={{ color: "var(--fg)" }}>AI ผู้ช่วยเรียนรู้</div>
           </div>
-          
+
           <div className="flex items-center gap-2 ml-4 wrap">
             <div className="flex items-center gap-1.5">
-              <span className="t-xs fw-6 muted uppercase">รายวิชา</span>
+              <span className="t-xs fw-6 muted uppercase p-2">รายวิชา</span>
               <Select className="input" style={{ width: 220, height: 36 }} value={selectedCourseId} onChange={handleCourseChange}>
                 {courses.map(c => <option key={c.id} value={c.id}>{c.code} - {c.title}</option>)}
               </Select>
             </div>
 
             <div className="flex items-center gap-1.5 ml-2">
-              <span className="t-xs fw-6 muted uppercase">บทเรียน</span>
+              <span className="t-xs fw-6 muted uppercase p-2">บทเรียน</span>
               <Select className="input" style={{ width: 280, height: 36 }} value={selectedLessonId} onChange={(e) => setSelectedLessonId(e.target.value)}>
                 {lessonsForSelectedCourse.length === 0 ? (
                   <option value="">(ไม่มีบทเรียน)</option>
@@ -411,72 +481,188 @@ export default function StudentSeparateAiPage() {
 
       {/* Main Split Interface */}
       <div style={{ display: "flex", flex: 1, gap: 20, minHeight: 0, flexDirection: "row" }} className="ai-layout-container">
-        
-        {/* Left Side: Lesson details overview */}
+
+        {/* Left Side: AI Profile Card & Lesson Details */}
         <div style={{
           width: 320,
           background: "var(--card)",
           border: "1px solid var(--border)",
-          borderRadius: 16,
-          padding: 20,
+          borderRadius: 20,
+          padding: "24px 20px",
           display: "flex",
           flexDirection: "column",
-          gap: 16,
+          color: "var(--fg)",
+          boxShadow: "0 8px 30px rgba(13,110,140,0.06)",
           flexShrink: 0,
+          position: "relative",
+          overflow: "hidden",
+          gap: 16
         }} className="hide-m">
-          {selectedLesson ? (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10,
-                  background: "var(--primary-soft)", color: "var(--primary)",
-                  display: "grid", placeItems: "center"
-                }}>
-                  <Icon name="book" size={20} />
-                </div>
-                <div>
-                  <div className="t-xs fw-6 c-primary uppercase">บทที่ {selectedLesson.index}</div>
-                  <div className="fw-7 t-sm fg truncate" style={{ maxWidth: 220 }}>{selectedLesson.title}</div>
-                </div>
-              </div>
+          {/* Subtle Gradient Accent Bar at Top */}
+          <div style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 4,
+            background: "linear-gradient(90deg, var(--primary) 0%, #0891b2 100%)"
+          }} />
 
-              <div style={{ borderBottom: "1px solid var(--border)", margin: "4px 0" }} />
-
-              <div style={{ flex: 1, overflowY: "auto" }}>
-                <div className="t-xs fw-7 muted uppercase mb-2">รายละเอียดวิชา</div>
-                <div className="t-sm fw-6 fg mb-4">{selectedCourse?.code} - {selectedCourse?.title}</div>
-
-                <div className="t-xs fw-7 muted uppercase mb-2">คำอธิบายบทเรียน</div>
-                <p className="t-xs muted pretty" style={{ whiteSpace: "pre-line", margin: 0, lineHeight: 1.5 }}>
-                  {selectedLesson.description || "ไม่มีคำอธิบายบทเรียน"}
-                </p>
-              </div>
-
-              {selectedLesson.allow_ai !== false && (
+          {/* Card Header */}
+          <div style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderBottom: "1px solid var(--border)",
+            paddingBottom: 12,
+            marginBottom: 4,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name="sparkle" size={14} style={{ color: "var(--primary)" }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)", letterSpacing: 0.5 }}>ติวเตอร์</span>
+            </div>
+            {/* Status indicator */}
+            <div
+              onClick={checkAiHealth}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background:
+                  aiStatus === "online" ? "var(--success-soft, rgba(16,185,129,0.1))" :
+                    aiStatus === "degraded" ? "var(--warning-soft, rgba(245,158,11,0.1))" :
+                      aiStatus === "checking" ? "var(--muted)" :
+                        "var(--danger-soft, rgba(239,68,68,0.1))",
+                padding: "4px 8px",
+                borderRadius: 12,
+                cursor: "pointer",
+                userSelect: "none"
+              }}
+              title={aiStatusReason ? `คลิกเพื่อตรวจสอบสถานะใหม่ (เหตุผล: ${aiStatusReason})` : "คลิกเพื่อตรวจสอบสถานะใหม่"}
+            >
+              {aiStatus === "checking" ? (
                 <>
-                  <div style={{ borderBottom: "1px solid var(--border)", margin: "4px 0" }} />
-                  <button
-                    onClick={() => sendMessage("", "summarize")}
-                    disabled={apiLoading || summarizing}
+                  <Icon name="loader" size={10} className="spin" style={{ color: "var(--muted-fg)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-fg)" }}>ตรวจสอบ...</span>
+                </>
+              ) : (
+                <>
+                  <span
+                    className={aiStatus === "online" ? "pulse-dot" : ""}
                     style={{
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                      padding: "10px 16px", borderRadius: 12, border: 0,
-                      background: "linear-gradient(135deg, var(--primary) 0%, #0891b2 100%)",
-                      color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer",
-                      boxShadow: "0 4px 12px rgba(13,110,140,0.25)",
-                      opacity: (apiLoading || summarizing) ? 0.6 : 1,
+                      display: "inline-block",
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background:
+                        aiStatus === "online" ? "#10b981" :
+                          aiStatus === "degraded" ? "#f59e0b" :
+                            "#ef4444"
                     }}
-                  >
-                    <Icon name="sparkle" size={16} />
-                    {summarizing ? "กำลังสรุปเนื้อหา..." : "สรุปบทเรียนด้วย AI"}
-                  </button>
+                  />
+                  <span style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color:
+                      aiStatus === "online" ? "#0f766e" :
+                        aiStatus === "degraded" ? "#b45309" :
+                          "#b91c1c"
+                  }}>
+                    {aiStatus === "online" ? "ออนไลน์" : aiStatus === "degraded" ? "บริการขัดข้อง" : "ออฟไลน์"}
+                  </span>
                 </>
               )}
-            </>
-          ) : (
-            <div style={{ flex: 1, display: "grid", placeItems: "center", textAlign: "center" }}>
-              <div className="muted t-sm">กรุณาเลือกบทเรียน</div>
             </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+            {/* Large Animated Avatar Portrait */}
+            <div style={{
+              position: "relative",
+              marginBottom: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              {/* Inner Ring Glow */}
+              <div style={{
+                position: "absolute",
+                inset: -6,
+                borderRadius: "20px",
+                background: "linear-gradient(135deg, var(--primary-soft) 0%, rgba(255,255,255,0) 100%)",
+                zIndex: 0,
+                opacity: 0.8
+              }} />
+              <AiAvatar size={120} emotion={apiLoading ? "thinking" : currentEmotion} style={{ borderRadius: "16px", zIndex: 1, border: "2px solid var(--primary)", boxShadow: "0 6px 15px rgba(13,110,140,0.12)" }} />
+            </div>
+
+            {/* Name & Role */}
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fg)", marginBottom: 4 }}>ยูริจัง</div>
+            <div style={{ fontSize: 11, color: "var(--primary)", fontWeight: 600, marginBottom: 12, background: "var(--primary-soft)", padding: "2px 8px", borderRadius: 20 }}>
+              ผู้ช่วยสอนประจำรายวิชา
+            </div>
+          </div>
+
+          {/* Info Details List & Lesson details */}
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Info Table */}
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
+                <span style={{ color: "var(--subtle)", fontWeight: 500 }}>โมเดลประมวลผล</span>
+                <span style={{ color: "var(--fg)", fontWeight: 600 }}>Gemini 2.5 Flash</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
+                <span style={{ color: "var(--subtle)", fontWeight: 500 }}>ระบบตอบคำถาม</span>
+                <span style={{ color: "var(--fg)", fontWeight: 600 }}>RAG + คลังบทเรียน</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
+                <span style={{ color: "var(--subtle)", fontWeight: 500 }}>การรองรับไฟล์</span>
+                <span style={{ color: "var(--fg)", fontWeight: 600 }}>PDF, รูปภาพ, ข้อความ</span>
+              </div>
+            </div>
+
+            {selectedLesson ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Icon name="book" size={14} style={{ color: "var(--primary)" }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--fg)" }}>บทเรียนปัจจุบัน</span>
+                </div>
+                <div style={{ paddingLeft: 22 }}>
+                  <div className="t-xs fw-6 c-primary uppercase">บทที่ {selectedLesson.index}</div>
+                  <div className="fw-7 t-sm fg truncate" style={{ maxWidth: 220 }}>{selectedLesson.title}</div>
+                  <p className="t-xs muted pretty mt-1" style={{ whiteSpace: "pre-line", margin: 0, lineHeight: 1.4 }}>
+                    {selectedLesson.description || "ไม่มีคำอธิบายบทเรียน"}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "10px 0" }}>
+                <span className="muted t-xs">กรุณาเลือกบทเรียนเพื่อเริ่มแชท</span>
+              </div>
+            )}
+          </div>
+
+          {selectedLesson && selectedLesson.allow_ai !== false && (
+            <>
+              <div style={{ borderBottom: "1px solid var(--border)", margin: "4px 0" }} />
+              <button
+                onClick={() => sendMessage("", "summarize")}
+                disabled={apiLoading || summarizing}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: "10px 16px", borderRadius: 12, border: 0,
+                  background: "linear-gradient(135deg, var(--primary) 0%, #0891b2 100%)",
+                  color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(13,110,140,0.25)",
+                  opacity: (apiLoading || summarizing) ? 0.6 : 1,
+                  flexShrink: 0
+                }}
+              >
+                <Icon name="sparkle" size={14} />
+                {summarizing ? "กำลังสรุปเนื้อหา..." : "สรุปบทเรียนด้วย AI"}
+              </button>
+            </>
           )}
         </div>
 
@@ -542,7 +728,7 @@ export default function StudentSeparateAiPage() {
                     <span className="t-xs muted ml-2 hide-d">· บทที่ {selectedLesson.index}</span>
                   </div>
                 </div>
-                
+
                 <button
                   onClick={() => sendMessage("", "summarize")}
                   disabled={apiLoading || summarizing}
@@ -602,16 +788,9 @@ export default function StudentSeparateAiPage() {
                     }}
                   >
                     {msg.role === "assistant" && (
-                      <div style={{
-                        width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-                        background: "linear-gradient(135deg, var(--primary), #0891b2)",
-                        display: "grid", placeItems: "center", color: "#fff",
-                        boxShadow: "0 2px 8px rgba(13,110,140,0.2)",
-                      }}>
-                        <Icon name="sparkle" size={15} />
-                      </div>
+                      <AiAvatar size={32} />
                     )}
-                    
+
                     <div style={{
                       maxWidth: "75%",
                       padding: "12px 18px",
@@ -660,13 +839,7 @@ export default function StudentSeparateAiPage() {
 
                 {apiLoading && !summarizing && (
                   <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-                      background: "linear-gradient(135deg, var(--primary), #0891b2)",
-                      display: "grid", placeItems: "center", color: "#fff",
-                    }}>
-                      <Icon name="sparkle" size={15} />
-                    </div>
+                    <AiAvatar size={32} />
                     <div style={{
                       padding: "12px 18px",
                       borderRadius: "20px 20px 20px 4px",
@@ -851,7 +1024,7 @@ export default function StudentSeparateAiPage() {
                       e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
                     }}
                   />
-                  
+
                   <button
                     onClick={() => sendMessage(input)}
                     disabled={(!input.trim() && attachedFiles.length === 0) || apiLoading}
@@ -879,6 +1052,14 @@ export default function StudentSeparateAiPage() {
         @keyframes aiTypingDot {
           0%, 80%, 100% { transform: scale(1); opacity: 0.5; }
           40% { transform: scale(1.3); opacity: 1; }
+        }
+        @keyframes pulseGlow {
+          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+          70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); }
+          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .pulse-dot {
+          animation: pulseGlow 2s infinite;
         }
         @media (max-width: 900px) {
           .hide-m { display: none !important; }

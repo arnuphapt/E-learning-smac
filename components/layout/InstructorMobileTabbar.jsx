@@ -29,6 +29,7 @@ function MoreSheet({ onClose }) {
     masterItems.push(["/i/master/groups", "folder", "กลุ่มวิชา"]);
     masterItems.push(["/i/master/sections", "users", "Section / กลุ่มเรียน"]);
     masterItems.push(["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา"]);
+    masterItems.push(["/i/master/ai-persona", "settings", "กำหนด Persona AI"]);
   }
   if (hasPermission(user, PERMISSIONS.USERS_MANAGE)) {
     masterItems.push(["/i/master/users", "user", "จัดการผู้ใช้งาน"]);

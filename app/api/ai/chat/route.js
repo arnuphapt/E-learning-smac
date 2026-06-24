@@ -1,6 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import fs from "fs";
+import path from "path";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -81,14 +83,23 @@ export async function POST(req) {
       lessonInfo += `\n- เอกสารอ้างอิงของบทเรียนนี้สำหรับระบบ AI (นักศึกษาจะไม่เห็นเนื้อหาหรือไฟล์โดยตรง): ${aiDocs.map((d) => d.name).join(", ")}`;
     }
 
-    const systemPrompt = mode === "summarize"
+    let customPersona = "";
+    try {
+      const filePath = path.join(process.cwd(), "ai_persona.md");
+      if (fs.existsSync(filePath)) {
+        customPersona = fs.readFileSync(filePath, "utf8");
+      }
+    } catch (e) {
+      console.error("Failed to read ai_persona.md:", e);
+    }
+
+    const baseSystemPrompt = mode === "summarize"
       ? `คุณเป็น AI ผู้ช่วยสรุปเนื้อหาบทเรียนสำหรับระบบ E-learning
 ${lessonInfo}
 กรุณาสรุปเนื้อหาและจุดสำคัญของบทเรียนนี้ให้กระชับและเข้าใจง่าย โดยอ้างอิงจากคำอธิบายและเอกสารอ้างอิงที่ให้มา
 ตอบเป็นภาษาไทย จัดระเบียบด้วย bullet points และ headings ให้สวยงาม
 หากไม่มีข้อมูลเพียงพอ ให้บอกว่าต้องการข้อมูลเพิ่มเติมอะไรบ้าง`
-      : `คุณเป็น AI ผู้ช่วยสอน (Tutor) สำหรับระบบ E-learning ที่คอยให้คำตอบและความรู้แก่นักศึกษา
-${lessonInfo}
+      : `${customPersona || `คุณเป็น AI ผู้ช่วยสอน (Tutor) สำหรับระบบ E-learning ที่คอยให้คำตอบและความรู้แก่นักศึกษา
 หน้าที่ของคุณ:
 1. ตอบคำถามที่เกี่ยวข้องกับเนื้อหาบทเรียน รวมถึงเอกสารของระบบ AI ที่แนบมาเป็นบริบทอ้างอิง และเอกสารที่นักศึกษาแนบมาเพิ่มเติม (หากมี)
 2. อธิบายแนวคิดที่ยากให้เข้าใจง่ายขึ้น
@@ -99,7 +110,23 @@ ${lessonInfo}
 - ตอบเป็นภาษาไทยเป็นหลัก (ยกเว้นคำศัพท์เทคนิค)
 - หากถามนอกเรื่องบทเรียนหรือเอกสารแนบมาก ให้แนะนำให้กลับมาโฟกัสที่บทเรียน
 - ตอบกระชับชัดเจน ไม่ยาวเกินไป
-- ใช้ markdown เพื่อจัดรูปแบบเมื่อเหมาะสม`;
+- ใช้ markdown เพื่อจัดรูปแบบเมื่อเหมาะสม`}`;
+
+    const emotionInstruction = `
+[CRITICAL INSTRUCTION FOR EMOTION CLASSIFICATION]
+You must classify the nature of the student's input and append exactly one of the following tags to the very end of your response:
+- If the student has answered your question/quiz/exercise correctly: Append "[emotion: impressive]"
+- If the student asked something off-topic (ถามนอกเรื่อง), inappropriate, or completely unrelated to the lesson/course content: Append "[emotion: mad]"
+- If you are providing a normal helpful answer, explanation, or summary of the lesson: Append "[emotion: smile]"
+- For other neutral states: Append "[emotion: idle]"
+
+Only append the tag at the end of the text. Do not output anything else about emotion.`;
+
+    const systemPrompt = `${baseSystemPrompt}
+
+${lessonInfo}
+
+${emotionInstruction}`;
 
     // Build chat history for multi-turn
     const history = messages.slice(0, -1).map((m) => {
@@ -165,7 +192,7 @@ ${lessonInfo}
     messageParts.push({ text: userMessage });
 
     const chat = ai.chats.create({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       history: [
         { role: "user", parts: [{ text: "สวัสดี คุณทำอะไรได้บ้าง?" }] },
         { role: "model", parts: [{ text: systemPrompt }] },
