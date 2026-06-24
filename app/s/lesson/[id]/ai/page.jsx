@@ -172,6 +172,27 @@ export default function StudentAiChatPage() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const attachmentRef = useRef(null);
+  const emotionTimerRef = useRef(null);
+
+  const changeEmotion = (newEmotion) => {
+    setCurrentEmotion(newEmotion);
+    if (emotionTimerRef.current) {
+      clearTimeout(emotionTimerRef.current);
+    }
+    if (newEmotion !== "idle") {
+      emotionTimerRef.current = setTimeout(() => {
+        setCurrentEmotion("idle");
+      }, 5000);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (emotionTimerRef.current) {
+        clearTimeout(emotionTimerRef.current);
+      }
+    };
+  }, []);
  
   useEffect(() => {
     let active = true;
@@ -197,7 +218,7 @@ export default function StudentAiChatPage() {
           content: defaultGreeting,
         },
       ]);
-      setCurrentEmotion("idle");
+      changeEmotion("idle");
 
       fetch("/api/ai/persona")
         .then((res) => res.json())
@@ -206,7 +227,7 @@ export default function StudentAiChatPage() {
           if (data.greetingTemplate) {
             const customMsg = data.greetingTemplate.replace(/{lesson_title}/g, lData.title || "บทเรียนนี้");
             const { emotion, cleanText } = parseEmotionAndReply(customMsg);
-            setCurrentEmotion(emotion === "smile" ? "idle" : emotion);
+            changeEmotion(emotion === "smile" ? "idle" : emotion);
             setMessages([
               {
                 role: "assistant",
@@ -294,7 +315,7 @@ export default function StudentAiChatPage() {
       const data = await res.json();
       const reply = data.reply || "ขออภัย ไม่สามารถตอบได้ในขณะนี้";
       const { emotion, cleanText } = parseEmotionAndReply(reply);
-      setCurrentEmotion(emotion);
+      changeEmotion(emotion);
  
       if (mode === "summarize") {
         setMessages([
@@ -499,7 +520,7 @@ export default function StudentAiChatPage() {
                 zIndex: 0,
                 opacity: 0.8
               }} />
-              <AiAvatar size={120} emotion={apiLoading ? "thinking" : currentEmotion} style={{ borderRadius: "16px", zIndex: 1, border: "2px solid var(--primary)", boxShadow: "0 6px 15px rgba(13,110,140,0.12)" }} />
+              <AiAvatar size={120} emotion={aiStatus === "offline" ? "sleeping" : apiLoading ? "thinking" : currentEmotion} style={{ borderRadius: "16px", zIndex: 1, border: "2px solid var(--primary)", boxShadow: "0 6px 15px rgba(13,110,140,0.12)" }} />
             </div>
 
             {/* Name & Role */}
