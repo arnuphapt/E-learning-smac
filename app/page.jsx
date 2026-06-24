@@ -4,7 +4,20 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import "./landing.css";
 
-function ImageSlot({ placeholder, shape = "rounded", radius = 22, ratio = "16/11" }) {
+function ImageSlot({ src, placeholder, shape = "rounded", radius = 22, ratio = "16/11" }) {
+  if (src) {
+    return (
+      <div style={{
+        width: "100%", aspectRatio: ratio,
+        borderRadius: shape === "rounded" ? radius : 0,
+        overflow: "hidden",
+        boxShadow: "0 10px 30px -10px rgba(0,0,0,0.08)",
+        border: "1px solid var(--border-soft, #f1f5f9)"
+      }}>
+        <img src={src} alt={placeholder} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </div>
+    );
+  }
   return (
     <div style={{
       width: "100%", aspectRatio: ratio,
@@ -72,7 +85,7 @@ export default function LandingPage() {
                 <path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5" />
               </svg>
             </span>
-            <span>E-learning<small>ผู้ใหญ่และผู้สูงอายุ 1 และชุมชน</small></span>
+            <span>Digital Learning Space<small>พื้นที่เรียนรู้ดิจิตอลเกี่ยวกับสาระสำคัญด้านการพยาบาล</small></span>
           </a>
           <div className="nav-links">
             <a href="#about">เกี่ยวกับระบบ</a>
@@ -116,7 +129,7 @@ export default function LandingPage() {
             <div className="hero-visual reveal in d2">
               <span className="dotgrid dg1"></span>
               <div className="hero-frame">
-                <ImageSlot placeholder="ภาพนักศึกษาพยาบาล / การเรียนการสอน" ratio="4/5" radius={26} />
+                <ImageSlot src="/e4ac61bf-a1f3-4995-8a22-0604e9dd4f35.jpg" placeholder="ภาพนักศึกษาพยาบาล / การเรียนการสอน" ratio="4/5" radius={26} />
               </div>
               <div className="hero-badge hb-1">
                 <span className="ic" style={{ background: "var(--mint)", color: "var(--teal)" }}>
@@ -158,7 +171,7 @@ export default function LandingPage() {
       <section className="section statement" id="about">
         <div className="wrap">
           <span className="eyebrow reveal">เกี่ยวกับระบบ</span>
-          <p className="big reveal d1" style={{ marginTop: 24 }}>ระบบ E-learning แห่งนี้รวบรวม<b>รายวิชาในสาขาวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ 1 และสาขาวิชาการพยาบาลชุมชน</b>ไว้อย่างครบถ้วน ครอบคลุมเนื้อหาสำคัญตั้งแต่หลักการพยาบาลผู้ป่วยที่มีภาวะเจ็บป่วยเฉียบพลันและเรื้อรัง ไปจนถึง<b>การพยาบาลสุขภาพครอบครัวและชุมชน การพยาบาลอนามัยโรงเรียน การพยาบาลอาชีวอนามัย และการรักษาพยาบาลเบื้องต้น</b></p>
+          <p className="big reveal d1" style={{ marginTop: 24 }}>พื้นที่เรียนรู้ดิจิตอลเกี่ยวกับ<b>สาระสำคัญด้านการพยาบาลนี้ ได้รวบรวมสาระสำคัญในหลากหลายรายวิชาเกี่ยวกับวิชาชีพการพยาบาลและการผดุงครรภ์ไว้อย่างครบถ้วน</b></p>
         </div>
       </section>
 
@@ -206,7 +219,7 @@ export default function LandingPage() {
               </div>
               <div className="feat-media">
                 <div className="feat-card">
-                  <ImageSlot placeholder="ภาพสื่อการสอน / วิดีโอ" />
+                  <ImageSlot src="/ed97f349-0e91-423b-8fbf-6b8629cf37b6.jpg" placeholder="ภาพสื่อการสอน / วิดีโอ" />
                 </div>
               </div>
             </article>
@@ -244,7 +257,7 @@ export default function LandingPage() {
               </div>
               <div className="feat-media">
                 <div className="feat-card">
-                  <ImageSlot placeholder="ภาพการส่งงานออนไลน์" />
+                  <ImageSlot src="/4c1d7fe9-4c3f-491a-896f-19ebef35f6a9.jpg" placeholder="ภาพการส่งงานออนไลน์" />
                 </div>
               </div>
             </article>
