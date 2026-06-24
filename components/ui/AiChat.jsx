@@ -4,6 +4,20 @@ import React, { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Icon from "@/components/ui/Icon";
 import AiAvatar from "./AiAvatar";
+import { supabase } from "@/lib/supabase";
+import { Dialog } from "@/components/ui/Primitives";
+
+const parseEmotionAndReply = (text) => {
+  if (!text) return { emotion: "smile", cleanText: "" };
+  let emotion = "smile";
+  let cleanText = text;
+  const match = text.match(/\[emotion:\s*(impressive|mad|smile|idle)\]/i);
+  if (match) {
+    emotion = match[1].toLowerCase();
+    cleanText = text.replace(/\[emotion:\s*(impressive|mad|smile|idle)\]/gi, "").trim();
+  }
+  return { emotion, cleanText };
+};
 
 // ---- Simple markdown renderer (bold, bullets, code) ----
 function MarkdownText({ text }) {
@@ -118,55 +132,189 @@ export default function AiChat({ lesson, course, open, onClose }) {
   const [summarizing, setSummarizing] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [showAttachmentDropdown, setShowAttachmentDropdown] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [sessionHistory, setSessionHistory] = useState([]);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const attachmentRef = useRef(null);
 
-  useEffect(() => {
-    let active = true;
-    if (open && messages.length === 0) {
-      const defaultGreeting = `สวัสดีครับ! ผมคือ AI ผู้ช่วยสำหรับบทเรียน **"${lesson?.title || "บทเรียนนี้"}"** 🎓\n\nคุณสามารถถามคำถามเกี่ยวกับเนื้อหา ขอให้อธิบายเพิ่มเติม หรือกดปุ่ม **"สรุปบทเรียน"** เพื่อให้ผมสรุปเนื้อหาให้ได้เลยครับ`;
-      const timer = setTimeout(() => {
-        if (!active) return;
-        setMessages([
-          {
-            role: "assistant",
-            content: defaultGreeting,
-          },
-        ]);
+  const studentId = session?.dbId || session?.user?.id;
 
-        fetch("/api/ai/persona")
-          .then((res) => res.json())
-          .then((data) => {
-            if (!active) return;
-            if (data.greetingTemplate) {
-              const customMsg = data.greetingTemplate.replace(/{lesson_title}/g, lesson?.title || "บทเรียนนี้");
-              setMessages([
-                {
-                  role: "assistant",
-                  content: customMsg,
-                },
-              ]);
-            }
-          })
-          .catch((err) => {
-            console.error("Failed to load custom greeting:", err);
-          });
-      }, 0);
-      return () => {
-        active = false;
-        clearTimeout(timer);
-      };
+  const loadHistoryAndSession = async (currLessonId, currLessonTitle) => {
+    if (!studentId || !currLessonId) return;
+    setLoading(true);
+
+    try {
+      // 1. Fetch custom greeting template
+      let greeting = `สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${currLessonTitle || "บทเรียนนี้"}"** 🎓\n\nผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`;
+      try {
+        const pRes = await fetch("/api/ai/persona");
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          if (pData.greetingTemplate) {
+            const customMsg = pData.greetingTemplate.replace(/{lesson_title}/g, currLessonTitle || "บทเรียนนี้");
+            const { cleanText } = parseEmotionAndReply(customMsg);
+            greeting = cleanText;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load persona greeting:", e);
+      }
+
+      // 2. Fetch logs for this student and lesson
+      const { data: logs, error } = await supabase
+        .from("ai_chat_logs")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("lesson_id", currLessonId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      if (logs && logs.length > 0) {
+        // Group logs by session_id
+        const groups = {};
+        logs.forEach((log) => {
+          const sId = log.session_id || "legacy";
+          if (!groups[sId]) {
+            groups[sId] = [];
+          }
+          groups[sId].push(log);
+        });
+
+        // Convert groups to array of sessions
+        const sessions = Object.keys(groups).map((sId) => {
+          const sLogs = groups[sId];
+          const firstLog = sLogs[0];
+          const lastLog = sLogs[sLogs.length - 1];
+          return {
+            id: sId,
+            createdAt: firstLog.created_at,
+            updatedAt: lastLog.created_at,
+            firstQuestion: firstLog.message,
+            logs: sLogs,
+          };
+        });
+
+        // Sort sessions by updatedAt descending (latest first)
+        sessions.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        setSessionHistory(sessions);
+
+        // Load latest session
+        const latestSession = sessions[0];
+        setActiveSessionId(latestSession.id);
+
+        const chatMsgs = [
+          { role: "assistant", content: greeting }
+        ];
+        latestSession.logs.forEach((log) => {
+          const { cleanText: cleanMsg } = parseEmotionAndReply(log.message);
+          const { cleanText: cleanReply } = parseEmotionAndReply(log.reply);
+
+          chatMsgs.push({ role: "user", content: cleanMsg });
+          chatMsgs.push({ role: "assistant", content: cleanReply });
+        });
+        setMessages(chatMsgs);
+      } else {
+        // No logs, start a new session
+        const newSessId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+        setActiveSessionId(newSessId);
+        setSessionHistory([]);
+        setMessages([
+          { role: "assistant", content: greeting }
+        ]);
+      }
+    } catch (err) {
+      console.error("Failed to load chat history:", err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (open && lesson && studentId) {
+      loadHistoryAndSession(lesson.id, lesson.title);
+    } else if (!open) {
+      setMessages([]);
+    }
+    setInput("");
+  }, [open, lesson?.id, studentId]);
+
+  useEffect(() => {
     if (open) {
       const focusTimer = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => {
-        active = false;
-        clearTimeout(focusTimer);
-      };
+      return () => clearTimeout(focusTimer);
     }
-  }, [open, lesson?.title, messages.length]);
+  }, [open]);
+
+  const handleStartNewSession = async () => {
+    const newSessId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+    setActiveSessionId(newSessId);
+
+    let greeting = `สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${lesson?.title || "บทเรียนนี้"}"** 🎓\n\nผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`;
+    try {
+      const pRes = await fetch("/api/ai/persona");
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        if (pData.greetingTemplate) {
+          const customMsg = pData.greetingTemplate.replace(/{lesson_title}/g, lesson?.title || "บทเรียนนี้");
+          const { cleanText } = parseEmotionAndReply(customMsg);
+          greeting = cleanText;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    setMessages([{ role: "assistant", content: greeting }]);
+  };
+
+  const handleDeleteSession = async (sessId) => {
+    if (!confirm("คุณต้องการลบประวัติการสนทนาของเซสชันนี้ใช่หรือไม่?")) return;
+
+    try {
+      let query = supabase.from("ai_chat_logs").delete().eq("student_id", studentId);
+      if (sessId === "legacy") {
+        query = query.filter("session_id", "is", null);
+      } else {
+        query = query.eq("session_id", sessId);
+      }
+      const { error } = await query;
+
+      if (error) throw error;
+
+      if (activeSessionId === sessId) {
+        handleStartNewSession();
+      }
+
+      if (lesson) {
+        loadHistoryAndSession(lesson.id, lesson.title);
+      }
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+      alert("ไม่สามารถลบเซสชันได้ กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
+  const handleSelectSession = (sess) => {
+    setActiveSessionId(sess.id);
+
+    let greeting = `สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${lesson?.title || "บทเรียนนี้"}"** 🎓\n\nผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`;
+    const chatMsgs = [
+      { role: "assistant", content: greeting }
+    ];
+    sess.logs.forEach((log) => {
+      const { cleanText: cleanMsg } = parseEmotionAndReply(log.message);
+      const { cleanText: cleanReply } = parseEmotionAndReply(log.reply);
+
+      chatMsgs.push({ role: "user", content: cleanMsg });
+      chatMsgs.push({ role: "assistant", content: cleanReply });
+    });
+    setMessages(chatMsgs);
+    setShowHistoryDialog(false);
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -231,11 +379,18 @@ export default function AiChat({ lesson, course, open, onClose }) {
           mode,
           studentId: session?.dbId || session?.user?.id,
           attachments: currentAttachments,
+          sessionId: activeSessionId
         }),
       });
 
       const data = await res.json();
-      const reply = data.reply || "ขออภัย ไม่สามารถตอบได้ในขณะนี้";
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Failed to get AI response");
+      }
+      if (!data.reply) {
+        throw new Error("Cannot answer the question");
+      }
+      const reply = data.reply;
 
       if (mode === "summarize") {
         setMessages([
@@ -248,7 +403,15 @@ export default function AiChat({ lesson, course, open, onClose }) {
         setMessages([...newMessages, { role: "assistant", content: reply }]);
       }
     } catch (err) {
-      const errMsg = "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ AI กรุณาลองใหม่อีกครั้ง";
+      console.error("AI Error:", err);
+      let errMsg = "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ AI กรุณาลองใหม่อีกครั้ง";
+      const errStr = String(err.message || "");
+      if (err.message === "Cannot answer the question") {
+        errMsg = "ขออภัย ไม่สามารถตอบได้ในขณะนี้";
+      } else if (errStr.includes("429") || errStr.includes("quota")) {
+        errMsg = "ขออภัย เกิดข้อผิดพลาดระบบโควต้าการใช้งาน AI เต็ม กรุณาลองใหม่อีกครั้งในภายหลัง";
+      }
+
       if (mode === "summarize") {
         setMessages([
           ...messages,
@@ -332,6 +495,30 @@ export default function AiChat({ lesson, course, open, onClose }) {
               {lesson?.title ? `บทที่ ${lesson.index} · ${lesson.title}` : "Powered by Gemini"}
             </div>
           </div>
+          <button
+            onClick={handleStartNewSession}
+            style={{
+              width: 30, height: 30, borderRadius: 8, border: 0,
+              background: "rgba(255,255,255,0.15)", color: "#fff",
+              cursor: "pointer", display: "grid", placeItems: "center",
+              flexShrink: 0, marginRight: 4
+            }}
+            title="เริ่มการสนทนาใหม่"
+          >
+            <Icon name="plus" size={14} />
+          </button>
+          <button
+            onClick={() => setShowHistoryDialog(true)}
+            style={{
+              width: 30, height: 30, borderRadius: 8, border: 0,
+              background: "rgba(255,255,255,0.15)", color: "#fff",
+              cursor: "pointer", display: "grid", placeItems: "center",
+              flexShrink: 0, marginRight: 4
+            }}
+            title="ประวัติการสนทนา"
+          >
+            <Icon name="clock" size={14} />
+          </button>
           <button
             onClick={onClose}
             style={{
@@ -650,6 +837,85 @@ export default function AiChat({ lesson, course, open, onClose }) {
           </div>
         </div>
       </div>
+
+      {showHistoryDialog && (
+        <Dialog
+          title="ประวัติการสนทนา"
+          desc="รายการเซสชันการสนทนาทั้งหมดของคุณกับ AI ติวเตอร์ในบทเรียนนี้"
+          onClose={() => setShowHistoryDialog(false)}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 300, overflowY: "auto", padding: "4px 2px" }}>
+            {sessionHistory.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 24, color: "var(--subtle)" }}>
+                ไม่มีประวัติการสนทนาในบทเรียนนี้
+              </div>
+            ) : (
+              sessionHistory.map((sess) => {
+                const isCurrent = sess.id === activeSessionId;
+                const formattedDate = new Date(sess.updatedAt).toLocaleString("th-TH", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit"
+                });
+                return (
+                  <div
+                    key={sess.id}
+                    className="card"
+                    style={{
+                      padding: 12,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 12,
+                      border: isCurrent ? "2px solid var(--primary)" : "1px solid var(--border)",
+                      background: isCurrent ? "var(--primary-soft)" : "var(--card)",
+                      cursor: "pointer",
+                      borderRadius: 12,
+                      transition: "all 0.12s"
+                    }}
+                    onClick={() => handleSelectSession(sess)}
+                    onMouseOver={(e) => { if (!isCurrent) e.currentTarget.style.borderColor = "var(--primary)"; }}
+                    onMouseOut={(e) => { if (!isCurrent) e.currentTarget.style.borderColor = "var(--border)"; }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <Icon name="clock" size={12} className="muted" />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: isCurrent ? "var(--primary)" : "var(--fg)" }}>
+                          {formattedDate} {isCurrent && "(ปัจจุบัน)"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--muted-fg)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }} className="pretty">
+                        {sess.firstQuestion || "ไม่มีข้อความ"}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSession(sess.id);
+                      }}
+                      className="btn btn-outline"
+                      style={{
+                        padding: "6px 8px",
+                        color: "var(--danger)",
+                        borderColor: "rgba(239, 68, 68, 0.2)",
+                        background: "transparent",
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = "var(--danger-soft)"; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      title="ลบประวัติเซสชันนี้"
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </Dialog>
+      )}
 
       <style>{`
         @keyframes aiChatSlideIn {

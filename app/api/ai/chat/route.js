@@ -46,7 +46,7 @@ function getMimeType(fileName) {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { messages, lessonContext, mode, studentId, attachments } = body;
+    const { messages, lessonContext, mode, studentId, attachments, sessionId } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: "messages array is required" }, { status: 400 });
@@ -220,7 +220,8 @@ ${emotionInstruction}`;
         course_id: lessonContext.courseId,
         message: loggedMessage,
         reply: text,
-        mode: mode || "chat"
+        mode: mode || "chat",
+        session_id: sessionId
       }).then(({ error }) => {
         if (error) console.error("[AI Chat Log Error]", error);
       });

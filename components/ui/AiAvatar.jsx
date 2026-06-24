@@ -25,6 +25,10 @@ export default function AiAvatar({ size = 36, emotion, style }) {
       >
         <img
           src={`/New folder/${emotion}.png`}
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = "/New folder/mad.png";
+          }}
           alt={`AI Assistant ${emotion}`}
           style={{
             width: "100%",
