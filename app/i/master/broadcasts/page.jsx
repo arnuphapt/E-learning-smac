@@ -160,85 +160,7 @@ export default function BroadcastsPage() {
 
   useEffect(() => { loadData(); }, []);
 
-  const getTargetEmails = async (yearLevelArray) => {
-    try {
-      const [uRes, sgRes] = await Promise.all([
-        supabase.from("users").select("email, student_no, study_year").eq("role", "student"),
-        supabase.from("student_grades").select("prefix, year_label")
-      ]);
-      const students = uRes.data || [];
-      const gradesList = sgRes.data || [];
 
-      if (!yearLevelArray || yearLevelArray.length === 0) {
-        return students.map(s => s.email).filter(Boolean);
-      }
-
-      const targetEmails = students.filter(s => {
-        const prefix = s.student_no ? s.student_no.substring(0, 2) : "";
-        const mapping = gradesList.find(g => g.prefix === prefix);
-        const studentLabel = mapping ? mapping.year_label : null;
-        const studentFallback = s.study_year ? Number(s.study_year) : null;
-
-        return yearLevelArray.some(ay => {
-          if (typeof ay === 'number' || !isNaN(Number(ay))) {
-            return Number(ay) === studentFallback || ay == studentFallback;
-          }
-          return ay === studentLabel;
-        });
-      }).map(s => s.email).filter(Boolean);
-
-      return targetEmails;
-    } catch (e) {
-      console.error("Failed to get target student emails:", e);
-      return [];
-    }
-  };
-
-  const triggerEmailBroadcast = async (title, body, yearLevel) => {
-    try {
-      const emails = await getTargetEmails(yearLevel);
-      if (emails.length === 0) {
-        console.log("No students to email for this broadcast");
-        return;
-      }
-
-      const emailHtml = `
-        <div style="font-family: sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-          <div style="background-color: #0d6e8c; color: white; padding: 20px; text-align: center;">
-            <h2 style="margin: 0;">📢 ประกาศข่าวสารใหม่</h2>
-          </div>
-          <div style="padding: 24px;">
-            <h3 style="margin-top: 0; color: #0d6e8c;">${title}</h3>
-            <div style="white-space: pre-wrap; font-size: 14px; background: #f7fafc; padding: 16px; border-radius: 6px; border: 1px solid #edf2f7; color: #4a5568;">${body}</div>
-            <p style="font-size: 12px; margin-top: 24px; color: #718096;">คุณได้รับอีเมลนี้เนื่องจากเป็นประกาศสำหรับชั้นปีของคุณในระบบ E-learning</p>
-          </div>
-          <div style="background-color: #f7fafc; color: #718096; padding: 16px; text-align: center; font-size: 12px; border-top: 1px solid #e2e8f0;">
-            นี่เป็นอีเมลแจ้งเตือนอัตโนมัติจากระบบ E-learning SMAC กรุณาอย่าตอบกลับอีเมลนี้
-          </div>
-        </div>
-      `;
-
-      const response = await fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: null,
-          bcc: emails,
-          subject: `[E-learning] ประกาศ: ${title}`,
-          html: emailHtml,
-          text: `[ประกาศข่าวสารใหม่]\n\nหัวข้อ: ${title}\n\nเนื้อหา:\n${body}\n\nเปิดดูประกาศในระบบได้ที่หน้าของนักศึกษา`
-        })
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Unknown error");
-      }
-      console.log("Email broadcast triggered successfully");
-    } catch (e) {
-      console.error("Failed to trigger email broadcast:", e);
-    }
-  };
 
   const handleSave = async (values) => {
     try {
@@ -250,7 +172,6 @@ export default function BroadcastsPage() {
         }]);
         if (error) throw error;
         toast("สร้างประกาศเรียบร้อยแล้ว");
-        triggerEmailBroadcast(values.title, values.body, values.year_level);
       } else {
         const { error } = await supabase.from("broadcasts").update(values).eq("id", dialog.row.id);
         if (error) throw error;
@@ -300,7 +221,6 @@ export default function BroadcastsPage() {
       if (error) throw error;
       toast("ส่งประกาศซ้ำเรียบร้อยแล้ว");
       loadData();
-      triggerEmailBroadcast(row.title, row.body, row.year_level);
     } catch (e) {
       toast("เกิดข้อผิดพลาดในการส่งซ้ำ: " + e.message, "error");
     }
