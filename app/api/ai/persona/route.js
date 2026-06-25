@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
+import { getToken } from "next-auth/jwt";
 
-const getFilePath = () => path.join(process.cwd(), "ai_persona.md");
+async function getSupabaseServerClient(req) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const headers = {};
+  if (token) {
+    headers['x-user-id'] = token.dbId || token.sub;
+    headers['x-user-role'] = token.role || 'student';
+  }
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      global: { headers }
+    }
+  );
+}
 
 function extractGreeting(content) {
   if (!content) return null;
@@ -38,14 +52,24 @@ function extractGreeting(content) {
   return null;
 }
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const filePath = getFilePath();
+    const supabaseClient = await getSupabaseServerClient(req);
+    const { data, error } = await supabaseClient
+      .from("ai_settings")
+      .select("value")
+      .eq("key", "persona")
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      throw error;
+    }
+
     let content = "";
-    if (fs.existsSync(filePath)) {
-      content = fs.readFileSync(filePath, "utf8");
+    if (data) {
+      content = data.value;
     } else {
-      // Return default if file doesn't exist yet
+      // Return default if row doesn't exist yet
       content = `# AI Tutor Instruction (ข้อกำหนดบทบาท AI)
 
 คุณเป็น AI ผู้ช่วยสอน (Tutor) ประจำระบบ E-learning ที่มีความเชี่ยวชาญ คอยชี้แนะแนวทาง ให้คำตอบ และอธิบายความรู้ต่างๆ แก่นักศึกษาอย่างเป็นกันเองและสุภาพ
@@ -64,8 +88,13 @@ export async function GET() {
 ## ข้อความทักทาย (Greeting)
 สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"{lesson_title}"** 🎓
 ผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`;
-      fs.writeFileSync(filePath, content, "utf8");
+
+      // Attempt to save default to db
+      await supabaseClient
+        .from("ai_settings")
+        .insert({ key: "persona", value: content });
     }
+
     const greetingTemplate = extractGreeting(content);
     return NextResponse.json({ content, greetingTemplate });
   } catch (error) {
@@ -76,13 +105,25 @@ export async function GET() {
 
 export async function POST(req) {
   try {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (!token || !["instructor", "admin", "course_manager"].includes(token.role)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { content } = await req.json();
     if (typeof content !== "string") {
       return NextResponse.json({ error: "Content must be a string" }, { status: 400 });
     }
 
-    const filePath = getFilePath();
-    fs.writeFileSync(filePath, content, "utf8");
+    const supabaseClient = await getSupabaseServerClient(req);
+    const { error } = await supabaseClient
+      .from("ai_settings")
+      .upsert({ key: "persona", value: content, updated_at: new Date().toISOString() });
+
+    if (error) {
+      throw error;
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to update AI persona:", error);

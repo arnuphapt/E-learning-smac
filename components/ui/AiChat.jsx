@@ -135,12 +135,17 @@ export default function AiChat({ lesson, course, open, onClose }) {
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [sessionHistory, setSessionHistory] = useState([]);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+
+  const [rateLimitInfo, setRateLimitInfo] = useState(null);
+  const [rateLimitError, setRateLimitError] = useState(false);
+  const [sessionTokenError, setSessionTokenError] = useState(false);
   
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const attachmentRef = useRef(null);
 
   const studentId = session?.dbId || session?.user?.id;
+  const isBypassed = ["instructor", "admin", "course_manager"].includes(session?.role || session?.user?.role);
 
   const loadHistoryAndSession = async (currLessonId, currLessonTitle) => {
     if (!studentId || !currLessonId) return;
@@ -233,14 +238,64 @@ export default function AiChat({ lesson, course, open, onClose }) {
     }
   };
 
+  const fetchDailyUsage = async (studId) => {
+    try {
+      // 1. Fetch daily limit from settings (or fallback to 15)
+      let limit = 15;
+      const { data: settingsData } = await supabase
+        .from("ai_settings")
+        .select("key, value");
+      if (settingsData) {
+        const limitRow = settingsData.find(r => r.key === "daily_chat_limit");
+        if (limitRow) limit = parseInt(limitRow.value, 10) || 15;
+      }
+
+      // 2. Get Bangkok local time start and end of today
+      const bangkokTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+      const year = bangkokTime.getFullYear();
+      const month = bangkokTime.getMonth();
+      const date = bangkokTime.getDate();
+      
+      const startOfDay = new Date(Date.UTC(year, month, date, 0 - 7, 0, 0, 0));
+      const endOfDay = new Date(Date.UTC(year, month, date, 24 - 7, 0, 0, 0));
+
+      const { count, error } = await supabase
+        .from("ai_chat_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("student_id", studId)
+        .eq("mode", "chat")
+        .gte("created_at", startOfDay.toISOString())
+        .lt("created_at", endOfDay.toISOString());
+
+      if (!error) {
+        const used = count || 0;
+        setRateLimitInfo({ used, limit });
+        if (used >= limit) {
+          setRateLimitError(true);
+        } else {
+          setRateLimitError(false);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch daily usage:", err);
+    }
+  };
+
   useEffect(() => {
     if (open && lesson && studentId) {
       loadHistoryAndSession(lesson.id, lesson.title);
+      if (!isBypassed) {
+        fetchDailyUsage(studentId);
+      } else {
+        setRateLimitInfo(null);
+        setRateLimitError(false);
+      }
+      setSessionTokenError(false);
     } else if (!open) {
       setMessages([]);
     }
     setInput("");
-  }, [open, lesson?.id, studentId]);
+  }, [open, lesson?.id, studentId, isBypassed]);
 
   useEffect(() => {
     if (open) {
@@ -250,6 +305,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
   }, [open]);
 
   const handleStartNewSession = async () => {
+    setSessionTokenError(false);
     const newSessId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
     setActiveSessionId(newSessId);
 
@@ -385,12 +441,30 @@ export default function AiChat({ lesson, course, open, onClose }) {
 
       const data = await res.json();
       if (!res.ok || data.error) {
+        if (data.error === "rate_limit_exceeded") {
+          setRateLimitError(true);
+          if (data.used !== undefined && data.limit !== undefined) {
+            setRateLimitInfo({ used: data.used, limit: data.limit });
+          }
+          throw new Error("rate_limit_exceeded");
+        }
+        if (data.error === "session_token_limit") {
+          setSessionTokenError(true);
+          throw new Error("session_token_limit");
+        }
         throw new Error(data.error || "Failed to get AI response");
       }
       if (!data.reply) {
         throw new Error("Cannot answer the question");
       }
       const reply = data.reply;
+
+      if (data.rateLimitInfo) {
+        setRateLimitInfo(data.rateLimitInfo);
+        if (data.rateLimitInfo.used >= data.rateLimitInfo.limit) {
+          setRateLimitError(true);
+        }
+      }
 
       if (mode === "summarize") {
         setMessages([
@@ -406,7 +480,11 @@ export default function AiChat({ lesson, course, open, onClose }) {
       console.error("AI Error:", err);
       let errMsg = "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ AI กรุณาลองใหม่อีกครั้ง";
       const errStr = String(err.message || "");
-      if (err.message === "Cannot answer the question") {
+      if (err.message === "rate_limit_exceeded") {
+        errMsg = "ขออภัย คุณถามคำถามเกินขีดจำกัด 15 คำถามต่อวันแล้ว สามารถถามได้อีกครั้งในวันพรุ่งนี้";
+      } else if (err.message === "session_token_limit") {
+        errMsg = "เซสชันนี้มีขนาดประวัติการสนทนาเกินขีดจำกัดแล้ว กรุณาเริ่มการสนทนาใหม่เพื่อคุยต่อ";
+      } else if (err.message === "Cannot answer the question") {
         errMsg = "ขออภัย ไม่สามารถตอบได้ในขณะนี้";
       } else if (errStr.includes("429") || errStr.includes("quota")) {
         errMsg = "ขออภัย เกิดข้อผิดพลาดระบบโควต้าการใช้งาน AI เต็ม กรุณาลองใหม่อีกครั้งในภายหลัง";
@@ -561,12 +639,12 @@ export default function AiChat({ lesson, course, open, onClose }) {
             <button
               key={i}
               onClick={() => sendMessage(s)}
-              disabled={loading}
+              disabled={loading || rateLimitError || sessionTokenError}
               style={{
                 padding: "5px 12px", borderRadius: 20, border: "1px solid var(--border)",
                 background: "var(--bg)", color: "var(--fg)",
-                fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                opacity: loading ? 0.6 : 1,
+                fontSize: 12, cursor: (loading || rateLimitError || sessionTokenError) ? "not-allowed" : "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                opacity: (loading || rateLimitError || sessionTokenError) ? 0.6 : 1,
               }}
             >
               {s}
@@ -660,6 +738,77 @@ export default function AiChat({ lesson, course, open, onClose }) {
           flexShrink: 0,
           position: "relative"
         }}>
+          {/* Rate Limit Banner */}
+          {rateLimitError && !isBypassed && (
+            <div style={{
+              background: "var(--danger-soft)",
+              color: "var(--danger)",
+              padding: "10px 14px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              borderBottom: "1px solid var(--border)"
+            }}>
+              <Icon name="x" size={14} />
+              <div style={{ flex: 1 }}>
+                โควต้าการถามวันนี้เต็มแล้ว ({rateLimitInfo?.used}/{rateLimitInfo?.limit} คำถาม) สามารถถามใหม่ได้ในวันพรุ่งนี้
+              </div>
+            </div>
+          )}
+
+          {/* Session Token Limit Banner */}
+          {sessionTokenError && !isBypassed && (
+            <div style={{
+              background: "var(--warning-soft)",
+              color: "var(--warning)",
+              padding: "10px 14px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              borderBottom: "1px solid var(--border)"
+            }}>
+              <Icon name="sparkle" size={14} />
+              <div style={{ flex: 1 }}>
+                เซสชันนี้คุยเยอะเกินขีดจำกัดแล้ว กรุณาเริ่มการสนทนาใหม่เพื่อพูดคุยต่อ
+              </div>
+              <button
+                onClick={() => {
+                  setSessionTokenError(false);
+                  handleStartNewSession();
+                }}
+                style={{
+                  background: "var(--warning)",
+                  color: "#fff",
+                  border: 0,
+                  borderRadius: 6,
+                  padding: "4px 8px",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                เริ่มสนทนาใหม่
+              </button>
+            </div>
+          )}
+
+          {/* Quota Indicator */}
+          {rateLimitInfo && !isBypassed && !rateLimitError && !sessionTokenError && (
+            <div style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              padding: "6px 12px 0 12px",
+              fontSize: 11,
+              color: "var(--subtle)",
+            }}>
+              โควต้าวันนี้: {rateLimitInfo.used}/{rateLimitInfo.limit} คำถาม
+            </div>
+          )}
+
           {/* Document attachment selector dropdown */}
           {showAttachmentDropdown && (
             <div ref={attachmentRef} className="card shadow-lg" style={{
@@ -777,7 +926,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
               <button
                 type="button"
                 onClick={() => setShowAttachmentDropdown(!showAttachmentDropdown)}
-                disabled={loading}
+                disabled={loading || rateLimitError || sessionTokenError}
                 style={{
                   width: 36,
                   height: 36,
@@ -785,13 +934,13 @@ export default function AiChat({ lesson, course, open, onClose }) {
                   border: "1px solid var(--border)",
                   background: showAttachmentDropdown ? "var(--primary-soft)" : "var(--card)",
                   color: showAttachmentDropdown ? "var(--primary)" : "var(--subtle)",
-                  cursor: "pointer",
+                  cursor: (loading || rateLimitError || sessionTokenError) ? "not-allowed" : "pointer",
                   display: "grid",
                   placeItems: "center",
                   flexShrink: 0,
                   transition: "all 0.15s"
                 }}
-                onMouseOver={(e) => { if (!showAttachmentDropdown) { e.currentTarget.style.borderColor = "var(--primary)"; e.currentTarget.style.color = "var(--primary)"; } }}
+                onMouseOver={(e) => { if (!showAttachmentDropdown && !rateLimitError && !sessionTokenError) { e.currentTarget.style.borderColor = "var(--primary)"; e.currentTarget.style.color = "var(--primary)"; } }}
                 onMouseOut={(e) => { if (!showAttachmentDropdown) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--subtle)"; } }}
                 title="แนบเอกสารบทเรียน"
               >
@@ -806,7 +955,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
               onKeyDown={handleKeyDown}
               placeholder="ถามคำถามเกี่ยวกับบทเรียน..."
               rows={1}
-              disabled={loading}
+              disabled={loading || rateLimitError || sessionTokenError}
               style={{
                 flex: 1, resize: "none", border: "1px solid var(--border)",
                 borderRadius: 12, padding: "8px 12px", fontSize: 13.5,
@@ -821,12 +970,12 @@ export default function AiChat({ lesson, course, open, onClose }) {
             />
             <button
               onClick={() => sendMessage(input)}
-              disabled={(!input.trim() && attachedFiles.length === 0) || loading}
+              disabled={(!input.trim() && attachedFiles.length === 0) || loading || rateLimitError || sessionTokenError}
               style={{
                 width: 36, height: 36, borderRadius: 10, border: 0,
-                background: (input.trim() || attachedFiles.length > 0) && !loading ? "var(--primary)" : "var(--muted)",
-                color: (input.trim() || attachedFiles.length > 0) && !loading ? "#fff" : "var(--subtle)",
-                cursor: (input.trim() || attachedFiles.length > 0) && !loading ? "pointer" : "not-allowed",
+                background: (input.trim() || attachedFiles.length > 0) && !loading && !rateLimitError && !sessionTokenError ? "var(--primary)" : "var(--muted)",
+                color: (input.trim() || attachedFiles.length > 0) && !loading && !rateLimitError && !sessionTokenError ? "#fff" : "var(--subtle)",
+                cursor: (input.trim() || attachedFiles.length > 0) && !loading && !rateLimitError && !sessionTokenError ? "pointer" : "not-allowed",
                 display: "grid", placeItems: "center",
                 transition: "all 0.15s",
                 flexShrink: 0,
