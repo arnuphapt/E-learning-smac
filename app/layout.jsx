@@ -32,7 +32,7 @@ const notoSerifThai = Noto_Serif_Thai({
 });
 
 export const metadata = {
-  title: 'Digital Learning Space SMAC',
+  title: 'Digital Learning Space',
   description: 'พื้นที่เรียนรู้ดิจิทัลเกี่ยวกับสาระสำคัญทางการพยาบาล',
 };
 

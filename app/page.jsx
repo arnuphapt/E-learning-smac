@@ -287,7 +287,7 @@ export default function LandingPage() {
                 </span>
                 <div className="who">
                   <div className="a">ด้วยความปรารถนาดี</div>
-                  <div className="b">คณาจารย์และสาขา</div>
+                  <div className="b">คณาจารย์</div>
                   <div className="c">วิทยาลัยพยาบาลศรีมหาสารคาม · คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก</div>
                 </div>
               </div>
