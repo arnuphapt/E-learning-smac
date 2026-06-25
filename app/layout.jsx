@@ -32,8 +32,8 @@ const notoSerifThai = Noto_Serif_Thai({
 });
 
 export const metadata = {
-  title: 'E-learning SMAC',
-  description: 'ระบบการเรียนการสอน การพยาบาลผู้ใหญ่และผู้สูงอายุ และการพยาบาลชุมชน',
+  title: 'Digital Learning Space SMAC',
+  description: 'พื้นที่เรียนรู้ดิจิทัลเกี่ยวกับสาระสำคัญทางการพยาบาล',
 };
 
 export default function RootLayout({ children }) {
