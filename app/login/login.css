@@ -187,13 +187,18 @@
   cursor: not-allowed;
   transform: none;
 }
-.login-google-btn .spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #e2e8f0;
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid #e2e8f0;
   border-top-color: #0d6e8c;
   border-radius: 50%;
   animation: login-spin 0.7s linear infinite;
+}
+.login-google-btn .spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
 }
 @keyframes login-spin {
   to { transform: rotate(360deg); }

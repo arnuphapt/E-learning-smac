@@ -16,25 +16,51 @@ function SupabaseSync() {
       if (typeof window !== "undefined") {
         window.__supabase_user_id = userId;
         window.__supabase_user_role = userRole;
-        window.sessionStorage.setItem("sb-user-id", userId);
-        window.sessionStorage.setItem("sb-user-role", userRole);
+        try {
+          window.sessionStorage.setItem("sb-user-id", userId);
+          window.sessionStorage.setItem("sb-user-role", userRole);
+        } catch (e) {
+          console.warn("sessionStorage is not accessible:", e);
+        }
       }
       
-      if (supabase && supabase.rest) {
-        supabase.rest.headers["x-user-id"] = userId;
-        supabase.rest.headers["x-user-role"] = userRole;
+      if (supabase && supabase.rest && supabase.rest.headers) {
+        if (typeof supabase.rest.headers.set === "function") {
+          supabase.rest.headers.set("x-user-id", userId);
+          supabase.rest.headers.set("x-user-role", userRole);
+        } else {
+          try {
+            supabase.rest.headers["x-user-id"] = userId;
+            supabase.rest.headers["x-user-role"] = userRole;
+          } catch (e) {
+            console.warn("Could not set Supabase rest headers:", e);
+          }
+        }
       }
     } else {
       if (typeof window !== "undefined") {
         delete window.__supabase_user_id;
         delete window.__supabase_user_role;
-        window.sessionStorage.removeItem("sb-user-id");
-        window.sessionStorage.removeItem("sb-user-role");
+        try {
+          window.sessionStorage.removeItem("sb-user-id");
+          window.sessionStorage.removeItem("sb-user-role");
+        } catch (e) {
+          console.warn("sessionStorage is not accessible:", e);
+        }
       }
       
-      if (supabase && supabase.rest) {
-        delete supabase.rest.headers["x-user-id"];
-        delete supabase.rest.headers["x-user-role"];
+      if (supabase && supabase.rest && supabase.rest.headers) {
+        if (typeof supabase.rest.headers.delete === "function") {
+          supabase.rest.headers.delete("x-user-id");
+          supabase.rest.headers.delete("x-user-role");
+        } else {
+          try {
+            delete supabase.rest.headers["x-user-id"];
+            delete supabase.rest.headers["x-user-role"];
+          } catch (e) {
+            console.warn("Could not delete Supabase rest headers:", e);
+          }
+        }
       }
     }
   }, [session]);
