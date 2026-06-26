@@ -526,7 +526,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
         className="ai-chat-overlay"
       />
 
-      <div style={{
+      <div className="ai-chat-widget" style={{
         position: "fixed",
         bottom: 88,
         right: 24,
@@ -730,7 +730,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
         </div>
 
         {/* Input */}
-        <div style={{
+        <div className="ai-chat-input-area" style={{
           borderTop: "1px solid var(--border)",
           background: "var(--card)",
           display: "flex",
@@ -1074,6 +1074,29 @@ export default function AiChat({ lesson, course, open, onClose }) {
         @keyframes aiTypingDot {
           0%, 80%, 100% { transform: scale(1); opacity: 0.5; }
           40% { transform: scale(1.3); opacity: 1; }
+        }
+        @media (max-width: 768px) {
+          .ai-chat-overlay {
+            display: block !important;
+          }
+          .ai-chat-widget {
+            bottom: 0 !important;
+            right: 0 !important;
+            width: 100vw !important;
+            maxWidth: 100vw !important;
+            height: 85% !important;
+            maxHeight: 85% !important;
+            borderRadius: 20px 20px 0 0 !important;
+            box-shadow: 0 -8px 30px rgba(0,0,0,0.15) !important;
+            animation: aiChatSlideUp 0.3s cubic-bezier(0.32, 0.94, 0.6, 1) !important;
+          }
+          .ai-chat-input-area {
+            padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+          }
+        }
+        @keyframes aiChatSlideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
         }
       `}</style>
     </>

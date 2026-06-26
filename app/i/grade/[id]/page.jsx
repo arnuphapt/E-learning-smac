@@ -7,6 +7,7 @@ import Icon from "@/components/ui/Icon";
 import { Avatar, statusBadge, Badge, Ph, Progress } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import { useIsMobile } from "@/lib/hooks";
 import { toast } from "@/components/ui/Toast";
 
 function distributeScore(totalScore, criteria, totalPoints) {
@@ -119,7 +120,7 @@ export default function Grader() {
   }
 
   const total = Object.values(scores).reduce((s, v) => s + v, 0);
-  const mobile = false;
+  const mobile = useIsMobile();
   const idx = gradable.findIndex((s) => s.id === sub.id);
 
   const handleSaveScore = async (statusToSet) => {

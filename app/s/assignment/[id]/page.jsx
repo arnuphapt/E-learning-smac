@@ -8,6 +8,7 @@ import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge, Avatar, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
+import { useIsMobile } from "@/lib/hooks";
 import { toast } from "@/components/ui/Toast";
 
 function getFileName(filePath) {
@@ -153,7 +154,7 @@ export default function AssignmentDetail() {
     load();
   }, [asgId, studentId, role]);
   
-  const mobile = false;
+  const mobile = useIsMobile();
   const graded = status === "graded";
   const canSubmit = ((a?.allow_file && file) || (a?.allow_text && text.trim())) && (instructors.length === 0 || selectedGraderId);
   const handleFileChange = async (e) => {

@@ -9,6 +9,7 @@ import { Badge, Progress, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
+import { useIsMobile } from "@/lib/hooks";
 
 const evaluateIsPastDue = (due, dueTime) => {
   if (!due) return false;
@@ -411,8 +412,7 @@ export default function StudentLesson() {
   const { data: session } = useSession();
   const nav = (path) => router.push(path);
 
-  // In a real app, use media queries or a hook for 'device'. Here we'll default to desktop styling behavior for simplicity.
-  const mobile = false;
+  const mobile = useIsMobile();
 
   const lessonId = params?.id;
   const studentId = session?.dbId;

@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Ring } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
+import { useIsMobile } from "@/lib/hooks";
 
 export default function TestResult() {
   const router = useRouter();
@@ -81,7 +82,7 @@ export default function TestResult() {
   const postScore = testScore?.post ?? Math.round(total * 0.9);
   const diff = postScore - preScore;
 
-  const mobile = false;
+  const mobile = useIsMobile();
 
   const showAnswers = kind === "pre"
     ? lesson?.pretest?.show_answers !== false

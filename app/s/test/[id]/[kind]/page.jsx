@@ -8,6 +8,7 @@ import Icon from "@/components/ui/Icon";
 import { Dialog } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
+import { useIsMobile } from "@/lib/hooks";
 
 export default function TestTaking() {
   const router = useRouter();
@@ -82,7 +83,7 @@ export default function TestTaking() {
   const [flagged, setFlagged] = useState({});
   const [confirm, setConfirm] = useState(false);
   
-  const mobile = false;
+  const mobile = useIsMobile();
 
   // Real-time countdown timer starting at 30 minutes (1800 seconds) by default
   // Session storage ensures it survives accidental page refreshes

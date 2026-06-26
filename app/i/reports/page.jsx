@@ -10,6 +10,7 @@ import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 import { toast } from "@/components/ui/Toast";
+import { useIsMobile } from "@/lib/hooks";
 
 export default function Reports() {
   const router = useRouter();
@@ -84,7 +85,7 @@ export default function Reports() {
     toast(`ดาวน์โหลด ${fileName}.${scope === "csv" ? "csv" : "xlsx"} สำเร็จ`);
   };
 
-  const mobile = false;
+  const mobile = useIsMobile();
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
 
