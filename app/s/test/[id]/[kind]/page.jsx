@@ -231,13 +231,17 @@ export default function TestTaking() {
 
       if (kind === "pre") {
         scoreObj.pre = correctCount;
+        scoreObj.pre_answers = activeAnswers;
         if (existing) {
           scoreObj.post = existing.post;
+          scoreObj.post_answers = existing.post_answers;
         }
       } else {
         scoreObj.post = correctCount;
+        scoreObj.post_answers = activeAnswers;
         if (existing) {
           scoreObj.pre = existing.pre;
+          scoreObj.pre_answers = existing.pre_answers;
         }
       }
 

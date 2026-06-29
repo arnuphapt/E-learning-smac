@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
-import { Badge, Avatar, Select, statusBadge } from "@/components/ui/Primitives";
+import { Badge, Avatar, Select, statusBadge, Dialog } from "@/components/ui/Primitives";
 import Table from "@/components/ui/Table";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
@@ -53,6 +53,8 @@ function ScoresContent() {
     studentGrades: [],
     sectionsList: []
   });
+
+  const [selectedSubmission, setSelectedSubmission] = useState(null); // { student, record, kind }
 
   const loadData = async () => {
     if (!lessonId) return;
@@ -280,14 +282,165 @@ function ScoresContent() {
                       </div>
                     </td>
                     <td className="hide-m"><Badge tone="outline">{s.section || "-"}</Badge></td>
-                    <td>{r.pre != null ? <span className="num fw-6">{r.pre}/{r.total}</span> : <span className="muted t-sm">ยังไม่ทำ</span>}</td>
-                    <td>{r.post != null ? <span className="num fw-6">{r.post}/{r.total}</span> : <span className="muted t-sm">ยังไม่ทำ</span>}</td>
+                    <td>
+                      {r.pre != null ? (
+                        <button
+                          onClick={() => setSelectedSubmission({ student: s, record: r, kind: "pre" })}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            font: "inherit",
+                            cursor: "pointer",
+                            color: "var(--primary)",
+                            fontWeight: 600,
+                            textDecoration: "underline"
+                          }}
+                        >
+                          {r.pre}/{r.total}
+                        </button>
+                      ) : (
+                        <span className="muted t-sm">ยังไม่ทำ</span>
+                      )}
+                    </td>
+                    <td>
+                      {r.post != null ? (
+                        <button
+                          onClick={() => setSelectedSubmission({ student: s, record: r, kind: "post" })}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            font: "inherit",
+                            cursor: "pointer",
+                            color: "var(--primary)",
+                            fontWeight: 600,
+                            textDecoration: "underline"
+                          }}
+                        >
+                          {r.post}/{r.total}
+                        </button>
+                      ) : (
+                        <span className="muted t-sm">ยังไม่ทำ</span>
+                      )}
+                    </td>
                     <td>{diff != null ? <Badge tone={diff > 0 ? "success" : "muted"} dot>{diff > 0 ? "+" : ""}{diff}</Badge> : <span className="muted t-sm">—</span>}</td>
                   </tr>
                 );
               }}
             />
           </div>
+
+          {selectedSubmission && (
+            <Dialog
+              title={`รายละเอียดคำตอบ: ${selectedSubmission.student.name}`}
+              desc={`แบบทดสอบ${selectedSubmission.kind === "pre" ? "ก่อนเรียน (Pre-test)" : "หลังเรียน (Post-test)"} · บทที่ ${lesson.index}`}
+              onClose={() => setSelectedSubmission(null)}
+              lg
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* Header info */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--muted)", padding: "12px 18px", borderRadius: 12, border: "1px solid var(--border)" }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: "var(--subtle)" }}>รหัสนักศึกษา</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--fg)" }}>{selectedSubmission.student.student_no}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 13, color: "var(--subtle)" }}>คะแนนที่ได้</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "var(--primary)" }}>
+                      {selectedSubmission.kind === "pre" ? selectedSubmission.record.pre : selectedSubmission.record.post} / {selectedSubmission.record.total}
+                    </div>
+                  </div>
+                </div>
+
+                {/* List of answers */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}>
+                  {(() => {
+                    const studentAnswers = selectedSubmission.kind === "pre" ? selectedSubmission.record.pre_answers : selectedSubmission.record.post_answers;
+                    const filteredQs = data.questions.filter(q => q.kind === selectedSubmission.kind);
+
+                    if (!studentAnswers || Object.keys(studentAnswers).length === 0) {
+                      return (
+                        <div style={{ padding: "32px 16px", textBreak: "pretty", textAlign: "center", color: "var(--muted-fg)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                          <Icon name="alert" size={32} style={{ color: "var(--warning)" }} />
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14.5, color: "var(--fg)" }}>ไม่พบประวัติการเลือกคำตอบรายข้อ</div>
+                            <div style={{ fontSize: 12.5, marginTop: 4 }}>นักศึกษาอาจจะทำแบบทดสอบก่อนที่จะมีการอัปเดตระบบบันทบัติ หรือข้อมูลไม่ได้ถูกจัดเก็บแบบละเอียด</div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return filteredQs.map((q, idx) => {
+                      const studentChoiceId = studentAnswers[q.id];
+                      const isCorrect = studentChoiceId === q.answer;
+
+                      return (
+                        <div key={q.id} style={{ padding: 16, border: "1px solid var(--border)", borderRadius: 12, background: "var(--card)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+                            <div style={{ display: "flex", gap: 8, fontSize: 14, fontWeight: 700, color: "var(--fg)" }}>
+                              <span>{idx + 1}.</span>
+                              <span style={{ lineHeight: 1.5 }}>{q.text}</span>
+                            </div>
+                            <Badge tone={isCorrect ? "success" : "danger"} dot>
+                              {isCorrect ? "ถูกต้อง" : "ไม่ถูกต้อง"}
+                            </Badge>
+                          </div>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 16 }}>
+                            {(Array.isArray(q.choices) ? q.choices : []).map((choice) => {
+                              const isSelected = studentChoiceId === choice.id;
+                              const isAnswerKey = q.answer === choice.id;
+
+                              let choiceStyle = {
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                padding: "8px 12px",
+                                borderRadius: 8,
+                                fontSize: 13,
+                                border: "1px solid var(--border)",
+                                background: "transparent"
+                              };
+
+                              if (isAnswerKey) {
+                                choiceStyle.background = "var(--success-soft)";
+                                choiceStyle.borderColor = "var(--success)";
+                              } else if (isSelected && !isCorrect) {
+                                choiceStyle.background = "var(--danger-soft)";
+                                choiceStyle.borderColor = "var(--danger)";
+                              }
+
+                              return (
+                                <div key={choice.id} style={choiceStyle}>
+                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", border: "2px solid " + (isSelected ? "var(--primary)" : "var(--subtle)"), background: isSelected ? "var(--primary)" : "transparent" }}>
+                                    {isSelected && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
+                                  </div>
+                                  <span style={{ color: isAnswerKey ? "var(--success-dark)" : (isSelected && !isCorrect) ? "var(--danger-dark)" : "var(--fg)" }}>
+                                    {choice.text}
+                                  </span>
+                                  {isAnswerKey && (
+                                    <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#10b981", display: "flex", alignItems: "center", gap: 3 }}>
+                                      <Icon name="check" size={10} /> คำตอบที่ถูกต้อง
+                                    </span>
+                                  )}
+                                  {isSelected && !isCorrect && (
+                                    <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#ef4444", display: "flex", alignItems: "center", gap: 3 }}>
+                                      <Icon name="x" size={10} /> คำตอบของนักศึกษา
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            </Dialog>
+          )}
         </>
       ) : (
         <div className="card">
