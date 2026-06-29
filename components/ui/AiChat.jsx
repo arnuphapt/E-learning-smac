@@ -1075,7 +1075,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
           0%, 80%, 100% { transform: scale(1); opacity: 0.5; }
           40% { transform: scale(1.3); opacity: 1; }
         }
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           .ai-chat-overlay {
             display: block !important;
           }

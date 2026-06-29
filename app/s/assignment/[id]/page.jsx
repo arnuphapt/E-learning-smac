@@ -472,7 +472,7 @@ export default function AssignmentDetail() {
     <div className="container-wide">
       <Crumb nav={nav} items={[{ label: course?.code || "รายวิชา", to: "/s/course/" + course?.id }, { label: "บทที่ " + (lesson?.index || ""), to: "/s/lesson/" + lesson?.id }, { label: "ใบงาน" }]} />
       <PageHead kicker={"ใบงาน · " + (course?.code || "")} title={a.title} />
-      <div className="flex gap-5 items-start" style={{ flexDirection: mobile ? "column" : "row" }}>
+      <div className="flex gap-5" style={{ flexDirection: mobile ? "column" : "row", alignItems: mobile ? "stretch" : "flex-start" }}>
         {Main}{Side}
       </div>
     </div>

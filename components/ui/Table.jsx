@@ -412,7 +412,7 @@ export default function Table({
         }
 
         /* === Mobile responsive table === */
-        @media (max-width: 767px) {
+        @media (max-width: 1024px) {
           .table-wrap {
             overflow-x: unset;
           }

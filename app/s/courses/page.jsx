@@ -49,8 +49,8 @@ function CourseListItem({ c, nav }) {
   return (
     <div className="card pointer" style={{ display: "flex", alignItems: "stretch", overflow: "hidden" }} onClick={() => nav("/s/course/" + c.id)}>
       <div style={{ flex: "0 0 8px", background: `linear-gradient(${c.hero}, ${c.hero}aa)` }} />
-      <div className="card-p flex items-center gap-4 flex-1" style={{ padding: "16px 20px" }}>
-        <div style={{ width: 46, height: 46, borderRadius: 11, background: c.hero, color: "#fff", display: "grid", placeItems: "center", flex: "0 0 46px", fontWeight: 700, fontSize: 12 }}>{c.code.replace(/[^0-9]/g, "").slice(0, 3)}</div>
+      <div className="card-p flex items-center gap-4 flex-1 course-list-item-p">
+        <div className="course-icon-badge" style={{ width: 46, height: 46, borderRadius: 11, background: c.hero, color: "#fff", display: "grid", placeItems: "center", flex: "0 0 46px", fontWeight: 700, fontSize: 12 }}>{c.code.replace(/[^0-9]/g, "").slice(0, 3)}</div>
         <div className="flex-1" style={{ minWidth: 0 }}>
           <div className="flex items-center gap-2 wrap"><span className="fw-7 t-base">{c.title}</span><Badge tone="outline">{c.code}</Badge></div>
           <div className="t-xs muted mt-1 truncate">{c.subtitle}</div>

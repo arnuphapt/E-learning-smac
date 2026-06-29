@@ -213,7 +213,56 @@ export default function Calendar() {
           <button className="iconbtn" onClick={nextMonth}><Icon name="chevR" size={16} /></button>
         </div>} />
 
-      <div className="flex gap-5 items-start">
+      <style>{`
+        .cal-page-layout {
+          display: flex;
+          gap: 20px;
+          align-items: flex-start;
+        }
+        .cal-page-sidebar {
+          width: 312px;
+          flex: 0 0 312px;
+        }
+        @media (max-width: 1024px) {
+          .cal-page-layout {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .cal-page-sidebar {
+            width: 100% !important;
+            flex: none !important;
+          }
+          .cal-cell {
+            height: 80px !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .cal-cell {
+            height: 60px !important;
+            padding: 4px !important;
+          }
+          .cal-cell .dnum {
+            font-size: 11px !important;
+          }
+          .cal-ev {
+            font-size: 9px !important;
+            padding: 1px 3px !important;
+            gap: 2px !important;
+            border-radius: 4px !important;
+          }
+          .cal-ev .d {
+            width: 3px !important;
+            height: 3px !important;
+            flex: 0 0 3px !important;
+          }
+          .cal-dow {
+            font-size: 10px !important;
+            padding: 4px 0 !important;
+          }
+        }
+      `}</style>
+
+      <div className="cal-page-layout">
         {/* month grid */}
         <div className="card card-p flex-1" style={{ minWidth: 0 }}>
           <div className="cal-grid mb-1">{DOW.map((d) => <div key={d} className="cal-dow">{d}</div>)}</div>
@@ -240,7 +289,7 @@ export default function Calendar() {
         </div>
 
         {/* upcoming list */}
-        <div style={{ width: 312, flex: "0 0 312px" }}>
+        <div className="cal-page-sidebar">
           <div className="card">
             <div className="card-h"><div className="title flex items-center gap-2"><Icon name="clock" size={16} className="c-primary" />กำหนดส่งที่ใกล้ถึง</div></div>
             <div style={{ padding: 8 }}>

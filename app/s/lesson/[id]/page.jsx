@@ -594,44 +594,46 @@ export default function StudentLesson() {
         </div>
       )}
 
-      <div className="card">
-        <div className="card-h"><div className="title t-base">ความคืบหน้าบทเรียน</div></div>
-        <div style={{ padding: 8 }}>
-          {lesson.has_pretest && pre.required && (
-            <ChecklistItem icon={pre.taken ? "checkC" : "clipboard"} tone={pre.taken ? "done" : isPrePastDue ? "locked" : "current"}
-              label="Pre-test" sub={pre.taken ? `ทำแล้ว · ${pre.score}/${pre.total} คะแนน` : isPrePastDue ? `เลยกำหนดส่งเมื่อ ${formatThaiDate(preDue, preDueTime)}` : "ต้องทำก่อนเข้าเรียน"}
-              onClick={() => isPrePastDue ? toast("เลยกำหนดเวลาทำแบบทดสอบก่อนเรียนแล้ว") : nav(pre.taken ? "/s/test/" + lesson.id + "/pre/result" : "/s/test/" + lesson.id + "/pre")}
-              action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
-          )}
-          {!hasNoVideo && (
-            <ChecklistItem icon={watchProgress === 100 ? "checkC" : "playC"} tone={gated ? "locked" : watchProgress === 100 ? "done" : "current"}
-              label="วิดีโอบทเรียน"
-              sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
-          )}
-          {lesson.has_assignment && assignments.map((a) => {
-            const sub = submissions.find((s) => s.assignment_id === a.id);
-            const status = sub ? sub.status : "not-submitted";
-            const tone = status === "graded" ? "done" : status === "submitted" ? "current" : "todo";
-            const subText = status === "graded" ? `ตรวจแล้ว · ${sub.score}/${sub.total}` : status === "submitted" ? "ส่งแล้ว · รอตรวจ" : "ยังไม่ส่ง";
-            return (
-              <ChecklistItem key={a.id} icon="file" tone={tone}
-                label={a.title} sub={subText}
-                onClick={() => nav("/s/assignment/" + a.id)}
+      {((lesson.has_pretest && pre.required) || !hasNoVideo || (lesson.has_assignment && assignments.length > 0) || (lesson.has_posttest && post.required)) && (
+        <div className="card">
+          <div className="card-h"><div className="title t-base">ความคืบหน้าบทเรียน</div></div>
+          <div style={{ padding: 8 }}>
+            {lesson.has_pretest && pre.required && (
+              <ChecklistItem icon={pre.taken ? "checkC" : "clipboard"} tone={pre.taken ? "done" : isPrePastDue ? "locked" : "current"}
+                label="Pre-test" sub={pre.taken ? `ทำแล้ว · ${pre.score}/${pre.total} คะแนน` : isPrePastDue ? `เลยกำหนดส่งเมื่อ ${formatThaiDate(preDue, preDueTime)}` : "ต้องทำก่อนเข้าเรียน"}
+                onClick={() => isPrePastDue ? toast("เลยกำหนดเวลาทำแบบทดสอบก่อนเรียนแล้ว") : nav(pre.taken ? "/s/test/" + lesson.id + "/pre/result" : "/s/test/" + lesson.id + "/pre")}
                 action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
-            );
-          })}
-          {lesson.has_posttest && post.required && <ChecklistItem icon={post.taken ? "checkC" : "clipboard"} tone={post.taken ? "done" : isPostPastDue ? "locked" : (gated || isPostGated) ? "locked" : "todo"}
-            label="Post-test" sub={post.taken ? `ทำแล้ว · ${post.score}/${post.total}` : isPostPastDue ? `เลยกำหนดส่งเมื่อ ${formatThaiDate(postDue, postDueTime)}` : gated ? "ปลดล็อกหลังเรียนจบ" : isPostGated ? `ต้องดูวิดีโอให้ครบ 80% (ขณะนี้ ${watchProgress}%)` : "พร้อมให้ทำแล้ว"}
-            onClick={() => {
-              if (isPostPastDue) {
-                toast("เลยกำหนดเวลาทำแบบทดสอบหลังเรียนแล้ว");
-              } else if (!(gated || isPostGated)) {
-                nav(post.taken ? "/s/test/" + lesson.id + "/post/result" : "/s/test/" + lesson.id + "/post");
-              }
-            }}
-            action={!(gated || isPostGated) && !post.taken && !isPostPastDue ? <span className="btn btn-soft btn-sm">ทำเลย</span> : <Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />}
+            )}
+            {!hasNoVideo && (
+              <ChecklistItem icon={watchProgress === 100 ? "checkC" : "playC"} tone={gated ? "locked" : watchProgress === 100 ? "done" : "current"}
+                label="วิดีโอบทเรียน"
+                sub={gated ? "ปลดล็อกหลังทำ Pre-test" : `ดูแล้ว ${watchProgress}%`} />
+            )}
+            {lesson.has_assignment && assignments.map((a) => {
+              const sub = submissions.find((s) => s.assignment_id === a.id);
+              const status = sub ? sub.status : "not-submitted";
+              const tone = status === "graded" ? "done" : status === "submitted" ? "current" : "todo";
+              const subText = status === "graded" ? `ตรวจแล้ว · ${sub.score}/${sub.total}` : status === "submitted" ? "ส่งแล้ว · รอตรวจ" : "ยังไม่ส่ง";
+              return (
+                <ChecklistItem key={a.id} icon="file" tone={tone}
+                  label={a.title} sub={subText}
+                  onClick={() => nav("/s/assignment/" + a.id)}
+                  action={<Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />
+              );
+            })}
+            {lesson.has_posttest && post.required && <ChecklistItem icon={post.taken ? "checkC" : "clipboard"} tone={post.taken ? "done" : isPostPastDue ? "locked" : (gated || isPostGated) ? "locked" : "todo"}
+              label="Post-test" sub={post.taken ? `ทำแล้ว · ${post.score}/${post.total}` : isPostPastDue ? `เลยกำหนดส่งเมื่อ ${formatThaiDate(postDue, postDueTime)}` : gated ? "ปลดล็อกหลังเรียนจบ" : isPostGated ? `ต้องดูวิดีโอให้ครบ 80% (ขณะนี้ ${watchProgress}%)` : "พร้อมให้ทำแล้ว"}
+              onClick={() => {
+                if (isPostPastDue) {
+                  toast("เลยกำหนดเวลาทำแบบทดสอบหลังเรียนแล้ว");
+                } else if (!(gated || isPostGated)) {
+                  nav(post.taken ? "/s/test/" + lesson.id + "/post/result" : "/s/test/" + lesson.id + "/post");
+                }
+              }}
+              action={!(gated || isPostGated) && !post.taken && !isPostPastDue ? <span className="btn btn-soft btn-sm">ทำเลย</span> : <Icon name="chevR" size={16} style={{ color: "var(--subtle)" }} />} />}
+          </div>
         </div>
-      </div>
+      )}
       <LessonNotes studentId={studentId} lessonId={lesson.id} />
       <NextLessonCard lesson={lesson} nav={nav} allLessons={allLessons} />
     </div>
@@ -673,7 +675,7 @@ export default function StudentLesson() {
   return (
     <div className="container-wide">
       <Crumb nav={nav} items={[{ label: "รายวิชาของฉัน", to: "/s/courses" }, { label: course.code, to: "/s/course/" + course.id }, { label: "บทที่ " + lesson.index }]} />
-      <div className="flex gap-5 items-start" style={{ flexDirection: mobile ? "column" : "row" }}>
+      <div className="flex gap-5" style={{ flexDirection: mobile ? "column" : "row", alignItems: mobile ? "stretch" : "flex-start" }}>
         <div className="flex-1" style={{ minWidth: 0 }}>
           {hasNoVideo ? (
             <NoVideoContentStage lesson={lesson} assignments={assignments} submissions={submissions} nav={nav} />
