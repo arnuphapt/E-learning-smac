@@ -10,6 +10,7 @@ import Loading from "@/components/ui/Loading";
 import { useIsMobile } from "@/lib/hooks";
 
 export default function TestResult() {
+  const mobile = useIsMobile();
   const router = useRouter();
   const params = useParams();
   const { data: session } = useSession();
@@ -81,8 +82,6 @@ export default function TestResult() {
   const preScore = testScore?.pre ?? Math.round(total * 0.7);
   const postScore = testScore?.post ?? Math.round(total * 0.9);
   const diff = postScore - preScore;
-
-  const mobile = useIsMobile();
 
   const showAnswers = kind === "pre"
     ? lesson?.pretest?.show_answers !== false

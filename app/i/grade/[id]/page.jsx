@@ -54,6 +54,7 @@ function distributeScore(totalScore, criteria, totalPoints) {
 }
 
 export default function Grader() {
+  const mobile = useIsMobile();
   const router = useRouter();
   const params = useParams();
   const nav = (path) => router.push(path);
@@ -120,7 +121,6 @@ export default function Grader() {
   }
 
   const total = Object.values(scores).reduce((s, v) => s + v, 0);
-  const mobile = useIsMobile();
   const idx = gradable.findIndex((s) => s.id === sub.id);
 
   const handleSaveScore = async (statusToSet) => {
