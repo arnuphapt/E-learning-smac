@@ -272,8 +272,22 @@ export default function StudentSeparateAiPage() {
 
         setCourses(filteredCourses);
 
-        // Auto select first course and its first lesson
-        if (filteredCourses.length > 0) {
+        // Auto select course and lesson based on query param if present
+        let matched = false;
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const queryLessonId = params.get("lessonId");
+          if (queryLessonId) {
+            const foundLesson = visibleLessons.find(l => l.id === queryLessonId);
+            if (foundLesson) {
+              setSelectedCourseId(foundLesson.course_id);
+              setSelectedLessonId(foundLesson.id);
+              matched = true;
+            }
+          }
+        }
+
+        if (!matched && filteredCourses.length > 0) {
           const firstCourse = filteredCourses[0];
           setSelectedCourseId(firstCourse.id);
 

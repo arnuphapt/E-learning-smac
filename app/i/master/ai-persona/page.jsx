@@ -135,6 +135,15 @@ export default function AiPersonaPage() {
   const [aiStatus, setAiStatus] = useState("checking"); // "checking", "online", "offline", "degraded"
   const [aiStatusReason, setAiStatusReason] = useState("");
 
+  // Token config states
+  const [configDraft, setConfigDraft] = useState({
+    daily_chat_limit: "15",
+    session_token_limit: "20000",
+    max_output_tokens: "2048",
+    max_output_tokens_with_files: "4096",
+  });
+  const [configSaving, setConfigSaving] = useState(false);
+
   const checkAiHealth = async () => {
     setAiStatus("checking");
     try {
@@ -155,13 +164,25 @@ export default function AiPersonaPage() {
 
   const fetchPersona = async () => {
     try {
-      const res = await fetch("/api/ai/persona");
-      if (res.ok) {
-        const data = await res.json();
+      const [personaRes, configRes] = await Promise.all([
+        fetch("/api/ai/persona"),
+        fetch("/api/ai/config"),
+      ]);
+      if (personaRes.ok) {
+        const data = await personaRes.json();
         setContent(data.content);
         setDraftContent(data.content);
       } else {
         toast("เกิดข้อผิดพลาดในการโหลดข้อมูล Persona");
+      }
+      if (configRes.ok) {
+        const cfg = await configRes.json();
+        setConfigDraft({
+          daily_chat_limit: String(cfg.daily_chat_limit ?? "15"),
+          session_token_limit: String(cfg.session_token_limit ?? "20000"),
+          max_output_tokens: String(cfg.max_output_tokens ?? "2048"),
+          max_output_tokens_with_files: String(cfg.max_output_tokens_with_files ?? "4096"),
+        });
       }
     } catch (e) {
       console.error(e);
@@ -169,6 +190,33 @@ export default function AiPersonaPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveConfig = async () => {
+    setConfigSaving(true);
+    try {
+      const res = await fetch("/api/ai/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(configDraft),
+      });
+      if (res.ok) {
+        toast("บันทึกการตั้งค่า Token สำเร็จ", "success");
+      } else {
+        toast("บันทึกการตั้งค่าล้มเหลว");
+      }
+    } catch (e) {
+      console.error(e);
+      toast("เกิดข้อผิดพลาดในการบันทึก");
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
+  const setConfig = (key, val) => {
+    // allow only positive integers
+    const num = val.replace(/[^0-9]/g, "");
+    setConfigDraft(prev => ({ ...prev, [key]: num }));
   };
 
   useEffect(() => {
@@ -536,6 +584,100 @@ export default function AiPersonaPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Token & Rate Limit Config Card */}
+      <div className="card" style={{ marginTop: 24, borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.04)", border: "1px solid var(--border)" }}>
+        <div style={{ height: 4, background: "linear-gradient(90deg, #3b82f6 0%, var(--primary) 100%)" }} />
+        <div style={{ padding: "20px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--fg)", display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="settings" size={16} style={{ color: "var(--primary)" }} />
+                การตั้งค่า Token & Rate Limit
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--muted-fg)", marginTop: 4 }}>กำหนดขีดจำกัดการใช้งาน AI ต่อนักศึกษา 1 คน</div>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleSaveConfig}
+              disabled={configSaving}
+              style={{ background: "linear-gradient(135deg, var(--primary) 0%, #0891b2 100%)", boxShadow: "0 4px 14px rgba(13,110,140,0.2)" }}
+            >
+              {configSaving ? <><Icon name="loader" size={14} className="spin" /> บันทึก...</> : <><Icon name="check" size={14} /> บันทึกการตั้งค่า</>}
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+            {[
+              {
+                key: "daily_chat_limit",
+                label: "โควต้าต่อวัน (ครั้ง)",
+                desc: "จำนวนครั้งที่นักศึกษาถาม+สรุปได้ต่อวัน",
+                unit: "ครั้ง/วัน",
+                icon: "calendar"
+              },
+              {
+                key: "session_token_limit",
+                label: "Session Token Limit",
+                desc: "ขีดจำกัด token รวมของข้อความในแต่ละ session",
+                unit: "tokens",
+                icon: "chat"
+              },
+              {
+                key: "max_output_tokens",
+                label: "Max Output (ปกติ)",
+                desc: "จำนวน token สูงสุดที่ AI ตอบต่อครั้ง (ไม่มีไฟล์)",
+                unit: "tokens",
+                icon: "sparkle"
+              },
+              {
+                key: "max_output_tokens_with_files",
+                label: "Max Output (มีไฟล์/สรุป)",
+                desc: "จำนวน token สูงสุดเมื่อมีไฟล์แนบหรือโหมดสรุป",
+                unit: "tokens",
+                icon: "folder"
+              },
+            ].map(({ key, label, desc, unit, icon }) => (
+              <div key={key} style={{
+                background: "var(--muted)",
+                borderRadius: 12,
+                padding: "16px 18px",
+                border: "1px solid var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <Icon name={icon} size={14} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--fg)" }}>{label}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted-fg)", lineHeight: 1.4 }}>{desc}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    className="input"
+                    style={{ flex: 1, fontWeight: 700, fontSize: 16, textAlign: "right", padding: "8px 12px" }}
+                    value={configDraft[key]}
+                    onChange={(e) => setConfig(key, e.target.value)}
+                    inputMode="numeric"
+                  />
+                  <span style={{ fontSize: 12, color: "var(--muted-fg)", whiteSpace: "nowrap" }}>{unit}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 16, padding: "10px 14px", background: "var(--primary-soft)", borderRadius: 10, fontSize: 12, color: "var(--primary)", display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <Icon name="info" size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>
+              ผู้สอน / Admin ไม่ถูกจำกัดโควต้า · โควต้าวันนี้รีเซ็ตเที่ยงคืนตามเวลาไทย · ค่า Token ประมาณการจากความยาวข้อความ (÷ 2.5)
+            </span>
           </div>
         </div>
       </div>

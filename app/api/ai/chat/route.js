@@ -70,12 +70,39 @@ export async function POST(req) {
       return NextResponse.json({ error: "messages array is required" }, { status: 400 });
     }
 
-    // A. Estimate session tokens from messages history (only for chat mode and not bypassed)
-    const SESSION_TOKEN_LIMIT = 20000;
+    // A. Fetch all config from DB
+    const CONFIG_DEFAULTS = {
+      daily_chat_limit: 15,
+      session_token_limit: 20000,
+      max_output_tokens: 2048,
+      max_output_tokens_with_files: 4096,
+    };
+    let customPersona = "";
+    let dailyLimit = CONFIG_DEFAULTS.daily_chat_limit;
+    let SESSION_TOKEN_LIMIT = CONFIG_DEFAULTS.session_token_limit;
+    let baseMaxOutputTokens = CONFIG_DEFAULTS.max_output_tokens;
+    let fileMaxOutputTokens = CONFIG_DEFAULTS.max_output_tokens_with_files;
+
+    try {
+      const { data: settingsData } = await supabaseServer
+        .from("ai_settings")
+        .select("key, value");
+      if (settingsData) {
+        const get = (k) => settingsData.find((r) => r.key === k)?.value;
+        if (get("persona")) customPersona = get("persona");
+        if (get("daily_chat_limit")) dailyLimit = parseInt(get("daily_chat_limit"), 10) || CONFIG_DEFAULTS.daily_chat_limit;
+        if (get("session_token_limit")) SESSION_TOKEN_LIMIT = parseInt(get("session_token_limit"), 10) || CONFIG_DEFAULTS.session_token_limit;
+        if (get("max_output_tokens")) baseMaxOutputTokens = parseInt(get("max_output_tokens"), 10) || CONFIG_DEFAULTS.max_output_tokens;
+        if (get("max_output_tokens_with_files")) fileMaxOutputTokens = parseInt(get("max_output_tokens_with_files"), 10) || CONFIG_DEFAULTS.max_output_tokens_with_files;
+      }
+    } catch (e) {
+      console.error("Failed to fetch settings from database:", e);
+    }
+
     const estimateTokens = (text) => Math.ceil((text || "").length / 2.5);
     const totalHistoryTokens = messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
 
-    if (mode !== "summarize" && !isBypassed) {
+    if (!isBypassed) {
       if (totalHistoryTokens > SESSION_TOKEN_LIMIT) {
         return NextResponse.json(
           { error: "session_token_limit", used: totalHistoryTokens, limit: SESSION_TOKEN_LIMIT },
@@ -84,27 +111,9 @@ export async function POST(req) {
       }
     }
 
-    // Fetch daily limit and check daily rate limit (only for chat mode, logged in users, and not bypassed)
-    let dailyLimit = 15;
     let todayCount = 0;
 
-    // Fetch settings (persona and daily limit)
-    let customPersona = "";
-    try {
-      const { data: settingsData } = await supabaseServer
-        .from("ai_settings")
-        .select("key, value");
-      if (settingsData) {
-        const personaRow = settingsData.find((r) => r.key === "persona");
-        if (personaRow) customPersona = personaRow.value;
-        const limitRow = settingsData.find((r) => r.key === "daily_chat_limit");
-        if (limitRow) dailyLimit = parseInt(limitRow.value, 10) || 15;
-      }
-    } catch (e) {
-      console.error("Failed to fetch settings from database:", e);
-    }
-
-    if (mode !== "summarize" && currentUserId && !isBypassed) {
+    if (currentUserId && !isBypassed) {
       // Get Bangkok local time start and end of today
       const bangkokTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
       const year = bangkokTime.getFullYear();
@@ -118,7 +127,7 @@ export async function POST(req) {
         .from("ai_chat_logs")
         .select("*", { count: "exact", head: true })
         .eq("student_id", currentUserId)
-        .eq("mode", "chat")
+        .in("mode", ["chat", "summarize"])
         .gte("created_at", startOfDay.toISOString())
         .lt("created_at", endOfDay.toISOString());
 
@@ -262,9 +271,8 @@ ${emotionInstruction}`;
     // 3. Append the user prompt last
     messageParts.push({ text: userMessage });
 
-    // Determine dynamic max output tokens based on mode and files presence
     const hasFiles = (attachments && attachments.length > 0) || (aiDocs && aiDocs.length > 0);
-    const maxOutputTokens = mode === "summarize" ? 4096 : hasFiles ? 4096 : 2048;
+    const maxOutputTokens = mode === "summarize" ? fileMaxOutputTokens : hasFiles ? fileMaxOutputTokens : baseMaxOutputTokens;
 
     const chat = ai.chats.create({
       model: "gemini-2.5-flash",
@@ -308,7 +316,7 @@ ${emotionInstruction}`;
     return NextResponse.json({
       reply: text,
       rateLimitInfo: isBypassed ? null : {
-        used: todayCount + (mode !== "summarize" ? 1 : 0),
+        used: todayCount + 1,
         limit: dailyLimit
       }
     });

@@ -587,7 +587,7 @@ export default function StudentLesson() {
             <p className="muted t-xs mb-3" style={{ margin: 0, lineHeight: 1.5 }}>
               มีข้อสงสัยเกี่ยวกับบทเรียนหรือต้องการสรุปเนื้อหาสำคัญ? ถาม AI ติวเตอร์ได้ทันที!
             </p>
-            <button className="btn btn-primary btn-sm w-full" onClick={() => nav(`/s/lesson/${lesson.id}/ai`)} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <button className="btn btn-primary btn-sm w-full" onClick={() => nav(`/s/ai?lessonId=${lesson.id}`)} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <Icon name="sparkle" size={14} />คุยกับ AI ติวเตอร์
             </button>
           </div>
