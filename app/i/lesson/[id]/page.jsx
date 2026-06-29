@@ -1277,21 +1277,29 @@ function InstructorLessonContent() {
 
     // Validate that if pre-test or post-test is required, there must be at least 1 question
     if (!isNew) {
-      const willBePreRequired = updatedFields.pretest ? updatedFields.pretest.required : lesson.pretest?.required;
-      if (willBePreRequired) {
-        const preQsCount = data.questions.filter(q => q.kind === "pre").length;
-        if (preQsCount === 0) {
-          if (!silent) toast("กรุณาเพิ่มข้อสอบ Pre-test อย่างน้อย 1 ข้อ ก่อนเปิดใช้งาน (ตั้งค่าให้จำเป็น)");
-          return;
+      const hasPretestUpdate = updatedFields.hasOwnProperty("pretest");
+      const hasPosttestUpdate = updatedFields.hasOwnProperty("posttest");
+      const isPublishing = updatedFields.status === "active";
+
+      if (hasPretestUpdate || isPublishing) {
+        const willBePreRequired = hasPretestUpdate ? updatedFields.pretest.required : lesson.pretest?.required;
+        if (willBePreRequired) {
+          const preQsCount = data.questions.filter(q => q.kind === "pre").length;
+          if (preQsCount === 0) {
+            if (!silent) toast("กรุณาเพิ่มข้อสอบ Pre-test อย่างน้อย 1 ข้อ ก่อนเปิดใช้งาน (ตั้งค่าให้จำเป็น)");
+            return;
+          }
         }
       }
 
-      const willBePostRequired = updatedFields.posttest ? updatedFields.posttest.required : lesson.posttest?.required;
-      if (willBePostRequired) {
-        const postQsCount = data.questions.filter(q => q.kind === "post").length;
-        if (postQsCount === 0) {
-          if (!silent) toast("กรุณาเพิ่มข้อสอบ Post-test อย่างน้อย 1 ข้อ ก่อนเปิดใช้งาน (ตั้งค่าให้จำเป็น)");
-          return;
+      if (hasPosttestUpdate || isPublishing) {
+        const willBePostRequired = hasPosttestUpdate ? updatedFields.posttest.required : lesson.posttest?.required;
+        if (willBePostRequired) {
+          const postQsCount = data.questions.filter(q => q.kind === "post").length;
+          if (postQsCount === 0) {
+            if (!silent) toast("กรุณาเพิ่มข้อสอบ Post-test อย่างน้อย 1 ข้อ ก่อนเปิดใช้งาน (ตั้งค่าให้จำเป็น)");
+            return;
+          }
         }
       }
     }
