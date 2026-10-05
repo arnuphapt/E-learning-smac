@@ -18,3 +18,11 @@ test("nextChoiceId: stays unique past z", () => {
   const all = Array.from({ length: 26 }, (_, i) => String.fromCharCode(97 + i));
   assert.equal(nextChoiceId(ids(...all)), "c26");
 });
+
+import { uniqueChoiceId } from "../lib/questions.js";
+
+test("uniqueChoiceId: never repeats and never collides with the a, b, c... letters", () => {
+  const ids = new Set(Array.from({ length: 1000 }, () => uniqueChoiceId()));
+  assert.equal(ids.size, 1000);
+  assert.ok([...ids].every((id) => /^x[0-9a-z]+$/.test(id)));
+});

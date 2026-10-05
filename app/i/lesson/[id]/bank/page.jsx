@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { normalizeTopic, findTopic, bankWarning, parseDrawCount } from "@/lib/tutor-bank";
-import { nextChoiceId } from "@/lib/questions";
+import { uniqueChoiceId } from "@/lib/questions";
 import Icon from "@/components/ui/Icon";
 import { Badge, Dialog } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -30,9 +30,10 @@ function QuestionEditor({ q, topics, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
 
   const setC = (id, v) => setChoices((cs) => cs.map((c) => (c.id === id ? { ...c, text: v } : c)));
-  const addC = () => setChoices((cs) => [...cs, { id: nextChoiceId(cs), text: "" }]);
-  // Ids are NEVER re-lettered: tutor_answers.chosen and the settled result snapshot store them, and the review reads the
-  // choices live. Deleting the current answer leaves none selected (submit asks for a new pick).
+  const addC = () => setChoices((cs) => [...cs, { id: uniqueChoiceId(), text: "" }]);
+  // Ids are never re-lettered and never reused (uniqueChoiceId): tutor_answers.chosen and the settled result store them and
+  // the review reads the choices live. Labels A, B, C... below are by position. Deleting the current answer leaves none
+  // selected (submit asks for a new pick).
   const removeC = (id) => {
     setChoices(choices.filter((c) => c.id !== id));
     if (answer === id) setAnswer("");
@@ -53,12 +54,12 @@ function QuestionEditor({ q, topics, onClose, onSave }) {
       <div className="field"><label className="label">โจทย์คำถาม</label><textarea className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โจทย์คำถาม…" /></div>
       <label className="label">ตัวเลือก <span className="muted fw-4">— เลือกวงกลมเพื่อกำหนดคำตอบที่ถูกต้อง</span></label>
       <div className="flex col gap-2 mb-2">
-        {choices.map((c) => (
+        {choices.map((c, i) => (
           <div key={c.id} className="flex items-center gap-2">
             <button onClick={() => setAnswer(c.id)} style={{ width: 24, height: 24, borderRadius: 99, border: "2px solid " + (answer === c.id ? "var(--success)" : "#cbd5e1"), background: "#fff", cursor: "pointer", display: "grid", placeItems: "center", flex: "0 0 24px" }}>
               {answer === c.id && <span style={{ width: 11, height: 11, borderRadius: 99, background: "var(--success)" }} />}
             </button>
-            <input className="input" value={c.text} onChange={(e) => setC(c.id, e.target.value)} placeholder={"ตัวเลือก " + c.id.toUpperCase()} />
+            <input className="input" value={c.text} onChange={(e) => setC(c.id, e.target.value)} placeholder={"ตัวเลือก " + String.fromCharCode(65 + i)} />
             {choices.length > 2 && <button className="iconbtn ghost c-danger" onClick={() => removeC(c.id)}><Icon name="trash" size={15} /></button>}
           </div>
         ))}
