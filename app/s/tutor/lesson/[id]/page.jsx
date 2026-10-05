@@ -9,7 +9,7 @@ import { Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 
 // A tutor lesson: video (R2 via /api/files, same <video> player as course lessons) and description.
-// Data from /api/tutor/lessons/<id>; the quiz itself comes in a later ticket.
+// Data from /api/tutor/lessons/<id>; the exam is on ./exam.
 export default function StudentTutorLesson() {
   const router = useRouter();
   const nav = (path) => router.push(path);
@@ -56,6 +56,13 @@ export default function StudentTutorLesson() {
       ) : (
         <div className="card mb-4"><div className="empty"><div className="t-sm muted">บทนี้ไม่มีวิดีโอ</div></div></div>
       )}
+      <div className="card card-p mb-4 flex items-center justify-between gap-3 wrap">
+        <div>
+          <div className="t-base fw-7">ทำข้อสอบบทนี้</div>
+          <div className="t-sm muted">สุ่มชุดข้อใหม่ทุกรอบ ทำซ้ำได้ไม่จำกัด</div>
+        </div>
+        <button className="btn btn-primary" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/exam")}><Icon name="play" size={16} />ทำข้อสอบ</button>
+      </div>
       <div className="card card-p">
         <div className="t-base fw-7 mb-2">รายละเอียดบทเรียน</div>
         <p className="muted lead pretty" style={{ margin: 0, whiteSpace: "pre-line" }}>{lesson.description || "ไม่มีคำอธิบายบทเรียน"}</p>
