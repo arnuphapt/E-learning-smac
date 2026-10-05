@@ -47,6 +47,9 @@ export async function POST(req, { params }) {
     if (!reply) throw new Error("empty reply from the model");
 
     // Same row shape as /api/ai/chat logs; mode "explain" is what the quota counter (both routes) looks for.
+    // The log row IS the quota count, so an answer that could not be logged is not delivered (502, nothing shown).
+    // ponytail: parallel requests can still overshoot the daily limit by the in-flight count (the count is read before the
+    // Gemini call, same as /api/ai/chat). Upgrade: insert a claim row before calling Gemini and fill the reply after.
     const { error: logErr } = await db.from("ai_chat_logs").insert({
       student_id: studentId,
       lesson_id: lesson.id,
@@ -56,7 +59,7 @@ export async function POST(req, { params }) {
       mode: "explain",
       session_id: "tutor-" + attempt.id,
     });
-    if (logErr) console.error("[Tutor explain log error]", logErr);
+    if (logErr) throw logErr;
 
     return json({ reply, rateLimitInfo: caller.staff ? null : { used: used + 1, limit: cfg.dailyLimit } });
   } catch (e) {

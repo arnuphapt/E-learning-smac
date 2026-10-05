@@ -123,6 +123,10 @@ export async function POST(req) {
     if (typeof content !== "string") {
       return NextResponse.json({ error: "Content must be a string" }, { status: 400 });
     }
+    // no key = the lesson chat persona (as before); anything other than the one known extra key is refused
+    if (key !== undefined && key !== "persona_explain") {
+      return NextResponse.json({ error: "Unknown persona key" }, { status: 400 });
+    }
 
     const supabaseClient = await getSupabaseServerClient(req);
     const { error } = await supabaseClient
