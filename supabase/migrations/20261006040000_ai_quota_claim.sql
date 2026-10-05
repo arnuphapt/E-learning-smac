@@ -1,5 +1,5 @@
 -- AI daily quota, atomic: claim a slot BEFORE calling Gemini (count-then-call-then-log let N parallel requests all pass).
--- NOT APPLIED YET. Proof (self-aborting, rolls back): supabase/proofs/20261006040000_ai_quota_claim_proof.sql
+-- APPLIED 2026-10-06 on qsvwabaxqtbrxrwrqtih. Proof (self-aborting, rolls back): supabase/proofs/20261006040000_ai_quota_claim_proof.sql
 -- Standalone: touches only ai_chat_logs (live) and needs no tutor migration, but the code of the same commit
 -- (api/ai/chat + api/tutor/attempts/<id>/explain) is the first caller, so it is written to go out after 030000.
 --

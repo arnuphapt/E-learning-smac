@@ -1,5 +1,5 @@
 -- Tutor mode, ticket 02: per-lesson question bank + topics, and keep tutor lessons/assignments away from students.
--- NOT APPLIED YET. Proof (self-aborting, rolls back): supabase/proofs/20261006010000_tutor_bank_proof.sql
+-- APPLIED 2026-10-06 on qsvwabaxqtbrxrwrqtih. Proof (self-aborting, rolls back): supabase/proofs/20261006010000_tutor_bank_proof.sql
 -- Requires 20261006000000_courses_kind_leak_guard.sql (courses_all / courses.kind) to be applied.
 --
 -- ROLLOUT ORDER: apply this SQL BEFORE deploying the code of the same commit. The tutor pages select

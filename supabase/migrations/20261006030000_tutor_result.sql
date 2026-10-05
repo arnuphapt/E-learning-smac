@@ -1,5 +1,5 @@
 -- Tutor mode, ticket 05: the result of an attempt is PERSISTED when the attempt ends.
--- NOT APPLIED YET. Proof (self-aborting, rolls back): supabase/proofs/20261006030000_tutor_result_proof.sql
+-- APPLIED 2026-10-06 on qsvwabaxqtbrxrwrqtih. Proof (self-aborting, rolls back): supabase/proofs/20261006030000_tutor_result_proof.sql
 -- Requires 20261006020000_tutor_attempts.sql (tutor_attempts) to be applied FIRST.
 --
 -- ROLLOUT ORDER: apply AFTER 20261006020000 and BEFORE deploying the code of the same commit: settleAttempt

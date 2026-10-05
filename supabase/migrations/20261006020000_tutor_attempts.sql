@@ -1,5 +1,5 @@
 -- Tutor mode, ticket 03: attempts (one row per round) and answers, RLS on from day one.
--- NOT APPLIED YET. Proof (self-aborting, rolls back): supabase/proofs/20261006020000_tutor_attempts_proof.sql
+-- APPLIED 2026-10-06 on qsvwabaxqtbrxrwrqtih. Proof (self-aborting, rolls back): supabase/proofs/20261006020000_tutor_attempts_proof.sql
 -- Requires 20261006010000_tutor_bank.sql (questions.topic_id, lessons.tutor_draw_count) to be applied FIRST.
 --
 -- ROLLOUT ORDER: apply AFTER 20261006010000 and BEFORE deploying the code of the same commit: the tutor attempt
