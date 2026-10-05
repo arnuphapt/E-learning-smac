@@ -61,12 +61,7 @@ export async function POST(req) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         global: {
-          headers: {
-            ...supabaseAuthHeaders(token),
-            // ponytail: x-user-* only until the rls_jwt_claims DDL is applied; remove after.
-            "x-user-id": currentUserId,
-            "x-user-role": role,
-          },
+          headers: supabaseAuthHeaders(token),
         },
       }
     );

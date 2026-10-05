@@ -20,16 +20,10 @@ const CONFIG_DEFAULTS = {
 
 async function getSupabaseServerClient(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  const headers = supabaseAuthHeaders(token);
-  if (token) {
-    // ponytail: x-user-* only until the rls_jwt_claims DDL is applied; remove after.
-    headers["x-user-id"] = token.dbId || token.sub;
-    headers["x-user-role"] = token.role || "student";
-  }
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    { global: { headers } }
+    { global: { headers: supabaseAuthHeaders(token) } }
   );
 }
 

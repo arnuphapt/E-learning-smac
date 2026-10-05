@@ -1,5 +1,5 @@
 -- RLS identity from the server-minted JWT instead of browser-supplied x-user-* headers.
--- NOT APPLIED. Apply only after the code that sends the Bearer token (/api/supabase-token) is deployed,
+-- APPLIED 2026-10-05. Prerequisites (met): the code that sends the Bearer token (/api/supabase-token) is deployed,
 -- SUPABASE_JWT_SECRET is set in Vercel, and the legacy JWT secret is still accepted by the project.
 --
 -- JWT shape (see lib/supabase-token.js): role='authenticated', sub=<app users.id (text)>, app_role=<users.role>.

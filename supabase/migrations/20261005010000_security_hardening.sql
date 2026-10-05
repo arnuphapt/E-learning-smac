@@ -1,4 +1,4 @@
--- Security hardening. NOT APPLIED.
+-- Security hardening. APPLIED 2026-10-05.
 -- MUST run AFTER 20261005000000_rls_jwt_claims.sql (RLS identity must already come from the signed JWT).
 -- Prerequisites (see rollout order in the hand-off report):
 --   * app code that uses SUPABASE_SERVICE_ROLE_KEY server-side is deployed (NextAuth callbacks, /api/tests/*),

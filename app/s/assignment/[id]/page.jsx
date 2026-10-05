@@ -127,9 +127,8 @@ export default function AssignmentDetail() {
       if (cancelled) return;
       const userIds = ciData ? ciData.map(ci => ci.user_id) : [];
       if (userIds.length > 0) {
-        // user_directory (staff id/name/role, no email) exists after 20261005010000; ponytail: drop the fallback after it is applied.
-        let { data: instData, error: dirErr } = await supabase.from("user_directory").select("id, name, role").in("id", userIds);
-        if (dirErr) ({ data: instData } = await supabase.from("users").select("id, name, role").in("id", userIds));
+        // user_directory = staff id/name/role without email (students can't read `users` for staff)
+        const { data: instData } = await supabase.from("user_directory").select("id, name, role").in("id", userIds);
         setInstructors(instData || []);
       } else {
         setInstructors([]);

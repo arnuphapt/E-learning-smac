@@ -973,15 +973,6 @@ function DocsManage({ lesson, onSave, toast }) {
     if (!confirmed) return;
 
     try {
-      if (docToDelete.path) {
-        const { error } = await supabase.storage
-          .from("lesson-documents")
-          .remove([docToDelete.path]);
-        if (error) {
-          console.warn("Storage deletion error (continuing database update):", error.message);
-        }
-      }
-
       const updatedDocs = docs.filter((d) => d.path !== docToDelete.path || d.name !== docToDelete.name);
       setDocs(updatedDocs);
       await onSave({ documents: updatedDocs });
@@ -1004,15 +995,6 @@ function DocsManage({ lesson, onSave, toast }) {
     if (!confirmed) return;
 
     try {
-      if (docToDelete.path) {
-        const { error } = await supabase.storage
-          .from("lesson-documents")
-          .remove([docToDelete.path]);
-        if (error) {
-          console.warn("Storage deletion error (continuing database update):", error.message);
-        }
-      }
-
       const updatedAiDocs = aiDocs.filter((d) => d.path !== docToDelete.path || d.name !== docToDelete.name);
       setAiDocs(updatedAiDocs);
       await onSave({ ai_documents: updatedAiDocs });
