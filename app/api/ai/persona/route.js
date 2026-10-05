@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getToken } from "next-auth/jwt";
+import { supabaseAuthHeaders } from "@/lib/supabase-token";
+import { isStaffRole } from "@/lib/roles";
 
 async function getSupabaseServerClient(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  const headers = {};
+  const headers = supabaseAuthHeaders(token);
   if (token) {
+    // ponytail: x-user-* only until the rls_jwt_claims DDL is applied; remove after.
     headers['x-user-id'] = token.dbId || token.sub;
     headers['x-user-role'] = token.role || 'student';
   }
@@ -54,6 +57,8 @@ function extractGreeting(content) {
 
 export async function GET(req) {
   try {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const supabaseClient = await getSupabaseServerClient(req);
     const { data, error } = await supabaseClient
       .from("ai_settings")
@@ -96,7 +101,8 @@ export async function GET(req) {
     }
 
     const greetingTemplate = extractGreeting(content);
-    return NextResponse.json({ content, greetingTemplate });
+    // students only need the greeting; the full system prompt is for staff
+    return NextResponse.json({ content: isStaffRole(token.role) ? content : "", greetingTemplate });
   } catch (error) {
     console.error("Failed to read AI persona:", error);
     return NextResponse.json({ error: "Failed to read AI persona" }, { status: 500 });
@@ -106,7 +112,7 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    if (!token || !["instructor", "admin", "course_manager"].includes(token.role)) {
+    if (!token || !isStaffRole(token.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

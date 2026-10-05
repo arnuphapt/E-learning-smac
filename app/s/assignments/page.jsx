@@ -61,7 +61,8 @@ export default function StudentAssignments() {
     .filter((asg) => {
       const lesson = lessons.find((l) => l.id === asg.lesson_id);
       const isStaff = role === "instructor" || role === "admin";
-      if (lesson?.status === "draft" && !isStaff) return false;
+      // draft lessons are invisible to students (RLS), so a missing lesson is hidden too
+      if ((!lesson || lesson.status === "draft") && !isStaff) return false;
       return true;
     })
     .map((asg) => {

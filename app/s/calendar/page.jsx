@@ -78,7 +78,7 @@ export default function Calendar() {
   const assignmentsList = allAssignments.filter((asg) => {
     const lesson = lessons.find((l) => l.id === asg.lesson_id);
     const isStaff = role === "instructor" || role === "admin";
-    if (lesson?.status === "draft" && !isStaff) return false;
+    if ((!lesson || lesson.status === "draft") && !isStaff) return false;
     return true;
   });
 

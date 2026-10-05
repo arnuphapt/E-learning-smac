@@ -2,13 +2,15 @@
 
 import { SessionProvider as NextAuthSessionProvider, useSession } from "next-auth/react";
 import { useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, syncSupabaseUser } from "@/lib/supabase";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 
 function SupabaseSync() {
   const { data: session } = useSession();
 
   useEffect(() => {
+    syncSupabaseUser(session?.user?.id || session?.dbId || null);
+    // ponytail: the x-user-* header/sessionStorage syncing below is transitional; remove after the rls_jwt_claims DDL is applied (keep syncSupabaseUser).
     if (session?.user?.id || session?.dbId) {
       const userId = session.user.id || session.dbId;
       const userRole = session.user.role || session.role || "student";

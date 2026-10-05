@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
+import { loadStudentQuestions } from "@/lib/questions";
 import Icon from "@/components/ui/Icon";
 import { Ring } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
@@ -34,7 +35,7 @@ export default function TestResult() {
 
       const [lRes, qRes] = await Promise.all([
         supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("id", lessonId).single(),
-        supabase.from("questions").select("*").eq("lesson_id", lessonId).eq("kind", kind).order("no", { ascending: true })
+        loadStudentQuestions(supabase, lessonId, kind)
       ]);
 
       const isStaff = role === "instructor" || role === "admin";
@@ -46,7 +47,15 @@ export default function TestResult() {
       }
 
       if (lRes.data) setLesson(lRes.data);
-      if (qRes.data) setQuestions(qRes.data);
+      if (qRes.data) {
+        // answer key comes from the server, only for this student's completed attempt (and if the lesson shows answers)
+        let key = null;
+        try {
+          const r = await fetch(`/api/tests/result?lessonId=${encodeURIComponent(lessonId)}&kind=${kind}`, { cache: "no-store" });
+          if (r.ok) key = (await r.json()).answers;
+        } catch {}
+        setQuestions(key ? qRes.data.map((q) => ({ ...q, answer: key[q.id] })) : qRes.data);
+      }
 
       if (studentId && lessonId) {
         const { data: tsRes } = await supabase

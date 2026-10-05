@@ -5,8 +5,7 @@
 //   node scripts/migrate-r2-urls-to-keys.mjs            # dry run
 //   node scripts/migrate-r2-urls-to-keys.mjs --apply    # writes
 //
-// Needs .env.local with NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY.
-// If RLS blocks anon writes, set SUPABASE_SERVICE_ROLE_KEY for the run (server-only, never commit it).
+// Needs .env.local with NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (server-only, never commit it).
 // Idempotent: values that are already keys (or not R2 URLs) are left alone.
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
@@ -16,15 +15,12 @@ dotenv.config({ path: '.env.local' });
 
 const apply = process.argv.includes('--apply');
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const dbKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const dbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !dbKey) {
-  console.error('Missing Supabase URL or key');
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
   process.exit(1);
 }
-// Same header scheme the app uses for RLS (ignored when the service-role key is used).
-const supabase = createClient(url, dbKey, {
-  global: { headers: { 'x-user-id': 'migration', 'x-user-role': 'admin' } },
-});
+const supabase = createClient(url, dbKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const isUrl = (v) => typeof v === 'string' && (/^https?:\/\//.test(v) || v.startsWith('/mock-uploads/'));
 const skipped = []; // URLs we could not map to an R2 key (e.g. Supabase storage) - reported, untouched

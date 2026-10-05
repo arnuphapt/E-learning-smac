@@ -1,7 +1,11 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { supabase } from "@/lib/supabase";
+import { cookies } from "next/headers";
+import { getToken } from "next-auth/jwt";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { switchKind } from "@/lib/impersonation";
+import { PERMISSIONS } from "@/lib/rbac";
 
 export const authOptions = {
   providers: [
@@ -15,54 +19,64 @@ export const authOptions = {
       credentials: {
         userId: { label: "User ID", type: "text" },
       },
+      // Impersonation only: the caller must ALREADY hold a valid session (see lib/impersonation.js).
+      // Never a login by itself - without a session cookie this returns null.
       async authorize(credentials) {
-        if (!credentials?.userId) return null;
+        const targetId = credentials?.userId;
+        const token = await getToken({
+          req: {
+            cookies: Object.fromEntries((await cookies()).getAll().map((c) => [c.name, c.value])),
+            headers: {},
+          },
+          secret: process.env.NEXTAUTH_SECRET,
+        });
+        const kind = switchKind(token, targetId);
+        if (!kind) return null;
 
-        const { data: dbUser } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", credentials.userId)
-          .single();
-
-        if (dbUser) {
+        const db = supabaseAdmin();
+        // Roles/permissions of an id, always from the DB (never from the token).
+        const loadUser = async (id) => {
+          const { data: dbUser } = await db.from("users").select("*").eq("id", id).single();
+          if (!dbUser) return null;
           let permissions = [];
           if (dbUser.role) {
-            const roleIds = dbUser.role.split(",").map(r => r.trim());
-            const { data: rolesData } = await supabase
-              .from("roles")
-              .select("permissions")
-              .in("id", roleIds);
-            if (rolesData) {
-              const allPerms = new Set();
-              rolesData.forEach(r => {
-                if (r.permissions) {
-                  r.permissions.forEach(p => allPerms.add(p));
-                }
-              });
-              permissions = Array.from(allPerms);
-            }
+            const roleIds = dbUser.role.split(",").map((r) => r.trim());
+            const { data: rolesData } = await db.from("roles").select("permissions").in("id", roleIds);
+            const allPerms = new Set();
+            (rolesData || []).forEach((r) => (r.permissions || []).forEach((p) => allPerms.add(p)));
+            permissions = Array.from(allPerms);
           }
+          return { dbUser, permissions };
+        };
 
-          // Fetch multiple subject groups managed by this user
-          const { data: sgmList } = await supabase
-            .from("subject_group_managers")
-            .select("group_id")
-            .eq("user_id", dbUser.id);
-          const groupIds = sgmList ? sgmList.map(item => item.group_id) : [];
-
-          return {
-            id: dbUser.id,
-            name: dbUser.name,
-            email: dbUser.email || `${dbUser.id}@smnc.ac.th`,
-            role: dbUser.role,
-            dbId: dbUser.id,
-            study_year: dbUser.study_year,
-            group_id: groupIds[0] || dbUser.group_id || null,
-            group_ids: groupIds,
-            permissions: permissions,
-          };
+        if (kind === "impersonate") {
+          const caller = await loadUser(token.dbId);
+          if (!caller || !caller.permissions.includes(PERMISSIONS.USERS_IMPERSONATE)) return null;
         }
-        return null;
+
+        const target = await loadUser(targetId);
+        if (!target) return null;
+        const { dbUser, permissions } = target;
+
+        const { data: sgmList } = await db
+          .from("subject_group_managers")
+          .select("group_id")
+          .eq("user_id", dbUser.id);
+        const groupIds = sgmList ? sgmList.map((item) => item.group_id) : [];
+
+        return {
+          id: dbUser.id,
+          name: dbUser.name,
+          email: dbUser.email || `${dbUser.id}@smnc.ac.th`,
+          role: dbUser.role,
+          dbId: dbUser.id,
+          study_year: dbUser.study_year,
+          group_id: groupIds[0] || dbUser.group_id || null,
+          group_ids: groupIds,
+          permissions: permissions,
+          // set only when an admin starts impersonating; lets them (and only them) switch back
+          originalAdminId: kind === "impersonate" ? token.dbId : null,
+        };
       },
     }),
   ],
@@ -73,6 +87,7 @@ export const authOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account.provider === "google") {
+        const supabase = supabaseAdmin();
         const email = user.email;
         const domain = email.split("@")[1];
 
@@ -146,7 +161,7 @@ export const authOptions = {
         }
 
         const newId = "u_" + Date.now();
-        await supabase.from("users").insert({
+        const { error: insertError } = await supabase.from("users").insert({
           id: newId,
           name: user.name,
           email: email,
@@ -154,6 +169,10 @@ export const authOptions = {
           student_no: studentNo,
           study_year: studyYear,
         });
+        if (insertError) {
+          console.error("Auto-registration failed:", insertError.message);
+          return "/login?error=AccessDenied";
+        }
 
         let permissions = [];
         const { data: roleData } = await supabase
@@ -181,6 +200,7 @@ export const authOptions = {
         token.group_id = user.group_id || null;
         token.group_ids = user.group_ids || [];
         token.permissions = user.permissions || [];
+        token.originalAdminId = user.originalAdminId || null;
       }
       return token;
     },

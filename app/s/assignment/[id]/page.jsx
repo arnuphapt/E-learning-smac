@@ -104,7 +104,7 @@ export default function AssignmentDetail() {
       const { data: lData } = await supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("id", aData.lesson_id).single();
       
       const isStaff = role === "instructor" || role === "admin";
-      if (lData && lData.status === "draft" && !isStaff) {
+      if ((!lData || lData.status === "draft") && !isStaff) {
         setA(null);
         setLoading(false);
         return;
@@ -121,7 +121,9 @@ export default function AssignmentDetail() {
       const { data: ciData } = await supabase.from("course_instructors").select("user_id").eq("course_id", aData.course_id);
       const userIds = ciData ? ciData.map(ci => ci.user_id) : [];
       if (userIds.length > 0) {
-        const { data: instData } = await supabase.from("users").select("id, name, email, role").in("id", userIds);
+        // user_directory (staff id/name/role, no email) exists after 20261005010000; ponytail: drop the fallback after it is applied.
+        let { data: instData, error: dirErr } = await supabase.from("user_directory").select("id, name, role").in("id", userIds);
+        if (dirErr) ({ data: instData } = await supabase.from("users").select("id, name, role").in("id", userIds));
         setInstructors(instData || []);
       } else {
         setInstructors([]);
@@ -196,6 +198,12 @@ export default function AssignmentDetail() {
     }
   };
 
+  // The DB trigger rejects any student write to a graded submission; show a friendly message for that case only.
+  const writeError = (prefix, error) =>
+    error.message?.includes("graded submission")
+      ? "ใบงานนี้ตรวจให้คะแนนแล้ว ไม่สามารถส่งหรือแก้ไขได้อีก"
+      : prefix + error.message;
+
   const submit = async () => { 
     if (!studentId) {
       toast("กรุณาเข้าสู่ระบบก่อนส่งงาน", "warning");
@@ -218,7 +226,7 @@ export default function AssignmentDetail() {
 
     const { error } = await supabase.from("submissions").upsert([subObj]);
     if (error) {
-      toast("เกิดข้อผิดพลาดในการส่ง: " + error.message, "error");
+      toast(writeError("เกิดข้อผิดพลาดในการส่ง: ", error), "error");
     } else {
       setStatus("submitted");
       setSubmission(subObj);
@@ -248,7 +256,7 @@ export default function AssignmentDetail() {
 
     const { error } = await supabase.from("submissions").upsert([subObj]);
     if (error) {
-      toast("เกิดข้อผิดพลาดในการบันทึก: " + error.message, "error");
+      toast(writeError("เกิดข้อผิดพลาดในการบันทึก: ", error), "error");
     } else {
       setStatus("not-submitted");
       setSubmission(subObj);
@@ -260,7 +268,7 @@ export default function AssignmentDetail() {
     if (!studentId) return;
     const { error } = await supabase.from("submissions").delete().eq("student_id", studentId).eq("assignment_id", asgId);
     if (error) {
-      toast("เกิดข้อผิดพลาดในการยกเลิก: " + error.message, "error");
+      toast(writeError("เกิดข้อผิดพลาดในการยกเลิก: ", error), "error");
     } else {
       setStatus("not-submitted");
       setSubmission(null);

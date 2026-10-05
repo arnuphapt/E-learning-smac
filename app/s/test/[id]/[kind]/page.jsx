@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
+import { loadStudentQuestions } from "@/lib/questions";
 import Icon from "@/components/ui/Icon";
 import { Dialog } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
@@ -33,7 +34,7 @@ export default function TestTaking() {
       
       const queries = [
         supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("id", lessonId).single(),
-        supabase.from("questions").select("*").eq("lesson_id", lessonId).eq("kind", kind).order("no", { ascending: true })
+        loadStudentQuestions(supabase, lessonId, kind)
       ];
       if (studentId) {
         queries.push(supabase.from("test_scores").select("*").eq("student_id", studentId).eq("lesson_id", lessonId).maybeSingle());
@@ -209,49 +210,18 @@ export default function TestTaking() {
 
     const activeAnswers = isAuto ? answersRef.current : answers;
 
-    let correctCount = 0;
-    qs.forEach((q) => {
-      if (activeAnswers[q.id] === q.answer) {
-        correctCount++;
-      }
-    });
-
     try {
-      const { data: existing } = await supabase
-        .from("test_scores")
-        .select("*")
-        .eq("student_id", studentId)
-        .eq("lesson_id", lesson.id)
-        .maybeSingle();
-
-      const scoreObj = {
-        student_id: studentId,
-        lesson_id: lesson.id,
-        total: qs.length,
-      };
-
-      if (kind === "pre") {
-        scoreObj.pre = correctCount;
-        scoreObj.pre_answers = activeAnswers;
-        if (existing) {
-          scoreObj.post = existing.post;
-          scoreObj.post_answers = existing.post_answers;
-        }
-      } else {
-        scoreObj.post = correctCount;
-        scoreObj.post_answers = activeAnswers;
-        if (existing) {
-          scoreObj.pre = existing.pre;
-          scoreObj.pre_answers = existing.pre_answers;
-        }
+      // graded server-side: the answer key never reaches the browser
+      const res = await fetch("/api/tests/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId: lesson.id, kind, answers: activeAnswers }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "HTTP " + res.status);
       }
 
-      const { error } = await supabase
-        .from("test_scores")
-        .upsert(scoreObj, { onConflict: "student_id,lesson_id" });
-
-      if (error) throw error;
-      
       // Clear saved timer upon successful completion
       if (typeof window !== "undefined") {
         sessionStorage.removeItem(`test_timer_${lessonId}_${kind}`);

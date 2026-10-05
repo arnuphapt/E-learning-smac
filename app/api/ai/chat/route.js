@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getToken } from "next-auth/jwt";
+import { supabaseAuthHeaders } from "@/lib/supabase-token";
 import { toKey, readObject, canView } from "@/lib/r2";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -44,11 +45,13 @@ function getMimeType(fileName) {
 export async function POST(req) {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const body = await req.json();
-    const { messages, lessonContext, mode, studentId, attachments, sessionId } = body;
+    const { messages, lessonContext, mode, attachments, sessionId } = body;
 
-    const currentUserId = token?.dbId || token?.sub || studentId;
-    const role = token?.role || "student";
+    // identity comes only from the verified session, never from the request body
+    const currentUserId = token.dbId || token.sub;
+    const role = token.role || "student";
     const isBypassed = ["instructor", "admin", "course_manager"].includes(role);
 
     // Create request-scoped Supabase client
@@ -58,7 +61,9 @@ export async function POST(req) {
       {
         global: {
           headers: {
-            "x-user-id": currentUserId || "",
+            ...supabaseAuthHeaders(token),
+            // ponytail: x-user-* only until the rls_jwt_claims DDL is applied; remove after.
+            "x-user-id": currentUserId,
             "x-user-role": role,
           },
         },
@@ -148,10 +153,12 @@ export async function POST(req) {
     if (lessonContext?.id) {
       const { data: dbLesson } = await supabaseServer
         .from("lessons")
-        .select("ai_documents")
+        .select("ai_documents, allow_ai, status")
         .eq("id", lessonContext.id)
         .single();
-      if (dbLesson && Array.isArray(dbLesson.ai_documents)) {
+      // AI-only docs are attached only for lessons with AI enabled and published ("active"); staff may preview drafts.
+      const aiAllowed = dbLesson && dbLesson.allow_ai !== false && (dbLesson.status === "active" || isBypassed);
+      if (aiAllowed && Array.isArray(dbLesson.ai_documents)) {
         aiDocs = dbLesson.ai_documents;
       }
     }
