@@ -628,7 +628,7 @@ export default function StudentSeparateAiPage() {
   if (loading) return <Loading className="container p-5 text-center muted" />;
 
   return (
-    <div className="container-wide" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 100px)" }}>
+    <div className="container-wide ai-page" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 100px)" }}>
       {/* Header Panel with Dropdowns */}
       <div className="card mb-4" style={{ padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "between", gap: 16, wrap: "wrap" }}>
         <div className="flex items-center gap-3 wrap flex-1">
@@ -670,7 +670,6 @@ export default function StudentSeparateAiPage() {
 
         {/* Left Side: AI Profile Card & Lesson Details */}
         <div style={{
-          width: 320,
           background: "var(--card)",
           border: "1px solid var(--border)",
           borderRadius: 20,
@@ -683,7 +682,7 @@ export default function StudentSeparateAiPage() {
           position: "relative",
           overflow: "hidden",
           gap: 16
-        }} className="hide-m">
+        }} className="hide-m ai-side">
           {/* Subtle Gradient Accent Bar at Top */}
           <div style={{
             position: "absolute",
@@ -999,8 +998,7 @@ export default function StudentSeparateAiPage() {
                       <AiAvatar size={32} />
                     )}
 
-                    <div style={{
-                      maxWidth: "75%",
+                    <div className="ai-bubble" style={{
                       padding: "12px 18px",
                       borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
                       background: msg.role === "user"
@@ -1354,6 +1352,14 @@ export default function StudentSeparateAiPage() {
         }
         @media (min-width: 901px) {
           .hide-d { display: none !important; }
+        }
+        .ai-side { width: 320px; }
+        .ai-bubble { max-width: 75%; }
+        /* notebook screens: give the chat column more room */
+        @media (min-width: 901px) and (max-width: 1440px) {
+          .ai-page.container-wide { padding-left: 20px; padding-right: 20px; }
+          .ai-side { width: 260px; }
+          .ai-bubble { max-width: 88%; }
         }
       `}</style>
     </div>
