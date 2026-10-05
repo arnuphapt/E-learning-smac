@@ -156,27 +156,6 @@ $fn$;
 REVOKE ALL ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) TO service_role;
 
--- 4. ordered answer save: insert, or overwrite ONLY when p_seq is newer than the stored seq (PostgREST cannot express
--- ON CONFLICT ... WHERE, hence a function). One atomic statement: two racing saves of the same question serialize on the
--- row and the higher seq always wins. Returns true when the answer was stored, false when a newer (or equal) one is there.
--- SECURITY INVOKER (default) and service_role only: the API passes the session identity, nothing here trusts a client.
-CREATE FUNCTION public.tutor_answer_save(p_attempt uuid, p_question text, p_chosen text, p_seq bigint, p_answered_at timestamptz)
-RETURNS boolean
-LANGUAGE sql
-AS $fn$
-  WITH up AS (
-    INSERT INTO public.tutor_answers AS t (attempt_id, question_id, chosen, answered_at, seq)
-    VALUES (p_attempt, p_question, p_chosen, p_answered_at, p_seq)
-    ON CONFLICT (attempt_id, question_id) DO UPDATE
-      SET chosen = EXCLUDED.chosen, answered_at = EXCLUDED.answered_at, seq = EXCLUDED.seq
-      WHERE t.seq < EXCLUDED.seq
-    RETURNING 1
-  )
-  SELECT EXISTS (SELECT 1 FROM up)
-$fn$;
-REVOKE ALL ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) TO service_role;
-
 -- ---------------------------------------------------------------------------
 -- 3. Migration statements of 20261006030000_tutor_result.sql (under proof)
 -- ---------------------------------------------------------------------------
