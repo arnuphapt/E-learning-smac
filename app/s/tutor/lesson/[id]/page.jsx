@@ -61,7 +61,10 @@ export default function StudentTutorLesson() {
           <div className="t-base fw-7">ทำข้อสอบบทนี้</div>
           <div className="t-sm muted">สุ่มชุดข้อใหม่ทุกรอบ ทำซ้ำได้ไม่จำกัด</div>
         </div>
-        <button className="btn btn-primary" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/exam")}><Icon name="play" size={16} />ทำข้อสอบ</button>
+        <div className="flex gap-2 wrap">
+          <button className="btn btn-outline" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/result")}>ดูผลของฉัน</button>
+          <button className="btn btn-primary" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/exam")}><Icon name="play" size={16} />ทำข้อสอบ</button>
+        </div>
       </div>
       <div className="card card-p">
         <div className="t-base fw-7 mb-2">รายละเอียดบทเรียน</div>

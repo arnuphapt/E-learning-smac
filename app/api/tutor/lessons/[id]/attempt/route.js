@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { tutorCaller, loadTutorCourse, tutorNotFound, settleAttempt } from "@/lib/tutor-server";
+import { tutorLessonGate as gate, settleAttempt } from "@/lib/tutor-server";
 import { drawQuestions, roundSize } from "@/lib/tutor-draw";
 import { deadlineFor, isPastDeadline, minutesFor } from "@/lib/tutor-attempt";
 
@@ -16,25 +16,6 @@ const NO_STORE = { "Cache-Control": "no-store" };
 const json = (body, status = 200) => NextResponse.json(body, { status, headers: NO_STORE });
 const RECENT_ROUNDS = 3; // "recently seen" = questions of the student's last 3 rounds on this lesson
 const ATTEMPT_COLUMNS = "id, lesson_id, question_ids, total, started_at, deadline_at, status";
-
-// -> { error: Response } | { db, studentId, lesson }
-async function gate(req, params) {
-  const caller = await tutorCaller(req);
-  if (caller.error) return { error: caller.error };
-  const { id } = await params;
-  const { db, studentId } = caller;
-  const { data: lesson, error } = await db
-    .from("lessons")
-    .select("id, course_id, status, tutor_draw_count")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw error;
-  // students: active lessons only (same as lessons_select); staff may preview drafts
-  if (!lesson || (lesson.status !== "active" && !caller.staff)) return { error: tutorNotFound() };
-  const course = await loadTutorCourse(db, lesson.course_id);
-  if (!course || !(await caller.canOpen(course))) return { error: tutorNotFound() };
-  return { db, studentId, lesson };
-}
 
 async function loadOpenAttempt(db, studentId, lessonId) {
   const { data, error } = await db

@@ -16,11 +16,14 @@ import { firstUnansweredIndex } from "@/lib/tutor-attempt";
 //   POST -> start or resume; the payload holds ONLY this student's locked questions (no answers / explanations)
 // One clock for the whole round, counted down from the server's deadline_at (server time offset, no sessionStorage).
 // Closing the page and coming back resumes the same round: the questions, their order and the deadline are all server-side.
-// Answers: every click is saved on the server at once (/api/tutor/attempts/<attemptId>/answer; optimistic, rolled back with an
-// error if the save fails). Submit and time-up both call /submit; the server scores and returns only score + total.
+// Answers: every click is saved on the server at once (/api/tutor/attempts/<attemptId>/answer; optimistic, a failed save rolls
+// back to the last value the SERVER confirmed, with an error). A save gives up after SAVE_TIMEOUT_MS so submit (which waits for
+// the save chain) can never hang on a stuck request. Submit and time-up both call /submit; the server scores and returns only
+// score + total; the full result (analysis + review) is on ./result.
 
 const attemptUrl = (id) => "/api/tutor/lessons/" + encodeURIComponent(id) + "/attempt";
 const attemptActionUrl = (attemptId, action) => "/api/tutor/attempts/" + encodeURIComponent(attemptId) + "/" + action;
+const SAVE_TIMEOUT_MS = 10000;
 const post = (id, body) =>
   fetch(attemptUrl(id), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -56,6 +59,7 @@ export default function StudentTutorExam() {
   const [submitting, setSubmitting] = useState(false);
   const saveChain = useRef(Promise.resolve()); // answer saves run one after another so the last click is the one stored
   const submitLock = useRef(false);
+  const confirmed = useRef({}); // question id -> the choice the server has confirmed saving (the rollback target)
   const confirm = useConfirm();
 
   useEffect(() => {
@@ -76,7 +80,9 @@ export default function StudentTutorExam() {
           const rr = await post(id, { resume: true });
           if (cancelled) return;
           if (rr.ok) {
-            setExam(toExam(await rr.json()));
+            const d = await rr.json();
+            confirmed.current = { ...d.answers };
+            setExam(toExam(d));
             setNowMs(Date.now());
             return;
           }
@@ -139,36 +145,43 @@ export default function StudentTutorExam() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeUp]);
 
-  async function saveAnswer(qid, cid, prev) {
+  async function saveAnswer(qid, cid) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), SAVE_TIMEOUT_MS);
     try {
       const r = await fetch(attemptActionUrl(exam.attempt.id, "answer"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ questionId: qid, chosen: cid }),
+        signal: ctl.signal,
       });
       if (r.status === 409) {
         const d = await r.json().catch(() => ({}));
         if (d.state === "ended") { setResult(d); return; } // the deadline passed under us: the server already ended + scored it
       }
       if (!r.ok) throw new Error("save failed");
+      confirmed.current[qid] = cid;
     } catch {
-      // roll back, unless a newer click on the same question has already replaced this one
+      // roll back to what the server last confirmed (not the previous click, which may itself have failed), unless a
+      // newer click on the same question has already replaced this one
       setExam((e) => {
         if (e.answers[qid] !== cid) return e;
         const answers = { ...e.answers };
-        if (prev == null) delete answers[qid]; else answers[qid] = prev;
+        const ok = confirmed.current[qid];
+        if (ok == null) delete answers[qid]; else answers[qid] = ok;
         return { ...e, answers };
       });
       setSaveError("บันทึกคำตอบไม่สำเร็จ กรุณาเลือกใหม่อีกครั้ง");
+    } finally {
+      clearTimeout(timer);
     }
   }
 
   function choose(qid, cid) {
     if (timeUp || result || exam.answers[qid] === cid) return;
-    const prev = exam.answers[qid];
     setSaveError("");
     setExam((e) => ({ ...e, answers: { ...e.answers, [qid]: cid } }));
-    saveChain.current = saveChain.current.then(() => saveAnswer(qid, cid, prev));
+    saveChain.current = saveChain.current.then(() => saveAnswer(qid, cid));
   }
 
   async function start() {
@@ -181,6 +194,7 @@ export default function StudentTutorExam() {
         else toast("เริ่มทำข้อสอบไม่สำเร็จ กรุณาลองใหม่", "error");
         return;
       }
+      confirmed.current = { ...d.answers };
       setExam(toExam(d));
       setNowMs(Date.now());
     } catch {
@@ -261,8 +275,9 @@ export default function StudentTutorExam() {
     );
   }
 
-  // ---- result: score + total only (the full review is a later ticket) ----
+  // ---- submitted: score + total here, the full result (analysis, review) is on the result page ----
   if (result) {
+    const attempt = exam.attempt;
     return (
       <div className="container">
         <Crumb nav={nav} items={crumb} />
@@ -271,7 +286,10 @@ export default function StudentTutorExam() {
           <div className="t-xs muted mb-3">{set.code} · บทที่ {lesson.index} · {lesson.title}</div>
           <div className="serif fw-7" style={{ fontSize: 56, lineHeight: 1.1 }} aria-label="คะแนนรวม">{result.score}<span className="muted" style={{ fontSize: 28 }}> / {result.total}</span></div>
           <div className="t-sm muted mt-2 mb-4">คะแนนรวม (ข้อที่ไม่ได้ตอบนับเป็นผิด)</div>
-          <button className="btn btn-outline" onClick={() => nav("/s/tutor/lesson/" + lesson.id)}>กลับไปหน้าบทเรียน</button>
+          <div className="flex gap-2 justify-center wrap">
+            <button className="btn btn-primary" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/result?attempt=" + encodeURIComponent(attempt.id))}><Icon name="check" size={16} />ดูผลวิเคราะห์</button>
+            <button className="btn btn-outline" onClick={() => nav("/s/tutor/lesson/" + lesson.id)}>กลับไปหน้าบทเรียน</button>
+          </div>
         </div>
       </div>
     );
