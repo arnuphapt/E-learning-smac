@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { tutorCaller, loadTutorCourse, tutorNotFound } from "@/lib/tutor-server";
+import { tutorCaller, loadTutorCourse, tutorNotFound, settleAttempt } from "@/lib/tutor-server";
 import { drawQuestions, roundSize } from "@/lib/tutor-draw";
 import { deadlineFor, isPastDeadline, minutesFor } from "@/lib/tutor-attempt";
 
@@ -9,7 +9,8 @@ import { deadlineFor, isPastDeadline, minutesFor } from "@/lib/tutor-attempt";
 //   POST /api/tutor/lessons/<lessonId>/attempt  -> start a round, or resume the open one. Body { resume: true } = resume
 //        only (never draws). Returns the exam payload: ONLY the locked questions of the caller's round, in the locked
 //        order, without answer / explanation / topic, plus the student's saved answers.
-// A round past its deadline is never extended: it is flipped to status 'expired' (scoring/force-submit: ticket 04).
+// A round past its deadline is never extended: any access ends it as 'expired' and scores it (settleAttempt, shared with
+// the answer / submit routes under /api/tutor/attempts/<id>/).
 
 const NO_STORE = { "Cache-Control": "no-store" };
 const json = (body, status = 200) => NextResponse.json(body, { status, headers: NO_STORE });
@@ -65,16 +66,6 @@ async function loadRecentIds(db, studentId, lessonId) {
   return (data || []).flatMap((a) => a.question_ids);
 }
 
-// Past deadline: not extended. Ended as 'expired' with submitted_at = deadline_at; the score is ticket 04's.
-async function expireAttempt(db, attempt) {
-  const { error } = await db
-    .from("tutor_attempts")
-    .update({ status: "expired", submitted_at: attempt.deadline_at })
-    .eq("id", attempt.id)
-    .eq("status", "in_progress");
-  if (error) throw error;
-}
-
 async function examPayload(db, attempt, resumed) {
   const [{ data: rows, error: qErr }, { data: saved, error: aErr }] = await Promise.all([
     // explicit columns: never the answer key, the explanation or the topic
@@ -110,14 +101,15 @@ export async function GET(req, { params }) {
     const g = await gate(req, params);
     if (g.error) return g.error;
     const { db, studentId, lesson } = g;
-    const [bank, open] = await Promise.all([loadBank(db, lesson.id), loadOpenAttempt(db, studentId, lesson.id)]);
+    const [bank, found] = await Promise.all([loadBank(db, lesson.id), loadOpenAttempt(db, studentId, lesson.id)]);
     const count = roundSize(bank.length, lesson.tutor_draw_count);
     const now = Date.now();
+    const open = found && (await settleAttempt(db, found, now)); // any access past the deadline ends and scores the round
     return json({
       serverNow: new Date(now).toISOString(),
       count,
       minutes: minutesFor(count),
-      attempt: open && { id: open.id, count: open.total, deadlineAt: open.deadline_at, expired: isPastDeadline(open.deadline_at, now) },
+      attempt: open && { id: open.id, count: open.total, deadlineAt: open.deadline_at, expired: open.status !== "in_progress" },
     });
   } catch (e) {
     console.error("Tutor attempt preview failed:", e?.message || e);
@@ -137,7 +129,7 @@ export async function POST(req, { params }) {
     let attempt = await loadOpenAttempt(db, studentId, lesson.id);
     let resumed = !!attempt;
     if (attempt && isPastDeadline(attempt.deadline_at, nowMs)) {
-      await expireAttempt(db, attempt);
+      await settleAttempt(db, attempt, nowMs);
       attempt = null;
       resumed = false;
       if (resumeOnly) return json({ error: "Attempt expired", state: "expired" }, 409);
@@ -145,9 +137,9 @@ export async function POST(req, { params }) {
     if (!attempt && resumeOnly) return json({ error: "No attempt in progress", state: "none" }, 409);
 
     if (!attempt) {
-      const bank = await loadBank(db, lesson.id);
+      const [bank, recent] = await Promise.all([loadBank(db, lesson.id), loadRecentIds(db, studentId, lesson.id)]);
       if (bank.length === 0) return json({ error: "No questions", state: "empty" }, 409);
-      const ids = drawQuestions({ bank, count: lesson.tutor_draw_count, recent: await loadRecentIds(db, studentId, lesson.id) });
+      const ids = drawQuestions({ bank, count: lesson.tutor_draw_count, recent });
       const { data, error } = await db
         .from("tutor_attempts")
         .insert({
@@ -171,7 +163,10 @@ export async function POST(req, { params }) {
         attempt = data;
       }
     }
-    return json(await examPayload(db, attempt, resumed));
+    const payload = await examPayload(db, attempt, resumed);
+    // every locked question was deleted / retyped mid-round: nothing to show (the round stays open until its deadline)
+    if (payload.questions.length === 0) return json({ error: "No questions", state: "empty" }, 409);
+    return json(payload);
   } catch (e) {
     console.error("Tutor attempt start failed:", e?.message || e);
     return json({ error: "Failed to start tutor attempt" }, 500);

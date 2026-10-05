@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Primitives";
 import { Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useIsMobile } from "@/lib/hooks";
 import { firstUnansweredIndex } from "@/lib/tutor-attempt";
 
@@ -15,8 +16,11 @@ import { firstUnansweredIndex } from "@/lib/tutor-attempt";
 //   POST -> start or resume; the payload holds ONLY this student's locked questions (no answers / explanations)
 // One clock for the whole round, counted down from the server's deadline_at (server time offset, no sessionStorage).
 // Closing the page and coming back resumes the same round: the questions, their order and the deadline are all server-side.
+// Answers: every click is saved on the server at once (/api/tutor/attempts/<attemptId>/answer; optimistic, rolled back with an
+// error if the save fails). Submit and time-up both call /submit; the server scores and returns only score + total.
 
 const attemptUrl = (id) => "/api/tutor/lessons/" + encodeURIComponent(id) + "/attempt";
+const attemptActionUrl = (attemptId, action) => "/api/tutor/attempts/" + encodeURIComponent(attemptId) + "/" + action;
 const post = (id, body) =>
   fetch(attemptUrl(id), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -45,6 +49,14 @@ export default function StudentTutorExam() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [nowMs, setNowMs] = useState(0);
+  const [empty, setEmpty] = useState(false); // the locked questions no longer exist (deleted / retyped mid-round)
+  const [result, setResult] = useState(null); // { status, score, total } once the attempt has ended
+  const [saveError, setSaveError] = useState("");
+  const [submitError, setSubmitError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const saveChain = useRef(Promise.resolve()); // answer saves run one after another so the last click is the one stored
+  const submitLock = useRef(false);
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (!id) return;
@@ -68,6 +80,10 @@ export default function StudentTutorExam() {
             setNowMs(Date.now());
             return;
           }
+          if ((await rr.json().catch(() => ({}))).state === "empty") {
+            if (!cancelled) setEmpty(true);
+            return;
+          }
         }
         if (preview.attempt?.expired) setNotice("รอบก่อนหน้าหมดเวลาแล้ว ระบบนับเป็นการส่งคำตอบ คุณเริ่มรอบใหม่ได้");
         setPre(preview);
@@ -85,13 +101,84 @@ export default function StudentTutorExam() {
     return () => clearInterval(t);
   }, [running]);
 
+  // time-up is derived from the same server-offset clock as the countdown
+  const timeUp = !!exam && exam.deadlineMs - (nowMs + exam.offset) <= 0;
+
+  async function submit(manual) {
+    if (submitLock.current || result) return;
+    if (manual) {
+      const left = exam.questions.length - exam.questions.filter((x) => exam.answers[x.id] != null).length;
+      const ok = await confirm({
+        title: "ส่งคำตอบ",
+        message: (left > 0 ? "ยังมี " + left + " ข้อที่ไม่ได้ตอบ (นับเป็นผิด)\n" : "") + "เมื่อส่งแล้วจะแก้คำตอบไม่ได้อีก ต้องการส่งใช่หรือไม่",
+        confirmText: "ส่งคำตอบ",
+      });
+      if (!ok) return;
+    }
+    submitLock.current = true;
+    setSubmitting(true);
+    setSubmitError(false);
+    try {
+      await saveChain.current; // let the last click reach the server before it is scored
+      const r = await fetch(attemptActionUrl(exam.attempt.id, "submit"), { method: "POST" });
+      if (!r.ok) throw new Error("submit failed");
+      setResult(await r.json());
+    } catch {
+      setSubmitError(true);
+    } finally {
+      submitLock.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  // auto-submit once when the clock runs out (a failed try shows a retry button, no loop)
+  useEffect(() => {
+    if (!timeUp) return;
+    const t = setTimeout(() => submit(false), 0); // from a callback, not the effect body
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeUp]);
+
+  async function saveAnswer(qid, cid, prev) {
+    try {
+      const r = await fetch(attemptActionUrl(exam.attempt.id, "answer"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId: qid, chosen: cid }),
+      });
+      if (r.status === 409) {
+        const d = await r.json().catch(() => ({}));
+        if (d.state === "ended") { setResult(d); return; } // the deadline passed under us: the server already ended + scored it
+      }
+      if (!r.ok) throw new Error("save failed");
+    } catch {
+      // roll back, unless a newer click on the same question has already replaced this one
+      setExam((e) => {
+        if (e.answers[qid] !== cid) return e;
+        const answers = { ...e.answers };
+        if (prev == null) delete answers[qid]; else answers[qid] = prev;
+        return { ...e, answers };
+      });
+      setSaveError("บันทึกคำตอบไม่สำเร็จ กรุณาเลือกใหม่อีกครั้ง");
+    }
+  }
+
+  function choose(qid, cid) {
+    if (timeUp || result || exam.answers[qid] === cid) return;
+    const prev = exam.answers[qid];
+    setSaveError("");
+    setExam((e) => ({ ...e, answers: { ...e.answers, [qid]: cid } }));
+    saveChain.current = saveChain.current.then(() => saveAnswer(qid, cid, prev));
+  }
+
   async function start() {
     setBusy(true);
     try {
       const r = await post(id, {});
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
-        toast(d.state === "empty" ? "บทนี้ยังไม่มีข้อสอบ" : "เริ่มทำข้อสอบไม่สำเร็จ กรุณาลองใหม่", "error");
+        if (d.state === "empty") setEmpty(true);
+        else toast("เริ่มทำข้อสอบไม่สำเร็จ กรุณาลองใหม่", "error");
         return;
       }
       setExam(toExam(d));
@@ -110,6 +197,18 @@ export default function StudentTutorExam() {
           <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
           <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบข้อสอบ</div>
           <div className="t-sm muted">ไม่พบบทเรียนนี้ หรือชุดติวนี้ไม่เปิดให้ชั้นปี/กลุ่มเรียนของคุณ</div>
+          <button className="btn btn-outline btn-sm" onClick={() => nav("/s/tutor")}>กลับไปรายการชุดติว</button>
+        </div></div>
+      </div>
+    );
+  }
+  if (empty) {
+    return (
+      <div className="container p-5">
+        <div className="card"><div className="empty">
+          <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
+          <div className="fw-6 fg" style={{ fontSize: "16px" }}>ข้อสอบรอบนี้ใช้งานไม่ได้</div>
+          <div className="t-sm muted">ข้อสอบของบทนี้ถูกอาจารย์แก้ไขหรือลบ กรุณากลับมาทำใหม่ภายหลัง</div>
           <button className="btn btn-outline btn-sm" onClick={() => nav("/s/tutor")}>กลับไปรายการชุดติว</button>
         </div></div>
       </div>
@@ -162,18 +261,30 @@ export default function StudentTutorExam() {
     );
   }
 
+  // ---- result: score + total only (the full review is a later ticket) ----
+  if (result) {
+    return (
+      <div className="container">
+        <Crumb nav={nav} items={crumb} />
+        <div className="card card-p text-center" style={{ maxWidth: 560 }}>
+          <div className="t-sm muted mb-1">{result.status === "expired" ? "หมดเวลา ระบบส่งคำตอบให้แล้ว" : "ส่งคำตอบแล้ว"}</div>
+          <div className="t-xs muted mb-3">{set.code} · บทที่ {lesson.index} · {lesson.title}</div>
+          <div className="serif fw-7" style={{ fontSize: 56, lineHeight: 1.1 }} aria-label="คะแนนรวม">{result.score}<span className="muted" style={{ fontSize: 28 }}> / {result.total}</span></div>
+          <div className="t-sm muted mt-2 mb-4">คะแนนรวม (ข้อที่ไม่ได้ตอบนับเป็นผิด)</div>
+          <button className="btn btn-outline" onClick={() => nav("/s/tutor/lesson/" + lesson.id)}>กลับไปหน้าบทเรียน</button>
+        </div>
+      </div>
+    );
+  }
+
   // ---- exam ----
   const { questions, attempt } = exam;
   const { answers, cur } = exam;
   const remaining = Math.max(0, Math.ceil((exam.deadlineMs - (nowMs + exam.offset)) / 1000));
-  const timeUp = remaining <= 0;
   const q = questions[cur];
   const answered = questions.filter((x) => answers[x.id] != null).length;
   const patch = (p) => setExam((e) => ({ ...e, ...p }));
   const go = (i) => patch({ cur: i });
-  // Seam for ticket 04: persist the choice on the server here (POST the answer, the server rejects it after the
-  // deadline) and then update local state. Until then a choice lives only in this page's state.
-  const choose = (qid, cid) => { if (!timeUp) patch({ answers: { ...answers, [qid]: cid } }); };
 
   return (
     <div className="container">
@@ -185,12 +296,26 @@ export default function StudentTutorExam() {
         <div className={"flex items-center gap-2 badge " + (timeUp ? "badge-danger" : "badge-muted")} style={{ height: 30 }} aria-label="เวลาที่เหลือ">
           <Icon name="clock" size={14} />{formatTime(remaining)}
         </div>
-        {/* ticket 04: submit button + confirm dialog go here */}
+        <button className="btn btn-primary btn-sm" disabled={submitting || timeUp} onClick={() => submit(true)}>
+          <Icon name="check" size={14} />{submitting ? "กำลังส่ง..." : "ส่งคำตอบ"}
+        </button>
       </div>
+
+      {saveError && (
+        <div className="flex items-start gap-3 mb-3" role="alert" style={{ padding: 14, borderRadius: 10, background: "var(--danger-soft)", color: "var(--danger)" }}>
+          <Icon name="alert" size={18} /><div className="t-sm">{saveError}</div>
+        </div>
+      )}
+      {!timeUp && submitError && (
+        <div className="flex items-start gap-3 mb-3" role="alert" style={{ padding: 14, borderRadius: 10, background: "var(--danger-soft)", color: "var(--danger)" }}>
+          <Icon name="alert" size={18} /><div className="t-sm">ส่งคำตอบไม่สำเร็จ กรุณาลองใหม่</div>
+        </div>
+      )}
 
       {timeUp && (
         <div className="flex items-start gap-3 mb-3" style={{ padding: 14, borderRadius: 10, background: "var(--danger-soft)", color: "var(--danger)" }}>
-          <Icon name="alert" size={18} /><div className="t-sm">หมดเวลาแล้ว ไม่สามารถตอบหรือแก้คำตอบได้อีก</div>
+          <Icon name="alert" size={18} /><div className="t-sm flex-1">{submitError ? "หมดเวลาแล้ว แต่ส่งคำตอบไม่สำเร็จ กรุณาลองส่งอีกครั้ง" : "หมดเวลาแล้ว กำลังส่งคำตอบ..."}</div>
+          {submitError && <button className="btn btn-outline btn-sm" disabled={submitting} onClick={() => submit(false)}>ส่งอีกครั้ง</button>}
         </div>
       )}
 
@@ -233,7 +358,7 @@ export default function StudentTutorExam() {
         {/* navigator: the numbers are the locked order of this round */}
         <div className="card card-p" style={{ width: mobile ? "100%" : 230, flex: mobile ? "1" : "0 0 230px", position: mobile ? "static" : "sticky", top: 78 }}>
           <div className="t-sm fw-7 mb-1">รายการข้อสอบ</div>
-          <div className="t-xs muted mb-3">{attempt.count} ข้อ · {attempt.minutes} นาที</div>
+          <div className="t-xs muted mb-3">{questions.length} ข้อ · {attempt.minutes} นาที</div>
           <div className="grid" style={{ gridTemplateColumns: "repeat(5,1fr)", gap: 8 }}>
             {questions.map((qq, i) => {
               const done = answers[qq.id] != null; const here = i === cur;

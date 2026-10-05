@@ -105,6 +105,15 @@ test("lesson with no topics at all is a plain random draw", () => {
   assert.ok(ids.every((id) => bank.some((q) => q.id === id)));
 });
 
+test("topic balance beats cross-topic freshness: topic A fully seen still gets its share (deliberate, ticket 05 needs every topic covered)", () => {
+  const bank = topicBank([5, 5]);
+  const recent = bank.filter((q) => q.topic_id === "topic0").map((q) => q.id);
+  for (let seed = 1; seed <= 20; seed++) {
+    const counts = byTopic(bank, drawQuestions({ bank, count: 4, recent, rng: seeded(seed) }));
+    assert.deepEqual(counts, { topic0: 2, topic1: 2 });
+  }
+});
+
 test("questions without a topic form their own group next to real topics", () => {
   const bank = [...topicBank([5]), ...Array.from({ length: 5 }, (_, i) => ({ id: `n${i}`, topic_id: null }))];
   const ids = drawQuestions({ bank, count: 6, rng: seeded(4) });
