@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
@@ -71,7 +72,7 @@ function GradedView({ a, rubric, instructorName }) {
 export default function AssignmentDetail() {
   const router = useRouter();
   const params = useParams();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const nav = (path) => router.push(path);
 
   const asgId = params?.id;
@@ -96,6 +97,9 @@ export default function AssignmentDetail() {
   const [studentInfo, setStudentInfo] = useState(null);
 
   useEffect(() => {
+    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     async function load() {
       if (!asgId) return;
       const { data: aData } = await supabase.from("assignments").select("*").eq("id", asgId).single();
@@ -103,7 +107,7 @@ export default function AssignmentDetail() {
       
       const { data: lData } = await supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("id", aData.lesson_id).single();
       
-      const isStaff = role === "instructor" || role === "admin";
+      const isStaff = isStaffRole(role);
       if ((!lData || lData.status === "draft") && !isStaff) {
         setA(null);
         setLoading(false);
@@ -111,6 +115,7 @@ export default function AssignmentDetail() {
       }
       const { data: cData } = await supabase.from("courses").select("*").eq("id", aData.course_id).single();
       const { data: rData } = await supabase.from("rubrics").select("*").eq("id", aData.rubric_id).single();
+      if (cancelled) return;
       
       setA(aData);
       setLesson(lData);
@@ -119,6 +124,7 @@ export default function AssignmentDetail() {
 
       // Fetch instructors for the course
       const { data: ciData } = await supabase.from("course_instructors").select("user_id").eq("course_id", aData.course_id);
+      if (cancelled) return;
       const userIds = ciData ? ciData.map(ci => ci.user_id) : [];
       if (userIds.length > 0) {
         // user_directory (staff id/name/role, no email) exists after 20261005010000; ponytail: drop the fallback after it is applied.
@@ -135,6 +141,7 @@ export default function AssignmentDetail() {
           supabase.from("users").select("*").eq("id", studentId).maybeSingle()
         ]);
         
+        if (cancelled) return;
         if (stuRes.data) {
           setStudentInfo(stuRes.data);
         }
@@ -155,7 +162,8 @@ export default function AssignmentDetail() {
       setLoading(false);
     }
     load();
-  }, [asgId, studentId, role]);
+    return () => { cancelled = true; };
+  }, [asgId, studentId, role, authStatus]);
   
   const mobile = useIsMobile();
   const graded = status === "graded";

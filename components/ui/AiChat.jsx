@@ -6,6 +6,7 @@ import Icon from "@/components/ui/Icon";
 import AiAvatar from "./AiAvatar";
 import { supabase } from "@/lib/supabase";
 import { fileHref } from "@/lib/files";
+import { isStaffRole } from "@/lib/roles";
 import { Dialog } from "@/components/ui/Primitives";
 
 const parseEmotionAndReply = (text) => {
@@ -146,7 +147,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
   const attachmentRef = useRef(null);
 
   const studentId = session?.dbId || session?.user?.id;
-  const isBypassed = ["instructor", "admin", "course_manager"].includes(session?.role || session?.user?.role);
+  const isBypassed = isStaffRole(session?.role || session?.user?.role);
 
   const loadHistoryAndSession = async (currLessonId, currLessonTitle) => {
     if (!studentId || !currLessonId) return;

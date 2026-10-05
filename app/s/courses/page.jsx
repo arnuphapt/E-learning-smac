@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, Select } from "@/components/ui/Primitives";
@@ -68,7 +69,7 @@ function CourseListItem({ c, nav }) {
 
 export default function StudentCourses() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const studentId = session?.dbId;
   const role = session?.user?.role;
   const studentYear = session?.user?.study_year ? Number(session.user.study_year) : null;
@@ -82,6 +83,10 @@ export default function StudentCourses() {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
+    // Wait for the session: role/year decide the filter, and a run started while it is still loading applies the
+    // student filter and can finish after the real run (intermittent "only 1 course" for staff).
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     setView(localStorage.getItem(KEY) || "grid");
     
     async function loadData() {
@@ -94,6 +99,7 @@ export default function StudentCourses() {
         supabase.from("sections").select("*")
       ]);
       
+      if (cancelled) return;
       const cData = cRes.data;
       const yData = yRes.data;
       const lData = lRes.data;
@@ -102,7 +108,7 @@ export default function StudentCourses() {
       const sectionsList = secRes?.data || [];
       
       if (cData) {
-        const isStaff = role === "instructor" || role === "admin";
+        const isStaff = isStaffRole(role);
         const visibleLessons = lData ? lData.filter(l => l.status !== "draft") : [];
 
         const mappedCourses = cData.map(c => {
@@ -191,7 +197,8 @@ export default function StudentCourses() {
       setLoading(false);
     }
     loadData();
-  }, [studentId, role]);
+    return () => { cancelled = true; };
+  }, [studentId, role, authStatus]);
 
   const setV = (v) => { setView(v); try { localStorage.setItem(KEY, v); } catch (e) {} };
   const list = courses.filter((c) => year === "all" || c.year === year);

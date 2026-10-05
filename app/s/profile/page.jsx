@@ -10,7 +10,7 @@ import { Avatar } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
 
 export default function StudentProfile() {
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const router = useRouter();
 
   const [profile, setProfile] = useState(null);
@@ -24,9 +24,13 @@ export default function StudentProfile() {
   });
 
   useEffect(() => {
+    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     async function load() {
       if (session?.dbId) {
         const { data } = await supabase.from("users").select("*").eq("id", session.dbId).single();
+        if (cancelled) return;
         if (data) {
           setProfile(data);
           setForm({
@@ -38,7 +42,8 @@ export default function StudentProfile() {
       setLoading(false);
     }
     load();
-  }, [session]);
+    return () => { cancelled = true; };
+  }, [session, authStatus]);
 
   const saveProfile = async () => {
     if (!session?.dbId) return;

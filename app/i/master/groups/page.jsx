@@ -9,6 +9,7 @@ import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 import { toast } from "@/components/ui/Toast";
+import { hasRole } from "@/lib/roles";
 
 function mStatus(s) {
   const m = { active: ["success", "ใช้งาน"], archived: ["muted", "เก็บถาวร"], upcoming: ["info", "กำลังจะมาถึง"] };
@@ -183,7 +184,7 @@ function GroupDialog({ mode, row, instructors, groupManagers, onClose, onSave })
   const [status, setStatus] = React.useState(row ? row.status : "active");
 
   // Filter course managers and admins to show in the list
-  const courseManagersList = instructors.filter(u => u.role === "course_manager" || u.role === "instructor");
+  const courseManagersList = instructors.filter(u => hasRole(u.role, "course_manager", "instructor"));
   const initialSelected = row ? groupManagers.filter(u => u.group_id === row.id).map(u => u.user_id) : [];
   const [selectedManagers, setSelectedManagers] = React.useState(initialSelected);
 

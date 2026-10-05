@@ -9,6 +9,7 @@ import { PageHead, Crumb } from "@/components/ui/Shared";
 import { toast } from "@/components/ui/Toast";
 import { useSession } from "next-auth/react";
 import { hasPermission, PERMISSIONS } from "@/lib/rbac";
+import { hasRole } from "@/lib/roles";
 
 
 function ToggleRow({ label, on }) {
@@ -180,6 +181,8 @@ export default function CreateCourse() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const user = session?.user;
+  // admin wins over course_manager when a user holds both
+  const isCourseManagerOnly = hasRole(user?.role, "course_manager") && !hasRole(user?.role, "admin");
   const nav = (path) => router.push(path);
 
   React.useEffect(() => {
@@ -244,7 +247,7 @@ export default function CreateCourse() {
       setMasterYearLabels(uniqueYears);
       
       // If course manager, auto-set their department and only show/pre-select it
-      if (user?.role === "course_manager") {
+      if (isCourseManagerOnly) {
         const myDbGroups = fetchedGroupManagers.filter(sgm => sgm.user_id === user.id).map(sgm => sgm.group_id);
         const myGroupId = myDbGroups[0] || user?.group_id;
         if (myGroupId) {
@@ -267,7 +270,7 @@ export default function CreateCourse() {
     if (user) {
       load();
     }
-  }, [user]);
+  }, [user, isCourseManagerOnly]);
 
   // Pre-select current user as main manager
   React.useEffect(() => {
@@ -287,7 +290,7 @@ export default function CreateCourse() {
   // Group IDs managed by the current user computed directly from the fetched database managers
   const myManagedGroupIds = React.useMemo(() => {
     if (!user) return [];
-    if (user.role === "admin") return subjectGroups.map(g => g.id);
+    if (hasRole(user.role, "admin")) return subjectGroups.map(g => g.id);
     
     const dbGroupIds = groupManagers
       .filter(sgm => sgm.user_id === user.id)
@@ -299,7 +302,7 @@ export default function CreateCourse() {
     return dbGroupIds;
   }, [groupManagers, user, subjectGroups]);
 
-  const filteredGroups = user?.role === "admin"
+  const filteredGroups = hasRole(user?.role, "admin")
     ? subjectGroups
     : subjectGroups.filter(g => myManagedGroupIds.includes(g.id));
 
@@ -414,7 +417,7 @@ export default function CreateCourse() {
                     className="input" 
                     value={subjectGroup} 
                     onChange={(e) => setSubjectGroup(e.target.value)}
-                    disabled={user?.role === "course_manager" && filteredGroups.length <= 1}
+                    disabled={isCourseManagerOnly && filteredGroups.length <= 1}
                   >
                     {filteredGroups.length === 0 ? (
                       <option value="">— ยังไม่มีกลุ่มวิชา กรุณาเพิ่มในระบบหลักก่อน —</option>

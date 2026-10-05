@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getToken } from "next-auth/jwt";
 import { supabaseAuthHeaders } from "@/lib/supabase-token";
 import { toKey, readObject, canView } from "@/lib/r2";
+import { isStaffRole } from "@/lib/roles";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -52,7 +53,7 @@ export async function POST(req) {
     // identity comes only from the verified session, never from the request body
     const currentUserId = token.dbId || token.sub;
     const role = token.role || "student";
-    const isBypassed = ["instructor", "admin", "course_manager"].includes(role);
+    const isBypassed = isStaffRole(role);
 
     // Create request-scoped Supabase client
     const supabaseServer = createClient(

@@ -130,7 +130,7 @@ function LessonRow({ l, nav }) {
 export default function StudentCourse() {
   const router = useRouter();
   const params = useParams();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const nav = (path) => router.push(path);
 
   const courseId = params?.id;
@@ -142,6 +142,9 @@ export default function StudentCourse() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     async function load() {
       if (!courseId) return;
       
@@ -150,6 +153,7 @@ export default function StudentCourse() {
         supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("course_id", courseId).order("index", { ascending: true })
       ]);
       
+      if (cancelled) return;
       if (!cRes.data) {
         setLoading(false);
         return;
@@ -166,6 +170,7 @@ export default function StudentCourse() {
           supabase.from("assignments").select("*").eq("course_id", courseId)
         ]);
 
+        if (cancelled) return;
         const testScores = tsRes.data || [];
         const submissions = subRes.data || [];
         const assignments = assignRes.data || [];
@@ -222,7 +227,8 @@ export default function StudentCourse() {
       setLoading(false);
     }
     load();
-  }, [courseId, studentId, role]);
+    return () => { cancelled = true; };
+  }, [courseId, studentId, role, authStatus]);
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
   if (!course) {

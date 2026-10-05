@@ -7,7 +7,7 @@ import { PageHead } from "@/components/ui/Shared";
 import { Badge } from "@/components/ui/Primitives";
 
 export default function StudentBroadcastsPage() {
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const [broadcasts, setBroadcasts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +15,9 @@ export default function StudentBroadcastsPage() {
   const studentYear = session?.user?.study_year ? Number(session.user.study_year) : null;
 
   useEffect(() => {
-    if (!session) return;
+    // authenticated implies session; cancelled drops a superseded run (session object changes on every refetch).
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     setLoading(true);
 
     const now = new Date().toISOString();
@@ -32,6 +34,7 @@ export default function StudentBroadcastsPage() {
         studentId ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: null })
       ]);
 
+      if (cancelled) return;
       const rawBroadcasts = bRes.data || [];
       const gradesList = sgRes.data || [];
       const studentProfile = uRes?.data;
@@ -62,7 +65,8 @@ export default function StudentBroadcastsPage() {
     };
 
     loadBroadcasts();
-  }, [session, studentId, studentYear]);
+    return () => { cancelled = true; };
+  }, [session, studentId, studentYear, authStatus]);
 
   const formatDate = (iso) =>
     iso ? new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }) : "";

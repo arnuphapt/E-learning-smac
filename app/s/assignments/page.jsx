@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
@@ -12,7 +13,7 @@ import Loading from "@/components/ui/Loading";
 
 export default function StudentAssignments() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const studentId = session?.dbId;
   const role = session?.user?.role;
   const [search, setSearch] = useState("");
@@ -26,6 +27,9 @@ export default function StudentAssignments() {
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
+    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     async function loadData() {
       const queries = [
         supabase.from("courses").select("*"),
@@ -38,6 +42,7 @@ export default function StudentAssignments() {
       }
 
       const results = await Promise.all(queries);
+      if (cancelled) return;
       
       if (results[0].data) setCourses(results[0].data);
       if (results[1].data) setAssignments(results[1].data);
@@ -52,7 +57,8 @@ export default function StudentAssignments() {
       setLoading(false);
     }
     loadData();
-  }, [studentId, role]);
+    return () => { cancelled = true; };
+  }, [studentId, role, authStatus]);
 
   const nav = (path) => router.push(path);
 
@@ -60,7 +66,7 @@ export default function StudentAssignments() {
   const assignmentsList = assignments
     .filter((asg) => {
       const lesson = lessons.find((l) => l.id === asg.lesson_id);
-      const isStaff = role === "instructor" || role === "admin";
+      const isStaff = isStaffRole(role);
       // draft lessons are invisible to students (RLS), so a missing lesson is hidden too
       if ((!lesson || lesson.status === "draft") && !isStaff) return false;
       return true;

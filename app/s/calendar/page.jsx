@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
@@ -77,7 +78,7 @@ export default function Calendar() {
   // Filter out assignments if their parent lesson is draft and the user is a student
   const assignmentsList = allAssignments.filter((asg) => {
     const lesson = lessons.find((l) => l.id === asg.lesson_id);
-    const isStaff = role === "instructor" || role === "admin";
+    const isStaff = isStaffRole(role);
     if ((!lesson || lesson.status === "draft") && !isStaff) return false;
     return true;
   });
@@ -105,7 +106,7 @@ export default function Calendar() {
 
     // 2. Add Pre-tests and Post-tests from lessons
     lessons.forEach(l => {
-      const isStaff = role === "instructor" || role === "admin";
+      const isStaff = isStaffRole(role);
       if (l.status === "draft" && !isStaff) return;
 
       // Pre-test due date
@@ -169,7 +170,7 @@ export default function Calendar() {
 
     // Add Pre/Post tests
     lessons.forEach(l => {
-      const isStaff = role === "instructor" || role === "admin";
+      const isStaff = isStaffRole(role);
       if (l.status === "draft" && !isStaff) return;
 
       if (l.pretest?.required && l.pretest?.due) {

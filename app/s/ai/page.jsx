@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { fileHref, STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
@@ -128,7 +129,7 @@ const SUGGESTIONS = [
 
 export default function StudentSeparateAiPage() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const studentId = session?.dbId;
   const role = session?.user?.role;
   const studentYear = session?.user?.study_year ? Number(session.user.study_year) : null;
@@ -213,6 +214,9 @@ export default function StudentSeparateAiPage() {
   }, []);
 
   useEffect(() => {
+    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     async function loadData() {
       const [cRes, lRes, sgRes, uRes, secRes] = await Promise.all([
         supabase.from("courses").select("*"),
@@ -222,6 +226,7 @@ export default function StudentSeparateAiPage() {
         supabase.from("sections").select("*")
       ]);
 
+      if (cancelled) return;
       const cData = cRes.data;
       const lData = lRes.data;
       const sgData = sgRes.data;
@@ -229,7 +234,7 @@ export default function StudentSeparateAiPage() {
       const sectionsList = secRes?.data || [];
 
       if (cData) {
-        const isStaff = role === "instructor" || role === "admin";
+        const isStaff = isStaffRole(role);
         const visibleLessons = lData ? lData.filter(l => l.status !== "draft") : [];
         setAllLessons(visibleLessons);
 
@@ -301,7 +306,8 @@ export default function StudentSeparateAiPage() {
       setLoading(false);
     }
     loadData();
-  }, [studentId, role]);
+    return () => { cancelled = true; };
+  }, [studentId, role, authStatus]);
 
   function getStudentSecFromMaster(studentNo, sectionName, sections) {
     if (!studentNo || !sectionName || !sections || sections.length === 0) return false;

@@ -11,6 +11,7 @@ import Table from "@/components/ui/Table";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
 import { useSession } from "next-auth/react";
+import { hasRole } from "@/lib/roles";
 
 const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
   if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
@@ -298,7 +299,7 @@ export default function InstructorCourses() {
         title="รายวิชาทั้งหมด"
         description="รายชื่อวิชาในกลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ"
         addButton={
-          (user?.role === "admin" || user?.role === "course_manager") && (
+          hasRole(user?.role, "admin", "course_manager") && (
             <button className="btn btn-primary btn-sm" onClick={() => nav("/i/course/new")}>
               <Icon name="plus" size={15} />สร้างรายวิชา
             </button>
@@ -354,7 +355,7 @@ export default function InstructorCourses() {
                       <button className="btn btn-outline btn-sm" onClick={() => nav("/i/course/" + c.id)} style={{ display: "flex", alignItems: "center", gap: 4, height: 32 }}>
                         <Icon name="pencil" size={13} /> จัดการรายวิชา
                       </button>
-                      {(user?.role === "admin" || user?.role === "course_manager") && (
+                      {hasRole(user?.role, "admin", "course_manager") && (
                         <button className="iconbtn ghost c-danger" onClick={() => handleDeleteCourse(c)} style={{ height: 32, width: 32 }}>
                           <Icon name="trash" size={15} />
                         </button>

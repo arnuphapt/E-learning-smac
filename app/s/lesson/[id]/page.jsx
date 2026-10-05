@@ -411,7 +411,7 @@ function NextLessonCard({ lesson, nav, allLessons }) {
 export default function StudentLesson() {
   const router = useRouter();
   const params = useParams();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const nav = (path) => router.push(path);
 
   const mobile = useIsMobile();
@@ -468,9 +468,13 @@ export default function StudentLesson() {
   };
 
   useEffect(() => {
+    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     async function load() {
       if (!lessonId) return;
       const { data: lData } = await supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("id", lessonId).single();
+      if (cancelled) return;
       if (!lData) { setLoading(false); return; }
 
       if (lData.status === "draft") {
@@ -491,6 +495,7 @@ export default function StudentLesson() {
       }
 
       const results = await Promise.all(queries);
+      if (cancelled) return;
       const cRes = results[0];
       const aRes = results[1];
       const allRes = results[2];
@@ -519,6 +524,7 @@ export default function StudentLesson() {
       if (studentId && fetchedAssignments.length > 0) {
         const assignmentIds = fetchedAssignments.map(a => a.id);
         const { data: subData } = await supabase.from("submissions").select("*").eq("student_id", studentId).in("assignment_id", assignmentIds);
+        if (cancelled) return;
         setSubmissions(subData || []);
       } else {
         setSubmissions([]);
@@ -527,7 +533,8 @@ export default function StudentLesson() {
       setLoading(false);
     }
     load();
-  }, [lessonId, studentId, role]);
+    return () => { cancelled = true; };
+  }, [lessonId, studentId, role, authStatus]);
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
   if (!lesson) {

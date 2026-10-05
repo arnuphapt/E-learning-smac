@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import { loadStudentQuestions } from "@/lib/questions";
@@ -15,7 +16,7 @@ import { useIsMobile } from "@/lib/hooks";
 export default function TestTaking() {
   const router = useRouter();
   const params = useParams();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const role = session?.user?.role;
   const studentId = session?.user?.id || session?.dbId;
   const nav = (path) => router.push(path);
@@ -29,6 +30,9 @@ export default function TestTaking() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     async function load() {
       if (!lessonId) return;
       
@@ -41,11 +45,12 @@ export default function TestTaking() {
       }
       
       const results = await Promise.all(queries);
+      if (cancelled) return;
       const lRes = results[0];
       const qRes = results[1];
       const tsRes = studentId ? results[2] : null;
 
-      const isStaff = role === "instructor" || role === "admin";
+      const isStaff = isStaffRole(role);
       if (lRes.data && lRes.data.status === "draft" && !isStaff) {
         setLesson(null);
         setQs([]);
@@ -78,7 +83,8 @@ export default function TestTaking() {
       setLoading(false);
     }
     load();
-  }, [lessonId, role, studentId]);
+    return () => { cancelled = true; };
+  }, [lessonId, role, studentId, authStatus]);
 
   const [cur, setCur] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -145,7 +151,7 @@ export default function TestTaking() {
     return `${thDate} เวลา ${timeStr || "23:59"} น.`;
   };
 
-  const isStaff = role === "instructor" || role === "admin";
+  const isStaff = isStaffRole(role);
   const testConfig = kind === "pre" ? lesson?.pretest : lesson?.posttest;
   const maxAttempts = testConfig?.attempts ?? "1";
   const existingScore = testScore ? (kind === "pre" ? testScore.pre : testScore.post) : null;

@@ -11,6 +11,7 @@ import Table from "@/components/ui/Table";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
 import { useSession } from "next-auth/react";
+import { hasRole } from "@/lib/roles";
 
 const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
   if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
@@ -385,11 +386,11 @@ export default function InstructorCourse() {
       // 2. Course manager has access to courses in their group/department OR assigned to them
       // 3. Instructor has access to courses assigned to them
       let hasAccess = false;
-      if (user?.role === "admin") {
+      if (hasRole(user?.role, "admin")) {
         hasAccess = true;
-      } else if (user?.role === "course_manager") {
+      } else if (hasRole(user?.role, "course_manager")) {
         hasAccess = c.group_id === user.group_id || user.group_ids?.includes(c.group_id) || isInstructorAssigned;
-      } else if (user?.role === "instructor") {
+      } else if (hasRole(user?.role, "instructor")) {
         hasAccess = isInstructorAssigned;
       }
 
@@ -851,7 +852,7 @@ export default function InstructorCourse() {
       <PageHead kicker={course.term} title={course.title}
         right={
           <div className="flex gap-2">
-            {(user?.role === "admin" || user?.role === "course_manager") && (
+            {hasRole(user?.role, "admin", "course_manager") && (
               <button className="btn btn-outline" onClick={() => setTab("settings")}>
                 <Icon name="settings" size={16} />ตั้งค่า
               </button>
@@ -881,7 +882,7 @@ export default function InstructorCourse() {
         {[
           ["lessons", "บทเรียน", "book"], 
           ["students", "นักศึกษา", "users"], 
-          ...(user?.role === "admin" || user?.role === "course_manager" ? [["settings", "ตั้งค่ารายวิชา", "settings"]] : [])
+          ...(hasRole(user?.role, "admin", "course_manager") ? [["settings", "ตั้งค่ารายวิชา", "settings"]] : [])
         ].map(([k, t, ic]) => (
           <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}><Icon name={ic} size={15} />{t}</button>
         ))}
@@ -1060,7 +1061,7 @@ export default function InstructorCourse() {
           </div>
 
           {/* Managing Instructors section: only for admins and course managers */}
-          {(user?.role === "admin" || user?.role === "course_manager") && (
+          {hasRole(user?.role, "admin", "course_manager") && (
             <div className="card card-p">
               <div className="t-base fw-7 mb-2">จัดการอาจารย์ผู้สอนร่วม (Instructors)</div>
               <p className="t-sm muted mb-3">มอบหมายสิทธิ์ให้อาจารย์ผู้สอนท่านอื่นในสาขาเดียวกัน เพื่อให้สามารถเข้ามาเพิ่มบทเรียน ตรวจงาน และจัดการวิชานี้ได้</p>

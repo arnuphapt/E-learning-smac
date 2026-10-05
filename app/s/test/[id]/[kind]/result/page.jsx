@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import { loadStudentQuestions } from "@/lib/questions";
@@ -15,7 +16,7 @@ export default function TestResult() {
   const mobile = useIsMobile();
   const router = useRouter();
   const params = useParams();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const nav = (path) => router.push(path);
 
   const lessonId = params?.id;
@@ -30,6 +31,9 @@ export default function TestResult() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
     async function load() {
       if (!lessonId) return;
 
@@ -38,7 +42,8 @@ export default function TestResult() {
         loadStudentQuestions(supabase, lessonId, kind)
       ]);
 
-      const isStaff = role === "instructor" || role === "admin";
+      if (cancelled) return;
+      const isStaff = isStaffRole(role);
       if (lRes.data && lRes.data.status === "draft" && !isStaff) {
         setLesson(null);
         setQuestions([]);
@@ -54,6 +59,7 @@ export default function TestResult() {
           const r = await fetch(`/api/tests/result?lessonId=${encodeURIComponent(lessonId)}&kind=${kind}`, { cache: "no-store" });
           if (r.ok) key = (await r.json()).answers;
         } catch {}
+        if (cancelled) return;
         setQuestions(key ? qRes.data.map((q) => ({ ...q, answer: key[q.id] })) : qRes.data);
       }
 
@@ -64,13 +70,15 @@ export default function TestResult() {
           .eq("student_id", studentId)
           .eq("lesson_id", lessonId)
           .maybeSingle();
+        if (cancelled) return;
         if (tsRes) setTestScore(tsRes);
       }
 
       setLoading(false);
     }
     load();
-  }, [lessonId, studentId, role]);
+    return () => { cancelled = true; };
+  }, [lessonId, studentId, role, authStatus]);
 
   if (loading) return <Loading className="container p-5 text-center muted" />;
   if (!lesson) {
