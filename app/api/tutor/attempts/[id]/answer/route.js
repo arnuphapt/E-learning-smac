@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { tutorCaller, tutorNotFound, loadOwnAttempt, settleAttempt, endedBody } from "@/lib/tutor-server";
 
 // Save ONE answer of the caller's open tutor attempt. Identity = session; service role. Changing an answer is the
-// same call again (upsert) until the attempt ends. Ownership of the attempt is the access check (a round only exists
+// same call again with a newer seq until the attempt ends. Ownership of the attempt is the access check (a round only exists
 // for a student who passed the lesson lock when starting it).
-//   POST /api/tutor/attempts/<attemptId>/answer   body { questionId, chosen }
-//   200 { ok: true }                      saved
+//   POST /api/tutor/attempts/<attemptId>/answer   body { questionId, chosen, seq }
+//   seq = a positive integer that grows with every click on the same question (the exam page sends a server-clock-based
+//   value). The write only applies when seq is greater than the stored one (tutor_answer_save, migration 20261006020000), so
+//   a request the browser aborted that reaches the server late cannot overwrite a newer answer.
+//   200 { ok: true, applied: true }       saved
+//   200 { ok: true, applied: false }      a newer (or equal) answer is already stored: nothing changed
 //   409 { state: "ended", score, total }  the attempt is over (submitted, or past its deadline: finalized + scored here)
 // Never returns keys, correctness or the other answers.
 
@@ -19,9 +23,9 @@ export async function POST(req, { params }) {
     const { db, studentId } = caller;
     const { id } = await params;
     const body = await req.json().catch(() => null);
-    const { questionId, chosen } = body || {};
-    if (typeof questionId !== "string" || !questionId || typeof chosen !== "string" || !chosen) {
-      return json({ error: "questionId and chosen are required" }, 400);
+    const { questionId, chosen, seq } = body || {};
+    if (typeof questionId !== "string" || !questionId || typeof chosen !== "string" || !chosen || !Number.isSafeInteger(seq) || seq <= 0) {
+      return json({ error: "questionId, chosen and seq are required" }, 400);
     }
 
     const nowMs = Date.now(); // one server reading: checked against deadline_at AND stamped as answered_at
@@ -42,14 +46,15 @@ export async function POST(req, { params }) {
     if (qErr) throw qErr;
     if (!question || !(question.choices || []).some((c) => c.id === chosen)) return json({ error: "Invalid answer" }, 400);
 
-    const { error } = await db
-      .from("tutor_answers")
-      .upsert(
-        { attempt_id: attempt.id, question_id: questionId, chosen, answered_at: new Date(nowMs).toISOString() }, // explicit: same clock as deadline_at
-        { onConflict: "attempt_id,question_id" },
-      );
+    const { data: applied, error } = await db.rpc("tutor_answer_save", {
+      p_attempt: attempt.id,
+      p_question: questionId,
+      p_chosen: chosen,
+      p_seq: seq,
+      p_answered_at: new Date(nowMs).toISOString(), // explicit: same clock as deadline_at
+    });
     if (error) throw error;
-    return json({ ok: true });
+    return json({ ok: true, applied: applied === true });
   } catch (e) {
     console.error("Tutor answer save failed:", e?.message || e);
     return json({ error: "Failed to save answer" }, 500);

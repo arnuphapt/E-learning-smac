@@ -29,10 +29,16 @@
 --        submit by the server from questions.answer), so nothing here discloses the key. question_id has no FK:
 --        the API checks membership in tutor_attempts.question_ids, and a deleted bank question must not silently
 --        delete a student's history.
+--        seq bigint = a per-question client sequence number (the exam page sends a server-clock-based, strictly
+--        increasing value). A save only applies when its seq is greater than the stored one, so a request that the
+--        browser aborted (10 s timeout) but that still reaches the server late cannot overwrite a newer answer.
+--        Written ONLY through tutor_answer_save() below (4.); the plain upsert is not used by the API.
 --   3. RLS + grants. Students: SELECT only their own rows (student_id = current_user_id(); answers through their own
 --        attempt). Staff (is_instructor()): SELECT everything. NO insert/update/delete policy for anyone, and the
 --        write grants are revoked from anon/authenticated as well: every write is the service role in the tutor API,
 --        with the identity taken from the session. anon has no grant at all.
+--   4. tutor_answer_save(attempt, question, chosen, seq, answered_at) -> boolean: the ordered write the answer route
+--        calls (insert, or update only when seq is newer). EXECUTE: service_role only.
 --
 -- Inspected read-only on qsvwabaxqtbrxrwrqtih (2026-10-06): users.id / lessons.id / questions.id are text PKs;
 -- test_scores.student_id -> users(id) ON DELETE CASCADE is the same convention used here.
@@ -74,6 +80,7 @@ CREATE TABLE public.tutor_answers (
   question_id text NOT NULL,
   chosen      text NOT NULL,
   answered_at timestamptz NOT NULL DEFAULT now(),
+  seq         bigint NOT NULL DEFAULT 0,
   PRIMARY KEY (attempt_id, question_id)
 );
 
@@ -100,6 +107,27 @@ REVOKE ALL ON public.tutor_attempts, public.tutor_answers FROM PUBLIC, anon, aut
 GRANT SELECT ON public.tutor_attempts, public.tutor_answers TO authenticated;
 GRANT ALL ON public.tutor_attempts, public.tutor_answers TO service_role;
 
+-- 4. ordered answer save: insert, or overwrite ONLY when p_seq is newer than the stored seq (PostgREST cannot express
+-- ON CONFLICT ... WHERE, hence a function). One atomic statement: two racing saves of the same question serialize on the
+-- row and the higher seq always wins. Returns true when the answer was stored, false when a newer (or equal) one is there.
+-- SECURITY INVOKER (default) and service_role only: the API passes the session identity, nothing here trusts a client.
+CREATE FUNCTION public.tutor_answer_save(p_attempt uuid, p_question text, p_chosen text, p_seq bigint, p_answered_at timestamptz)
+RETURNS boolean
+LANGUAGE sql
+AS $fn$
+  WITH up AS (
+    INSERT INTO public.tutor_answers AS t (attempt_id, question_id, chosen, answered_at, seq)
+    VALUES (p_attempt, p_question, p_chosen, p_answered_at, p_seq)
+    ON CONFLICT (attempt_id, question_id) DO UPDATE
+      SET chosen = EXCLUDED.chosen, answered_at = EXCLUDED.answered_at, seq = EXCLUDED.seq
+      WHERE t.seq < EXCLUDED.seq
+    RETURNING 1
+  )
+  SELECT EXISTS (SELECT 1 FROM up)
+$fn$;
+REVOKE ALL ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) TO service_role;
+
 NOTIFY pgrst, 'reload schema';
 
 COMMIT;
@@ -108,6 +136,7 @@ COMMIT;
 -- ROLLBACK (the DROPs only exist here). Deletes every attempt and answer.
 -- ===========================================================================
 -- BEGIN;
+-- DROP FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz);
 -- DROP TABLE public.tutor_answers;
 -- DROP TABLE public.tutor_attempts;
 -- NOTIFY pgrst, 'reload schema';

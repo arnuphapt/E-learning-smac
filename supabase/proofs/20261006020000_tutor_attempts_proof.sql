@@ -107,6 +107,7 @@ CREATE TABLE public.tutor_answers (
   question_id text NOT NULL,
   chosen      text NOT NULL,
   answered_at timestamptz NOT NULL DEFAULT now(),
+  seq         bigint NOT NULL DEFAULT 0,
   PRIMARY KEY (attempt_id, question_id)
 );
 
@@ -132,6 +133,48 @@ CREATE POLICY tutor_answers_select ON public.tutor_answers
 REVOKE ALL ON public.tutor_attempts, public.tutor_answers FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT ON public.tutor_attempts, public.tutor_answers TO authenticated;
 GRANT ALL ON public.tutor_attempts, public.tutor_answers TO service_role;
+
+-- 4. ordered answer save: insert, or overwrite ONLY when p_seq is newer than the stored seq (PostgREST cannot express
+-- ON CONFLICT ... WHERE, hence a function). One atomic statement: two racing saves of the same question serialize on the
+-- row and the higher seq always wins. Returns true when the answer was stored, false when a newer (or equal) one is there.
+-- SECURITY INVOKER (default) and service_role only: the API passes the session identity, nothing here trusts a client.
+CREATE FUNCTION public.tutor_answer_save(p_attempt uuid, p_question text, p_chosen text, p_seq bigint, p_answered_at timestamptz)
+RETURNS boolean
+LANGUAGE sql
+AS $fn$
+  WITH up AS (
+    INSERT INTO public.tutor_answers AS t (attempt_id, question_id, chosen, answered_at, seq)
+    VALUES (p_attempt, p_question, p_chosen, p_answered_at, p_seq)
+    ON CONFLICT (attempt_id, question_id) DO UPDATE
+      SET chosen = EXCLUDED.chosen, answered_at = EXCLUDED.answered_at, seq = EXCLUDED.seq
+      WHERE t.seq < EXCLUDED.seq
+    RETURNING 1
+  )
+  SELECT EXISTS (SELECT 1 FROM up)
+$fn$;
+REVOKE ALL ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) TO service_role;
+
+-- 4. ordered answer save: insert, or overwrite ONLY when p_seq is newer than the stored seq (PostgREST cannot express
+-- ON CONFLICT ... WHERE, hence a function). One atomic statement: two racing saves of the same question serialize on the
+-- row and the higher seq always wins. Returns true when the answer was stored, false when a newer (or equal) one is there.
+-- SECURITY INVOKER (default) and service_role only: the API passes the session identity, nothing here trusts a client.
+CREATE FUNCTION public.tutor_answer_save(p_attempt uuid, p_question text, p_chosen text, p_seq bigint, p_answered_at timestamptz)
+RETURNS boolean
+LANGUAGE sql
+AS $fn$
+  WITH up AS (
+    INSERT INTO public.tutor_answers AS t (attempt_id, question_id, chosen, answered_at, seq)
+    VALUES (p_attempt, p_question, p_chosen, p_answered_at, p_seq)
+    ON CONFLICT (attempt_id, question_id) DO UPDATE
+      SET chosen = EXCLUDED.chosen, answered_at = EXCLUDED.answered_at, seq = EXCLUDED.seq
+      WHERE t.seq < EXCLUDED.seq
+    RETURNING 1
+  )
+  SELECT EXISTS (SELECT 1 FROM up)
+$fn$;
+REVOKE ALL ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.tutor_answer_save(uuid, text, text, bigint, timestamptz) TO service_role;
 
 
 -- ===========================================================================
@@ -447,6 +490,43 @@ DO $$ BEGIN
   INSERT INTO proof VALUES ('f3 answer for a missing attempt rejected (FK)', 'FAIL: allowed');
 EXCEPTION WHEN foreign_key_violation THEN INSERT INTO proof VALUES ('f3 answer for a missing attempt rejected (FK)', 'PASS: ' || SQLERRM);
           WHEN OTHERS THEN INSERT INTO proof VALUES ('f3 answer for a missing attempt rejected (FK)', 'FAIL: ' || SQLERRM); END $$;
+
+-- ordered save (tutor_answer_save): an older seq can never overwrite a newer answer (aborted late request)
+DO $$ DECLARE r boolean; c text; sq bigint; BEGIN
+  r := public.tutor_answer_save('00000000-0000-0000-0000-00000000a001', 'fx_q1', 'a', 100, now());
+  SELECT chosen, seq INTO c, sq FROM public.tutor_answers WHERE attempt_id = '00000000-0000-0000-0000-00000000a001' AND question_id = 'fx_q1';
+  INSERT INTO proof VALUES ('f5 newer seq applies (returns true, choice + seq stored)',
+    CASE WHEN r IS TRUE AND c = 'a' AND sq = 100 THEN 'PASS' ELSE 'FAIL: returned ' || coalesce(r::text, 'NULL') || ', stored ' || coalesce(c, 'NULL') || '/' || coalesce(sq::text, 'NULL') END);
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('f5 newer seq applies (returns true, choice + seq stored)', 'FAIL: ' || SQLERRM); END $$;
+DO $$ DECLARE r boolean; c text; sq bigint; BEGIN
+  r := public.tutor_answer_save('00000000-0000-0000-0000-00000000a001', 'fx_q1', 'b', 50, now());
+  SELECT chosen, seq INTO c, sq FROM public.tutor_answers WHERE attempt_id = '00000000-0000-0000-0000-00000000a001' AND question_id = 'fx_q1';
+  INSERT INTO proof VALUES ('f6 OLDER seq ignored (returns false, stored answer untouched)',
+    CASE WHEN r IS FALSE AND c = 'a' AND sq = 100 THEN 'PASS' ELSE 'FAIL: returned ' || coalesce(r::text, 'NULL') || ', stored ' || coalesce(c, 'NULL') || '/' || coalesce(sq::text, 'NULL') END);
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('f6 OLDER seq ignored (returns false, stored answer untouched)', 'FAIL: ' || SQLERRM); END $$;
+DO $$ DECLARE r boolean; c text; sq bigint; BEGIN
+  r := public.tutor_answer_save('00000000-0000-0000-0000-00000000a001', 'fx_q1', 'b', 100, now());
+  SELECT chosen, seq INTO c, sq FROM public.tutor_answers WHERE attempt_id = '00000000-0000-0000-0000-00000000a001' AND question_id = 'fx_q1';
+  INSERT INTO proof VALUES ('f7 EQUAL seq ignored (a retried request changes nothing)',
+    CASE WHEN r IS FALSE AND c = 'a' AND sq = 100 THEN 'PASS' ELSE 'FAIL: returned ' || coalesce(r::text, 'NULL') || ', stored ' || coalesce(c, 'NULL') || '/' || coalesce(sq::text, 'NULL') END);
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('f7 EQUAL seq ignored (a retried request changes nothing)', 'FAIL: ' || SQLERRM); END $$;
+DO $$ DECLARE r boolean; c text; sq bigint; BEGIN
+  r := public.tutor_answer_save('00000000-0000-0000-0000-00000000a001', 'fx_q2', 'b', 7, now());
+  SELECT chosen, seq INTO c, sq FROM public.tutor_answers WHERE attempt_id = '00000000-0000-0000-0000-00000000a001' AND question_id = 'fx_q2';
+  INSERT INTO proof VALUES ('f8 insert-if-absent: first save for a question stores it',
+    CASE WHEN r IS TRUE AND c = 'b' AND sq = 7 THEN 'PASS' ELSE 'FAIL: returned ' || coalesce(r::text, 'NULL') || ', stored ' || coalesce(c, 'NULL') || '/' || coalesce(sq::text, 'NULL') END);
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('f8 insert-if-absent: first save for a question stores it', 'FAIL: ' || SQLERRM); END $$;
+DO $$ DECLARE r boolean; c text; sq bigint; BEGIN
+  r := public.tutor_answer_save('00000000-0000-0000-0000-00000000a001', 'fx_q1', 'b', 101, now());
+  SELECT chosen, seq INTO c, sq FROM public.tutor_answers WHERE attempt_id = '00000000-0000-0000-0000-00000000a001' AND question_id = 'fx_q1';
+  INSERT INTO proof VALUES ('f9 a later newer seq applies again',
+    CASE WHEN r IS TRUE AND c = 'b' AND sq = 101 THEN 'PASS' ELSE 'FAIL: returned ' || coalesce(r::text, 'NULL') || ', stored ' || coalesce(c, 'NULL') || '/' || coalesce(sq::text, 'NULL') END);
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('f9 a later newer seq applies again', 'FAIL: ' || SQLERRM); END $$;
+INSERT INTO proof SELECT 'f10 tutor_answer_save executable by service_role only',
+  CASE WHEN has_function_privilege('service_role', 'public.tutor_answer_save(uuid, text, text, bigint, timestamptz)', 'EXECUTE')
+        AND NOT has_function_privilege('authenticated', 'public.tutor_answer_save(uuid, text, text, bigint, timestamptz)', 'EXECUTE')
+        AND NOT has_function_privilege('anon', 'public.tutor_answer_save(uuid, text, text, bigint, timestamptz)', 'EXECUTE')
+       THEN 'PASS' ELSE 'FAIL' END;
 
 DO $$ BEGIN
   DELETE FROM public.tutor_attempts WHERE id = '00000000-0000-0000-0000-00000000a002';

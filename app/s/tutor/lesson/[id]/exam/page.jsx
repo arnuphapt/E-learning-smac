@@ -18,12 +18,16 @@ import { firstUnansweredIndex } from "@/lib/tutor-attempt";
 // Closing the page and coming back resumes the same round: the questions, their order and the deadline are all server-side.
 // Answers: every click is saved on the server at once (/api/tutor/attempts/<attemptId>/answer; optimistic, a failed save rolls
 // back to the last value the SERVER confirmed, with an error). A save gives up after SAVE_TIMEOUT_MS so submit (which waits for
-// the save chain) can never hang on a stuck request. Submit and time-up both call /submit; the server scores and returns only
+// the save chain) can never hang on a stuck request. Every save carries a per-question seq (server-clock based, strictly
+// increasing); the server ignores a write whose seq is not newer, so an aborted request that lands late cannot overwrite a
+// newer answer. After an abort the page re-reads the answers from the server (RESYNC_DELAY_MS later) so the UI shows what the
+// server really holds. Submit and time-up both call /submit; the server scores and returns only
 // score + total; the full result (analysis + review) is on ./result.
 
 const attemptUrl = (id) => "/api/tutor/lessons/" + encodeURIComponent(id) + "/attempt";
 const attemptActionUrl = (attemptId, action) => "/api/tutor/attempts/" + encodeURIComponent(attemptId) + "/" + action;
 const SAVE_TIMEOUT_MS = 10000;
+const RESYNC_DELAY_MS = 3000;
 const post = (id, body) =>
   fetch(attemptUrl(id), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -37,6 +41,9 @@ const toExam = (d) => ({
   answers: d.answers,
   cur: firstUnansweredIndex(d.questions.map((q) => q.id), d.answers), // resume lands on the first unanswered question
 });
+
+// strictly increasing per page: the server clock in ms, or last + 1 when two clicks land in the same millisecond
+const nextSeq = (last, offset) => Math.max(Date.now() + offset, last + 1);
 
 const formatTime = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 
@@ -60,6 +67,8 @@ export default function StudentTutorExam() {
   const saveChain = useRef(Promise.resolve()); // answer saves run one after another so the last click is the one stored
   const submitLock = useRef(false);
   const confirmed = useRef({}); // question id -> the choice the server has confirmed saving (the rollback target)
+  const seqRef = useRef(0); // last seq handed out: server-clock ms, bumped by 1 when two clicks share a millisecond
+  const pending = useRef(0); // clicks whose save has not finished (a resync must not overwrite them)
   const confirm = useConfirm();
 
   useEffect(() => {
@@ -145,16 +154,26 @@ export default function StudentTutorExam() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeUp]);
 
-  async function saveAnswer(qid, cid) {
+  // Re-read the answers the server holds (resume payload) and show them, unless a newer click is still being saved.
+  async function resync() {
+    try {
+      const rr = await post(id, { resume: true });
+      if (!rr.ok) return; // ended / expired: the submit path or the next save shows it
+      const d = await rr.json();
+      if (pending.current > 0) return;
+      confirmed.current = { ...d.answers };
+      setExam((e) => (e ? { ...e, answers: { ...d.answers } } : e));
+    } catch { /* offline: the next save or reload re-syncs */ }
+  }
+
+  async function saveAnswer(qid, cid, seq) {
     const ctl = new AbortController();
-    // ponytail: an aborted save may still commit on the server, so the UI (rolled back below) can differ from the server
-    // until the next reload. Upgrade path: a per-question client sequence number the server uses to ignore stale writes.
     const timer = setTimeout(() => ctl.abort(), SAVE_TIMEOUT_MS);
     try {
       const r = await fetch(attemptActionUrl(exam.attempt.id, "answer"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionId: qid, chosen: cid }),
+        body: JSON.stringify({ questionId: qid, chosen: cid, seq }),
         signal: ctl.signal,
       });
       if (r.status === 409) {
@@ -162,8 +181,10 @@ export default function StudentTutorExam() {
         if (d.state === "ended") { setResult(d); return; } // the deadline passed under us: the server already ended + scored it
       }
       if (!r.ok) throw new Error("save failed");
-      confirmed.current[qid] = cid;
-    } catch {
+      const d = await r.json().catch(() => ({}));
+      if (d.applied === false) setTimeout(resync, 0); // the server already holds a newer answer for this question
+      else confirmed.current[qid] = cid;
+    } catch (err) {
       // roll back to what the server last confirmed (not the previous click, which may itself have failed), unless a
       // newer click on the same question has already replaced this one
       setExam((e) => {
@@ -174,8 +195,13 @@ export default function StudentTutorExam() {
         return { ...e, answers };
       });
       setSaveError("บันทึกคำตอบไม่สำเร็จ กรุณาเลือกใหม่อีกครั้ง");
+      // ponytail: an aborted request can still commit AFTER the resync read (server slower than RESYNC_DELAY_MS + the abort);
+      // the seq stops it overwriting a newer click but not from being the newest one. Upgrade: poll the resume payload until
+      // it is stable, or make the server reject writes older than the request's own timeout.
+      if (err?.name === "AbortError") setTimeout(resync, RESYNC_DELAY_MS);
     } finally {
       clearTimeout(timer);
+      pending.current -= 1;
     }
   }
 
@@ -183,7 +209,9 @@ export default function StudentTutorExam() {
     if (timeUp || result || exam.answers[qid] === cid) return;
     setSaveError("");
     setExam((e) => ({ ...e, answers: { ...e.answers, [qid]: cid } }));
-    saveChain.current = saveChain.current.then(() => saveAnswer(qid, cid));
+    const seq = (seqRef.current = nextSeq(seqRef.current, exam.offset));
+    pending.current += 1;
+    saveChain.current = saveChain.current.then(() => saveAnswer(qid, cid, seq));
   }
 
   async function start() {
