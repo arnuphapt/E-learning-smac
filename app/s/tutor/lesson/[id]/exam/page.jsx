@@ -147,6 +147,8 @@ export default function StudentTutorExam() {
 
   async function saveAnswer(qid, cid) {
     const ctl = new AbortController();
+    // ponytail: an aborted save may still commit on the server, so the UI (rolled back below) can differ from the server
+    // until the next reload. Upgrade path: a per-question client sequence number the server uses to ignore stale writes.
     const timer = setTimeout(() => ctl.abort(), SAVE_TIMEOUT_MS);
     try {
       const r = await fetch(attemptActionUrl(exam.attempt.id, "answer"), {

@@ -127,7 +127,7 @@ export async function POST(req) {
         .from("ai_chat_logs")
         .select("*", { count: "exact", head: true })
         .eq("student_id", currentUserId)
-        .in("mode", ["chat", "summarize"])
+        .in("mode", ["chat", "summarize", "explain"]) // "explain" = tutor-mode explain (/api/tutor/attempts/<id>/explain): one shared daily quota
         .gte("created_at", startOfDay.toISOString())
         .lt("created_at", endOfDay.toISOString());
 

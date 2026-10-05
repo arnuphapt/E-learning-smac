@@ -3,6 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { getToken } from "next-auth/jwt";
 import { supabaseAuthHeaders } from "@/lib/supabase-token";
 import { isStaffRole } from "@/lib/roles";
+import { DEFAULT_PERSONA_EXPLAIN } from "@/lib/tutor-prompt";
+
+// ?key=persona_explain edits the tutor-mode explain persona (ticket 06); no key = the lesson chat persona, as before.
+// No row yet -> the code default is shown and nothing is written until staff save.
 
 async function getSupabaseServerClient(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -54,6 +58,11 @@ export async function GET(req) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const supabaseClient = await getSupabaseServerClient(req);
+    if (new URL(req.url).searchParams.get("key") === "persona_explain") {
+      const { data: row, error: rowErr } = await supabaseClient.from("ai_settings").select("value").eq("key", "persona_explain").maybeSingle();
+      if (rowErr) throw rowErr;
+      return NextResponse.json({ content: isStaffRole(token.role) ? row?.value || DEFAULT_PERSONA_EXPLAIN : "", isDefault: !row?.value });
+    }
     const { data, error } = await supabaseClient
       .from("ai_settings")
       .select("value")
@@ -110,7 +119,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { content } = await req.json();
+    const { content, key } = await req.json();
     if (typeof content !== "string") {
       return NextResponse.json({ error: "Content must be a string" }, { status: 400 });
     }
@@ -118,7 +127,7 @@ export async function POST(req) {
     const supabaseClient = await getSupabaseServerClient(req);
     const { error } = await supabaseClient
       .from("ai_settings")
-      .upsert({ key: "persona", value: content, updated_at: new Date().toISOString() });
+      .upsert({ key: key === "persona_explain" ? "persona_explain" : "persona", value: content, updated_at: new Date().toISOString() });
 
     if (error) {
       throw error;

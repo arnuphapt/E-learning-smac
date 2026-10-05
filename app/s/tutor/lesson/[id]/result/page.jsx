@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Primitives";
 import { Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { STATUS_LABEL, PASS_PERCENT, STRONG_PERCENT } from "@/lib/tutor-analysis";
+import AskAi from "@/components/tutor/AskAi";
 
 // Result of a tutor lesson: score, per-topic bars + badges, topics to review with reasons, per-question review.
 // Data from /api/tutor/lessons/<id>/result: the best attempt of the student by default, or ?attempt=<id> (also picked
@@ -34,7 +35,51 @@ function Empty({ title, text, nav, to, action }) {
   );
 }
 
-function ReviewItem({ r }) {
+// AI summary (ticket 06). Stored on the attempt: shown straight from the result payload when it exists, otherwise the first
+// open asks the server to generate it (POST .../summary, once; the server never calls Gemini again once it is stored).
+// A failure leaves the rest of the page as it is; opening the page again retries.
+function SummaryCard({ attemptId, initial }) {
+  const [state, setState] = useState(initial ? { s: initial } : { loading: true });
+  const started = useRef(false);
+  useEffect(() => {
+    if (initial || started.current) return;
+    started.current = true;
+    fetch("/api/tutor/attempts/" + encodeURIComponent(attemptId) + "/summary", { method: "POST" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d) => setState(d.summary ? { s: d.summary } : { busy: true }))
+      .catch(() => setState({ failed: true }));
+  }, [attemptId, initial]);
+
+  const s = state.s;
+  return (
+    <div className="card card-p mb-4">
+      <div className="flex items-center gap-2 mb-2"><Icon name="sparkle" size={16} style={{ color: "var(--primary)" }} /><span className="t-base fw-7">สรุปจาก AI</span></div>
+      {state.loading && <div className="t-sm muted">AI กำลังสรุปผลของคุณ…</div>}
+      {state.busy && <div className="t-sm muted">AI กำลังสรุปผลอยู่ ลองเปิดหน้านี้ใหม่อีกครั้งในอีกสักครู่</div>}
+      {state.failed && <div className="t-sm muted">ยังสรุปด้วย AI ไม่ได้ในตอนนี้ ผลคะแนนและเฉลยด้านล่างใช้ได้ตามปกติ ลองเปิดหน้านี้ใหม่อีกครั้งเพื่อให้ AI สรุปใหม่</div>}
+      {s && (
+        <>
+          <div className="t-sm pretty mb-3" style={{ whiteSpace: "pre-line", lineHeight: 1.6 }}>{s.overview}</div>
+          {s.topic_notes.length > 0 && (
+            <div className="flex col gap-2 mb-3">
+              {s.topic_notes.map((n, i) => (
+                <div key={i} className="t-sm"><b>{n.topic}</b><span className="muted"> · {n.comment}</span></div>
+              ))}
+            </div>
+          )}
+          {s.next_steps.length > 0 && (
+            <>
+              <div className="t-sm fw-6 mb-1">ควรทำต่อ</div>
+              <ul className="t-sm" style={{ paddingLeft: 20, margin: 0 }}>{s.next_steps.map((x, i) => <li key={i}>{x}</li>)}</ul>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ReviewItem({ r, attemptId }) {
   const status = r.unanswered ? "unanswered" : r.correct ? "correct" : "wrong";
   const badge = { correct: ["success", "ตอบถูก"], wrong: ["danger", "ตอบผิด"], unanswered: ["warning", "ไม่ได้ตอบ"] }[status];
   const known = (id) => r.choices.some((c) => c.id === id);
@@ -71,6 +116,7 @@ function ReviewItem({ r }) {
             <div className="t-xs fw-6 muted mb-1">คำอธิบายของอาจารย์</div>
             <div className="t-sm pretty" style={{ whiteSpace: "pre-line" }}>{r.explanation || "อาจารย์ยังไม่ได้เขียนคำอธิบายข้อนี้"}</div>
           </div>
+          <AskAi attemptId={attemptId} questionId={r.questionId} />
         </>
       )}
     </div>
@@ -212,6 +258,8 @@ export default function StudentTutorResult() {
         </div>
       </div>
 
+      <SummaryCard key={attempt.id} attemptId={attempt.id} initial={data.summary} />
+
       <div className="card card-p mb-4">
         <div className="t-base fw-7 mb-3">หัวข้อที่ควรทบทวน</div>
         {analysis.review.length === 0 ? (
@@ -232,7 +280,7 @@ export default function StudentTutorResult() {
       </div>
 
       <div className="t-base fw-7 mb-3">ทบทวนรายข้อ</div>
-      {review.map((r) => <ReviewItem key={r.questionId} r={r} />)}
+      {review.map((r) => <ReviewItem key={r.questionId} r={r} attemptId={attempt.id} />)}
     </div>
   );
 }

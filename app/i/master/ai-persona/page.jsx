@@ -144,6 +144,11 @@ export default function AiPersonaPage() {
   });
   const [configSaving, setConfigSaving] = useState(false);
 
+  // Tutor-mode explain persona (ai_settings key persona_explain): its own card, apart from the lesson chat persona above
+  const [explainDraft, setExplainDraft] = useState("");
+  const [explainIsDefault, setExplainIsDefault] = useState(false);
+  const [explainSaving, setExplainSaving] = useState(false);
+
   const checkAiHealth = async () => {
     setAiStatus("checking");
     try {
@@ -164,10 +169,16 @@ export default function AiPersonaPage() {
 
   const fetchPersona = async () => {
     try {
-      const [personaRes, configRes] = await Promise.all([
+      const [personaRes, configRes, explainRes] = await Promise.all([
         fetch("/api/ai/persona"),
         fetch("/api/ai/config"),
+        fetch("/api/ai/persona?key=persona_explain"),
       ]);
+      if (explainRes.ok) {
+        const ex = await explainRes.json();
+        setExplainDraft(ex.content);
+        setExplainIsDefault(!!ex.isDefault);
+      }
       if (personaRes.ok) {
         const data = await personaRes.json();
         setContent(data.content);
@@ -210,6 +221,28 @@ export default function AiPersonaPage() {
       toast("เกิดข้อผิดพลาดในการบันทึก");
     } finally {
       setConfigSaving(false);
+    }
+  };
+
+  const handleSaveExplain = async () => {
+    setExplainSaving(true);
+    try {
+      const res = await fetch("/api/ai/persona", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "persona_explain", content: explainDraft }),
+      });
+      if (res.ok) {
+        setExplainIsDefault(false);
+        toast("บันทึกบทบาท AI โหมดติวสำเร็จแล้ว", "success");
+      } else {
+        toast("บันทึกข้อมูลล้มเหลว");
+      }
+    } catch (e) {
+      console.error(e);
+      toast("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+    } finally {
+      setExplainSaving(false);
     }
   };
 
@@ -585,6 +618,36 @@ export default function AiPersonaPage() {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Tutor-mode explain persona (ถาม AI ในหน้าทบทวนชุดติว) */}
+      <div className="card" style={{ marginTop: 24, borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.04)", border: "1px solid var(--border)" }}>
+        <div style={{ height: 4, background: "linear-gradient(90deg, #f59e0b 0%, var(--primary) 100%)" }} />
+        <div style={{ padding: "20px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--fg)", display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="sparkle" size={16} style={{ color: "var(--primary)" }} />
+                บทบาท AI โหมดติว (อธิบายเฉลย)
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--muted-fg)", marginTop: 4 }} className="pretty">
+                ใช้กับปุ่ม &quot;ถาม AI&quot; ในหน้าทบทวนชุดติวเท่านั้น แยกจากบทบาทแชทบทเรียนด้านบน · กฎแกนกลาง (ยึดคำอธิบายอาจารย์ ไม่ใส่แท็กอารมณ์) ล็อคในระบบ แก้ไม่ได้
+                {explainIsDefault ? " · ตอนนี้ใช้ค่าเริ่มต้นของระบบ (ยังไม่เคยบันทึก)" : ""}
+              </div>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={handleSaveExplain} disabled={explainSaving}>
+              {explainSaving ? <><Icon name="loader" size={14} className="spin" /> บันทึก...</> : <><Icon name="check" size={14} /> บันทึกบทบาทโหมดติว</>}
+            </button>
+          </div>
+          <textarea
+            className="input"
+            value={explainDraft}
+            onChange={(e) => setExplainDraft(e.target.value)}
+            rows={7}
+            style={{ width: "100%", fontFamily: "monospace", fontSize: 14, lineHeight: 1.6, padding: "12px 16px", borderRadius: 12, background: "var(--bg)", border: "1px solid var(--border-strong)", resize: "vertical" }}
+            placeholder="เขียนน้ำเสียงและแนวทางของ AI เมื่ออธิบายเฉลย..."
+          />
         </div>
       </div>
 
