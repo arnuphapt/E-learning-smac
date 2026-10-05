@@ -1191,7 +1191,8 @@ function InstructorLessonContent() {
     const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
     if (!lData) { setLoading(false); return; }
 
-    const { data: cData } = await supabase.from("courses").select("*").eq("id", lData.course_id).single();
+    // courses_all, not the `courses` view: the view hides tutor sets (course would be empty -> broken links).
+    const { data: cData } = await supabase.from("courses_all").select("*").eq("id", lData.course_id).single();
 
     const [qRes, aRes, rRes, subRes, tsRes, stRes, sgRes, secRes] = await Promise.all([
       supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),
@@ -1462,7 +1463,7 @@ function InstructorLessonContent() {
 
   return (
     <div className="container-wide">
-      <Crumb nav={nav} items={[{ label: "รายวิชา", to: "/i/courses" }, { label: course.code, to: "/i/course/" + course.id }, { label: isNew ? "สร้างบทเรียนใหม่" : "บทที่ " + lesson.index }]} />
+      <Crumb nav={nav} items={[course.kind === "tutor" ? { label: "ชุดติว", to: "/i/tutor" } : { label: "รายวิชา", to: "/i/courses" }, { label: course.code, to: "/i/course/" + course.id }, { label: isNew ? "สร้างบทเรียนใหม่" : "บทที่ " + lesson.index }]} />
       <PageHead kicker={isNew ? "สร้างบทเรียนใหม่ · " + course.code : "แก้ไขบทเรียน · " + course.code} title={isNew ? "บทเรียนใหม่" : lesson.title}
         right={!isNew && (
           <div className="flex items-center gap-2">
@@ -1480,7 +1481,12 @@ function InstructorLessonContent() {
             <button className="btn btn-outline" onClick={() => nav("/i/lesson/" + lesson.id + "/scores")}>
               <Icon name="chart" size={16} />คะแนนนักศึกษา
             </button>
-            <button className="btn btn-outline" onClick={() => nav("/s/lesson/" + lesson.id)}>
+            {course.kind === "tutor" && (
+              <button className="btn btn-outline" onClick={() => nav("/i/lesson/" + lesson.id + "/bank")}>
+                <Icon name="clipboard" size={16} />คลังข้อสอบชุดติว
+              </button>
+            )}
+            <button className="btn btn-outline" onClick={() => nav((course.kind === "tutor" ? "/s/tutor/lesson/" : "/s/lesson/") + lesson.id)}>
               <Icon name="eye" size={16} />ดูมุมมองนักศึกษา
             </button>
             <button className="btn btn-outline c-danger" onClick={handleDeleteLesson}>

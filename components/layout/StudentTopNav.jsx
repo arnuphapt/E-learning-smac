@@ -20,6 +20,7 @@ export default function StudentTopNav() {
   const roles = session?.user?.role ? session.user.role.split(",").map(r => r.trim()) : [];
   const displayRole = roles.map(r => roleLabels[r] || r).join(", ") || "นักศึกษา";
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
+  const onTutor = pathname.startsWith("/s/tutor");
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
   const onCal = pathname === "/s/calendar";
   const onBroadcasts = pathname === "/s/broadcasts";
@@ -194,6 +195,7 @@ export default function StudentTopNav() {
       </Link>
       <nav className="hide-m">
         <Link href="/s/courses" className={onCourses ? "on" : ""} style={{ textDecoration: 'none' }}>รายวิชา</Link>
+        <Link href="/s/tutor" className={onTutor ? "on" : ""} style={{ textDecoration: 'none' }}>ชุดติว</Link>
         <Link href="/s/assignments" className={onAssignments ? "on" : ""} style={{ textDecoration: 'none' }}>ใบงาน</Link>
         <Link href="/s/calendar" className={onCal ? "on" : ""} style={{ textDecoration: 'none' }}>ปฏิทิน</Link>
         <Link href="/s/broadcasts" className={onBroadcasts ? "on" : ""} style={{ textDecoration: 'none' }}>ประกาศ</Link>

@@ -66,7 +66,8 @@ function ScoresContent() {
         return;
       }
 
-      const { data: cData } = await supabase.from("courses").select("*").eq("id", lData.course_id).single();
+      // courses_all, not the `courses` view: the view hides tutor sets.
+      const { data: cData } = await supabase.from("courses_all").select("*").eq("id", lData.course_id).single();
 
       const [qRes, aRes, subRes, tsRes, stRes, sgRes, secRes] = await Promise.all([
         supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),
@@ -207,7 +208,7 @@ function ScoresContent() {
   return (
     <div className="container-wide">
       <Crumb nav={nav} items={[
-        { label: "รายวิชา", to: "/i/courses" },
+        course.kind === "tutor" ? { label: "ชุดติว", to: "/i/tutor" } : { label: "รายวิชา", to: "/i/courses" },
         { label: course.code, to: "/i/course/" + course.id },
         { label: "บทที่ " + lesson.index, to: "/i/lesson/" + lesson.id },
         { label: "คะแนนนักศึกษา" }

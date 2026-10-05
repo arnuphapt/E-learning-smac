@@ -35,7 +35,7 @@ export default function SubmissionList() {
       // Fetch all assignments and courses to populate selector & find fallback
       const [allAsgRes, allCoursesRes] = await Promise.all([
         supabase.from("assignments").select("*"),
-        supabase.from("courses").select("*")
+        supabase.from("courses_all").select("*") // not the `courses` view: it hides tutor sets
       ]);
 
       const formattedAsgs = (allAsgRes.data || []).map(asg => {
@@ -64,7 +64,7 @@ export default function SubmissionList() {
       
       const [lRes, cRes, subRes, stRes, gRes] = await Promise.all([
         supabase.from("lessons").select("*").eq("id", currentAsg.lesson_id).single(),
-        supabase.from("courses").select("*").eq("id", currentAsg.course_id).single(),
+        supabase.from("courses_all").select("*").eq("id", currentAsg.course_id).single(),
         supabase.from("submissions").select("*").eq("assignment_id", currentAsg.id),
         supabase.from("users").select("*").eq("role", "student"),
         supabase.from("student_grades").select("*")
@@ -146,7 +146,7 @@ export default function SubmissionList() {
 
   return (
     <div className="container">
-      <Crumb nav={nav} items={[{ label: "รายวิชา", to: "/i/courses" }, { label: course.code, to: "/i/course/" + course.id }, { label: "บทที่ " + lesson.index, to: "/i/lesson/" + lesson.id }, { label: "การส่งงาน" }]} />
+      <Crumb nav={nav} items={[course.kind === "tutor" ? { label: "ชุดติว", to: "/i/tutor" } : { label: "รายวิชา", to: "/i/courses" }, { label: course.code, to: "/i/course/" + course.id }, { label: "บทที่ " + lesson.index, to: "/i/lesson/" + lesson.id }, { label: "การส่งงาน" }]} />
       <PageHead kicker={"ใบงาน · " + course.code} title={a.title}
         right={
           <div className="flex items-center gap-2 wrap">

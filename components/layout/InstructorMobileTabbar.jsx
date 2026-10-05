@@ -196,6 +196,7 @@ export default function InstructorMobileTabbar() {
   const user = session?.user;
  
   const onHome = pathname === "/i/courses" || pathname.startsWith("/i/course") || pathname.startsWith("/i/lesson");
+  const onTutor = pathname.startsWith("/i/tutor");
   const onSubmissions = pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade");
   const onReports = pathname.startsWith("/i/reports");
   const onMaster = pathname.startsWith("/i/master");
@@ -207,6 +208,9 @@ export default function InstructorMobileTabbar() {
       <div className="tabbar i-tabbar" style={{ background: "rgba(255,255,255,.95)", backdropFilter: "saturate(1.4) blur(12px)" }}>
         {hasPermission(user, PERMISSIONS.COURSES_VIEW) && (
           <TabItem href="/i/courses" icon="grid" label="รายวิชา" active={onHome} />
+        )}
+        {hasPermission(user, PERMISSIONS.COURSES_VIEW) && (
+          <TabItem href="/i/tutor" icon="award" label="ชุดติว" active={onTutor} />
         )}
         {hasPermission(user, PERMISSIONS.SUBMISSIONS_VIEW) && (
           <TabItem href="/i/submissions/a1" icon="file" label="ตรวจงาน" active={onSubmissions} />

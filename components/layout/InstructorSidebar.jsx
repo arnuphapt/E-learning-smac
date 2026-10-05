@@ -29,6 +29,10 @@ function InstructorSidebarContent({ open, onClose }) {
     items1.push(["/i/courses", "grid", "ภาพรวม / รายวิชา", pathname.startsWith("/i/course") || pathname === "/i/courses" || pathname.startsWith("/i/lesson")]);
   }
 
+  if (hasPermission(user, PERMISSIONS.COURSES_VIEW)) {
+    items1.push(["/i/tutor", "award", "ชุดติว", pathname.startsWith("/i/tutor")]);
+  }
+
   let items2 = [];
   if (hasPermission(user, PERMISSIONS.SUBMISSIONS_VIEW)) {
     items2.push(["/i/submissions/a1", "file", "ตรวจใบงาน", pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade")]);

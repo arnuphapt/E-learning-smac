@@ -128,6 +128,7 @@ export default function StudentMobileTabbar() {
   }, [pathname, session]);
 
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
+  const onTutor = pathname.startsWith("/s/tutor");
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
   const onCal = pathname === "/s/calendar";
   const onBroadcasts = pathname === "/s/broadcasts";
@@ -169,6 +170,7 @@ export default function StudentMobileTabbar() {
         }
       `}</style>
       <TabItem href="/s/courses"     icon="book"      label="รายวิชา"   active={onCourses} />
+      <TabItem href="/s/tutor"       icon="award"     label="ชุดติว"    active={onTutor} />
       <TabItem href="/s/assignments" icon="clipboard" label="ใบงาน"     active={onAssignments} />
       <TabItem href="/s/broadcasts"  icon="bell"      label="ประกาศ"    active={onBroadcasts} showDot={hasNew} shake={shouldShake} />
       <TabItem href="/s/calendar"    icon="cal"       label="ปฏิทิน"    active={onCal} />
