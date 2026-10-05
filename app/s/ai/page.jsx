@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
+import { fileHref, STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import Loading from "@/components/ui/Loading";
 import { Select, Dialog } from "@/components/ui/Primitives";
@@ -215,7 +216,7 @@ export default function StudentSeparateAiPage() {
     async function loadData() {
       const [cRes, lRes, sgRes, uRes, secRes] = await Promise.all([
         supabase.from("courses").select("*"),
-        supabase.from("lessons").select("*").order("index", { ascending: true }),
+        supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).order("index", { ascending: true }),
         supabase.from("student_grades").select("prefix, year_label"),
         studentId ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: null }),
         supabase.from("sections").select("*")
@@ -1015,7 +1016,7 @@ export default function StudentSeparateAiPage() {
                               {msg.attachments.map((f, idx) => (
                                 <a
                                   key={idx}
-                                  href={f.url}
+                                  href={fileHref(f.url)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   style={{

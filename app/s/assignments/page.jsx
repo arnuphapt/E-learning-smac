@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
+import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import { Avatar, Badge, statusBadge, Select } from "@/components/ui/Primitives";
@@ -29,7 +30,7 @@ export default function StudentAssignments() {
       const queries = [
         supabase.from("courses").select("*"),
         supabase.from("assignments").select("*"),
-        supabase.from("lessons").select("*")
+        supabase.from("lessons").select(STUDENT_LESSON_COLUMNS)
       ];
 
       if (studentId) {

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
+import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -146,7 +147,7 @@ export default function StudentCourse() {
       
       const [cRes, lRes] = await Promise.all([
         supabase.from("courses").select("*").eq("id", courseId).single(),
-        supabase.from("lessons").select("*").eq("course_id", courseId).order("index", { ascending: true })
+        supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("course_id", courseId).order("index", { ascending: true })
       ]);
       
       if (!cRes.data) {

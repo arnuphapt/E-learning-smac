@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
+import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import { Dialog } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
@@ -31,7 +32,7 @@ export default function TestTaking() {
       if (!lessonId) return;
       
       const queries = [
-        supabase.from("lessons").select("*").eq("id", lessonId).single(),
+        supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("id", lessonId).single(),
         supabase.from("questions").select("*").eq("lesson_id", lessonId).eq("kind", kind).order("no", { ascending: true })
       ];
       if (studentId) {

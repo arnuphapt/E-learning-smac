@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
+import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
@@ -28,7 +29,7 @@ export default function Calendar() {
     async function load() {
       const [aRes, lRes] = await Promise.all([
         supabase.from("assignments").select("*, course:courses(code)"),
-        supabase.from("lessons").select("*, course:courses(code)")
+        supabase.from("lessons").select(`${STUDENT_LESSON_COLUMNS}, course:courses(code)`)
       ]);
       
       if (aRes.data) {

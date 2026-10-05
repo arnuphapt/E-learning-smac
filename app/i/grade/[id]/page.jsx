@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { fileHref } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import { Avatar, statusBadge, Badge, Ph, Progress } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -179,7 +180,7 @@ export default function Grader() {
                     <div className="t-xs muted">ส่งเมื่อ {sub.submitted_at}</div>
                   </div>
                   <a 
-                    href={sub.file} 
+                    href={fileHref(sub.file)} 
                     download={sub.file.split("/").pop()} 
                     target="_blank" 
                     rel="noopener noreferrer" 
@@ -192,7 +193,7 @@ export default function Grader() {
                 {sub.file.toLowerCase().endsWith(".pdf") ? (
                   <div style={{ width: "100%", height: mobile ? 450 : 680, borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", background: "#fff" }}>
                     <iframe
-                      src={`${sub.file}#toolbar=1`}
+                      src={`${fileHref(sub.file)}#toolbar=1`}
                       width="100%"
                       height="100%"
                       style={{ border: "none" }}
@@ -202,7 +203,7 @@ export default function Grader() {
                 ) : (/\.(jpe?g|png|webp|gif)$/i.test(sub.file)) ? (
                   <div style={{ width: "100%", display: "flex", justifyContent: "center", borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", background: "#fff", padding: 12 }}>
                     <img
-                      src={sub.file}
+                      src={fileHref(sub.file)}
                       alt="Student submission preview"
                       style={{ maxWidth: "100%", maxHeight: mobile ? 450 : 680, objectFit: "contain", borderRadius: 8 }}
                     />

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense, useRef, useImperativeHandle, forwardRef } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { fileHref } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import { Badge, Dialog, Ph, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -157,7 +158,7 @@ const VideoManage = forwardRef(function VideoManage({ lesson, onSave, toast, isN
         });
         if (!presignRes.ok) throw new Error("Failed to get upload signature");
 
-        const { uploadUrl, publicUrl, key } = await presignRes.json();
+        const { uploadUrl, key } = await presignRes.json();
         setVideoProgress("กำลังอัปโหลดไฟล์วิดีโอ...");
 
         if (uploadUrl) {
@@ -170,7 +171,7 @@ const VideoManage = forwardRef(function VideoManage({ lesson, onSave, toast, isN
         }
 
         payload.video = true;
-        payload.video_url = publicUrl;
+        payload.video_url = key;
         payload.video_path = key;
 
         setVideoProgress("อัปโหลดเสร็จสมบูรณ์");
@@ -208,7 +209,7 @@ const VideoManage = forwardRef(function VideoManage({ lesson, onSave, toast, isN
           <div className="card-h"><div className="title">คลิปการสอน</div><div className="desc">อัปโหลดหรือลิงก์วิดีโอบทเรียน</div></div>
           <div className="card-p">
             {previewUrl || lesson.video_url ? (
-              <video src={previewUrl || lesson.video_url} controls style={{ width: "100%", aspectRatio: "16/9", borderRadius: 14, background: "#000", marginBottom: 16 }} />
+              <video src={previewUrl || fileHref(lesson.video_url)} controls style={{ width: "100%", aspectRatio: "16/9", borderRadius: 14, background: "#000", marginBottom: 16 }} />
             ) : (
               <Ph label="วิดีโอบทเรียน · 16:9" h={200} style={{ marginBottom: 16 }} />
             )}
@@ -883,7 +884,7 @@ function DocsManage({ lesson, onSave, toast }) {
       });
       if (!presignRes.ok) throw new Error("Failed to get upload signature");
 
-      const { uploadUrl, publicUrl, key } = await presignRes.json();
+      const { uploadUrl, key } = await presignRes.json();
 
       if (uploadUrl) {
         const uploadRes = await fetch(uploadUrl, {
@@ -898,7 +899,7 @@ function DocsManage({ lesson, onSave, toast }) {
         name: file.name,
         size: formatBytes(file.size),
         path: key,
-        url: publicUrl
+        url: key
       };
 
       const updatedDocs = [...docs, newDoc];
@@ -930,7 +931,7 @@ function DocsManage({ lesson, onSave, toast }) {
       });
       if (!presignRes.ok) throw new Error("Failed to get upload signature");
 
-      const { uploadUrl, publicUrl, key } = await presignRes.json();
+      const { uploadUrl, key } = await presignRes.json();
 
       if (uploadUrl) {
         const uploadRes = await fetch(uploadUrl, {
@@ -945,7 +946,7 @@ function DocsManage({ lesson, onSave, toast }) {
         name: file.name,
         size: formatBytes(file.size),
         path: key,
-        url: publicUrl
+        url: key
       };
 
       const updatedAiDocs = [...aiDocs, newDoc];
@@ -1065,7 +1066,7 @@ function DocsManage({ lesson, onSave, toast }) {
                     <div className="t-xs muted">{doc.size}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ height: 32, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <a href={fileHref(doc.url)} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ height: 32, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <Icon name="eye" size={14} /> เปิดดู
                     </a>
                     <button className="iconbtn ghost c-danger" onClick={() => handleDelete(doc)}>
@@ -1112,7 +1113,7 @@ function DocsManage({ lesson, onSave, toast }) {
                     <div className="t-xs muted">{doc.size}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ height: 32, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <a href={fileHref(doc.url)} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ height: 32, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <Icon name="eye" size={14} /> เปิดดู
                     </a>
                     <button className="iconbtn ghost c-danger" onClick={() => handleDeleteAi(doc)}>

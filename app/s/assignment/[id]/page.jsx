@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
+import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge, Avatar, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -100,7 +101,7 @@ export default function AssignmentDetail() {
       const { data: aData } = await supabase.from("assignments").select("*").eq("id", asgId).single();
       if (!aData) { setLoading(false); return; }
       
-      const { data: lData } = await supabase.from("lessons").select("*").eq("id", aData.lesson_id).single();
+      const { data: lData } = await supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("id", aData.lesson_id).single();
       
       const isStaff = role === "instructor" || role === "admin";
       if (lData && lData.status === "draft" && !isStaff) {
@@ -174,7 +175,7 @@ export default function AssignmentDetail() {
       });
       if (!presignRes.ok) throw new Error("Failed to get upload signature");
 
-      const { uploadUrl, publicUrl, key } = await presignRes.json();
+      const { uploadUrl, key } = await presignRes.json();
 
       if (uploadUrl) {
         const uploadRes = await fetch(uploadUrl, {
@@ -185,7 +186,7 @@ export default function AssignmentDetail() {
         if (!uploadRes.ok) throw new Error("Failed to upload file to Cloudflare R2");
       }
 
-      setFile(publicUrl);
+      setFile(key);
       toast("อัปโหลดไฟล์สำเร็จ");
     } catch (err) {
       console.error(err);

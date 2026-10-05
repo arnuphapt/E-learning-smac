@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
+import { fileHref, STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -124,7 +125,7 @@ function VideoStage({ lesson, studentId, nav, gated, watchProgress, onProgressUp
       <div style={{ position: "relative", aspectRatio: "16/9", background: "#000", borderRadius: 14, overflow: "hidden" }}>
         <video
           ref={videoRef}
-          src={lesson.video_url}
+          src={fileHref(lesson.video_url)}
           controls
           className="w-full h-full"
           style={{ display: "block", outline: "none" }}
@@ -195,7 +196,7 @@ function LessonDocs({ lesson, allowDownload = true }) {
             <div className="t-xs muted">{doc.size}</div>
           </div>
           {allowDownload ? (
-            <a href={doc.url} download={doc.name} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <a href={fileHref(doc.url)} download={doc.name} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Icon name="download" size={15} />ดาวน์โหลด
             </a>
           ) : (
@@ -290,7 +291,7 @@ function NoVideoContentStage({ lesson, assignments, submissions, nav }) {
                   <div className="t-xs muted">{doc.size}</div>
                 </div>
                 {lesson.allow_download ?? true ? (
-                  <a href={doc.url} download={doc.name} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <a href={fileHref(doc.url)} download={doc.name} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Icon name="download" size={15} />ดาวน์โหลด
                   </a>
                 ) : (
@@ -468,7 +469,7 @@ export default function StudentLesson() {
   useEffect(() => {
     async function load() {
       if (!lessonId) return;
-      const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
+      const { data: lData } = await supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("id", lessonId).single();
       if (!lData) { setLoading(false); return; }
 
       if (lData.status === "draft") {
@@ -480,7 +481,7 @@ export default function StudentLesson() {
       const queries = [
         supabase.from("courses").select("*").eq("id", lData.course_id).single(),
         supabase.from("assignments").select("*").eq("lesson_id", lessonId),
-        supabase.from("lessons").select("*").eq("course_id", lData.course_id).order("index", { ascending: true }),
+        supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("course_id", lData.course_id).order("index", { ascending: true }),
         supabase.from("questions").select("id, kind").eq("lesson_id", lessonId)
       ];
 

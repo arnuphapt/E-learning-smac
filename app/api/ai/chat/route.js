@@ -2,20 +2,19 @@ import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getToken } from "next-auth/jwt";
+import { toKey, readObject, canView } from "@/lib/r2";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-async function fileToGenerativePart(url, mimeType) {
+// ref = stored R2 key (or legacy public URL). Read straight from R2 with server-only credentials.
+async function fileToGenerativePart(ref, mimeType) {
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch file from ${url}`);
-    }
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    const key = toKey(ref);
+    const buffer = key && (await readObject(key));
+    if (!buffer) throw new Error(`Cannot read file from R2: ${ref}`);
     return {
       inlineData: {
-        data: base64,
+        data: buffer.toString("base64"),
         mimeType: mimeType
       }
     };
@@ -248,8 +247,10 @@ ${emotionInstruction}`;
     if (attachments && attachments.length > 0) {
       for (const file of attachments) {
         const mimeType = getMimeType(file.name);
-        if (mimeType) {
-          const part = await fileToGenerativePart(file.url, mimeType);
+        // attachments come from the browser: only read keys this user may view (never AI-only docs)
+        const attKey = toKey(file.url);
+        if (mimeType && attKey && canView(token, attKey)) {
+          const part = await fileToGenerativePart(attKey, mimeType);
           if (part) {
             messageParts.push(part);
             attachedFileNames.push(file.name);

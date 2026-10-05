@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import Icon from "@/components/ui/Icon";
 import AiAvatar from "./AiAvatar";
 import { supabase } from "@/lib/supabase";
+import { fileHref } from "@/lib/files";
 import { Dialog } from "@/components/ui/Primitives";
 
 const parseEmotionAndReply = (text) => {
@@ -688,7 +689,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
                         {msg.attachments.map((f, idx) => (
                           <a
                             key={idx}
-                            href={f.url}
+                            href={fileHref(f.url)}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
