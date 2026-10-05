@@ -56,7 +56,7 @@ export default function InstructorAiLogs() {
       supabase.from("lessons").select("*").order("index", { ascending: true }),
       supabase.from("users").select("*").eq("role", "student"),
       supabase.from("course_instructors").select("course_id").eq("user_id", user.id),
-      supabase.from("ai_chat_logs").select("*").order("created_at", { ascending: false })
+      supabase.from("ai_chat_logs").select("*").neq("reply", "").order("created_at", { ascending: false }) // reply "" = in-flight quota claim, not a message
     ]);
 
     if (cRes.data) {

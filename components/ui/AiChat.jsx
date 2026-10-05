@@ -177,6 +177,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
         .eq("student_id", studentId)
         .eq("lesson_id", currLessonId)
         .eq("hidden_by_student", false)
+        .neq("reply", "") // quota claims (api/ai/chat, tutor explain) are empty placeholder rows until the reply is filled
         .order("created_at", { ascending: true });
 
       if (error) throw error;

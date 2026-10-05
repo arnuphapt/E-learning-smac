@@ -6,6 +6,8 @@ import { supabaseAuthHeaders } from "@/lib/supabase-token";
 import { toKey, readObject } from "@/lib/r2";
 import { canViewKey } from "@/lib/file-access";
 import { isStaffRole } from "@/lib/roles";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { claimAiQuota, fillAiClaim, releaseAiClaim } from "@/lib/ai-quota";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -45,6 +47,7 @@ function getMimeType(fileName) {
 }
 
 export async function POST(req) {
+  let claimId = null; // quota claim row of this request (students), released if anything below fails
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -113,36 +116,30 @@ export async function POST(req) {
     }
 
     let todayCount = 0;
+    // the call is logged only when the UI sent both lesson and course (as before); without them nothing is kept
+    const logLesson = !!(lessonContext?.id && lessonContext?.courseId);
+    // summarize and chat are the only two prompts below: the logged mode cannot be a client-made string that dodges the counter
+    const logMode = mode === "summarize" ? "summarize" : "chat";
 
     if (currentUserId && !isBypassed) {
-      // Get Bangkok local time start and end of today
-      const bangkokTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-      const year = bangkokTime.getFullYear();
-      const month = bangkokTime.getMonth();
-      const date = bangkokTime.getDate();
-      
-      const startOfDay = new Date(Date.UTC(year, month, date, 0 - 7, 0, 0, 0));
-      const endOfDay = new Date(Date.UTC(year, month, date, 24 - 7, 0, 0, 0));
-
-      const { count, error } = await supabaseServer
-        .from("ai_chat_logs")
-        .select("*", { count: "exact", head: true })
-        .eq("student_id", currentUserId)
-        .in("mode", ["chat", "summarize", "explain"]) // "explain" = tutor-mode explain (/api/tutor/attempts/<id>/explain): one shared daily quota
-        .gte("created_at", startOfDay.toISOString())
-        .lt("created_at", endOfDay.toISOString());
-
-      if (error) {
-        console.error("Failed to count today's chat logs:", error);
-      } else {
-        todayCount = count || 0;
-        if (todayCount >= dailyLimit) {
-          return NextResponse.json(
-            { error: "rate_limit_exceeded", used: todayCount, limit: dailyLimit },
-            { status: 429 }
-          );
-        }
+      // Atomic: count today's calls and insert a claim row under a per-student lock (migration 20261006040000), so N
+      // parallel requests cannot all pass the check. The claim is filled with the reply below, or deleted if the call fails.
+      const claim = await claimAiQuota(supabaseAdmin(), {
+        studentId: currentUserId,
+        limit: dailyLimit,
+        mode: logMode,
+        lessonId: logLesson ? lessonContext.id : null,
+        courseId: logLesson ? lessonContext.courseId : null,
+        sessionId,
+      });
+      if (!claim.claimId) {
+        return NextResponse.json(
+          { error: "rate_limit_exceeded", used: claim.used, limit: dailyLimit },
+          { status: 429 }
+        );
       }
+      claimId = claim.claimId;
+      todayCount = claim.used - 1;
     }
 
     // Fetch AI-only documents from lessons table
@@ -302,19 +299,32 @@ ${emotionInstruction}`;
         : "");
 
       try {
-        const { error } = await supabaseServer.from("ai_chat_logs").insert({
-          student_id: currentUserId,
-          lesson_id: lessonContext.id,
-          course_id: lessonContext.courseId,
-          message: loggedMessage,
-          reply: text,
-          mode: mode || "chat",
-          session_id: sessionId
-        });
-        if (error) console.error("[AI Chat Log Error]", error);
+        if (claimId) {
+          // students: fill the claim made at the quota check
+          if (text) {
+            await fillAiClaim(supabaseAdmin(), claimId, { message: loggedMessage, reply: text });
+            claimId = null;
+          }
+        } else {
+          const { error } = await supabaseServer.from("ai_chat_logs").insert({
+            student_id: currentUserId,
+            lesson_id: lessonContext.id,
+            course_id: lessonContext.courseId,
+            message: loggedMessage,
+            reply: text,
+            mode: mode || "chat",
+            session_id: sessionId
+          });
+          if (error) console.error("[AI Chat Log Error]", error);
+        }
       } catch (err) {
         console.error("[AI Chat Log Exception]", err);
       }
+    }
+    // claim not filled (no lesson context, empty reply, or the fill failed): nothing was logged, so nothing is counted
+    if (claimId) {
+      await releaseAiClaim(supabaseAdmin(), claimId);
+      claimId = null;
     }
 
     return NextResponse.json({
@@ -325,6 +335,7 @@ ${emotionInstruction}`;
       }
     });
   } catch (err) {
+    if (claimId) await releaseAiClaim(supabaseAdmin(), claimId); // the call failed: it must not count against the quota
     console.error("[AI Chat Error]", err);
     return NextResponse.json(
       { error: err.message || "Internal server error" },
