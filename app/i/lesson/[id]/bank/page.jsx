@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { normalizeTopic, findTopic, bankWarning, parseDrawCount } from "@/lib/tutor-bank";
+import { nextChoiceId } from "@/lib/questions";
 import Icon from "@/components/ui/Icon";
 import { Badge, Dialog } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -29,13 +30,12 @@ function QuestionEditor({ q, topics, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
 
   const setC = (id, v) => setChoices((cs) => cs.map((c) => (c.id === id ? { ...c, text: v } : c)));
-  const addC = () => setChoices((cs) => [...cs, { id: String.fromCharCode(97 + cs.length), text: "" }]);
-  // Removing a middle choice would leave ids like a,c: re-letter so ids stay a,b,c… and keep the answer on the same row.
+  const addC = () => setChoices((cs) => [...cs, { id: nextChoiceId(cs), text: "" }]);
+  // Ids are NEVER re-lettered: tutor_answers.chosen and the settled result snapshot store them, and the review reads the
+  // choices live. Deleting the current answer leaves none selected (submit asks for a new pick).
   const removeC = (id) => {
-    const idx = choices.findIndex((c) => c.id === id);
-    const ansIdx = choices.findIndex((c) => c.id === answer);
-    setChoices(choices.filter((_, i) => i !== idx).map((c, i) => ({ ...c, id: String.fromCharCode(97 + i) })));
-    setAnswer(ansIdx === idx ? "a" : String.fromCharCode(97 + (ansIdx > idx ? ansIdx - 1 : ansIdx)));
+    setChoices(choices.filter((c) => c.id !== id));
+    if (answer === id) setAnswer("");
   };
 
   const submit = async () => {
