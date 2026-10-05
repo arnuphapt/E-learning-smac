@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# playwright (tutor-mode E2E: minted session cookies live in e2e/.auth)
+/e2e/.auth/
+/test-results/
+/playwright-report/
