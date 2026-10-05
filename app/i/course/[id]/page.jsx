@@ -376,8 +376,10 @@ export default function InstructorCourse() {
       supabase.from("sections").select("*").eq("status", "active")
     ]);
     
-    if (cRes.data) {
-      const c = cRes.data;
+    // The `courses` view hides tutor sets, so fall back to courses_all to load one for editing.
+    const cData = cRes.data ?? (await supabase.from("courses_all").select("*").eq("id", courseId).single()).data;
+    if (cData) {
+      const c = cData;
       const instructorsList = ciRes?.data || [];
       const isInstructorAssigned = instructorsList.some(i => i.user_id === user?.id);
 
@@ -607,7 +609,7 @@ export default function InstructorCourse() {
       }).filter(Boolean);
 
       const { error } = await supabase
-        .from("courses")
+        .from("courses_all")
         .update({
           title: editTitle,
           year_level: finalYearLevels,
@@ -656,7 +658,7 @@ export default function InstructorCourse() {
         allowedEmails: newEmails
       };
       const { error } = await supabase
-        .from("courses")
+        .from("courses_all")
         .update({ access: updatedAccess })
         .eq("id", course.id);
 
@@ -715,7 +717,7 @@ export default function InstructorCourse() {
         if (lesErr) throw lesErr;
       }
 
-      const { error: cErr } = await supabase.from("courses").delete().eq("id", course.id);
+      const { error: cErr } = await supabase.from("courses_all").delete().eq("id", course.id);
       if (cErr) throw cErr;
 
       toast("ลบรายวิชาเรียบร้อยแล้ว");
@@ -1015,6 +1017,12 @@ export default function InstructorCourse() {
                 </div>
               )}
             </div>
+
+            {course.kind === "tutor" && (
+              <div className="field mb-4">
+                <span className="badge">ชุดติว</span>
+              </div>
+            )}
 
             {/* Section Configuration */}
             <div className="field mb-4" style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
