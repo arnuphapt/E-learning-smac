@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getToken } from "next-auth/jwt";
 import { supabaseAuthHeaders } from "@/lib/supabase-token";
-import { toKey, readObject, canView } from "@/lib/r2";
+import { toKey, readObject } from "@/lib/r2";
+import { canViewKey } from "@/lib/file-access";
 import { isStaffRole } from "@/lib/roles";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -251,7 +252,7 @@ ${emotionInstruction}`;
         const mimeType = getMimeType(file.name);
         // attachments come from the browser: only read keys this user may view (never AI-only docs)
         const attKey = toKey(file.url);
-        if (mimeType && attKey && canView(token, attKey)) {
+        if (mimeType && attKey && (await canViewKey(token, attKey))) {
           const part = await fileToGenerativePart(attKey, mimeType);
           if (part) {
             messageParts.push(part);

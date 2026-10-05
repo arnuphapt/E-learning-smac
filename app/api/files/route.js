@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { getR2, toKey, canView, signGet } from "@/lib/r2";
+import { getR2, toKey, signGet } from "@/lib/r2";
+import { canViewKey } from "@/lib/file-access";
 
 // GET /api/files?ref=<stored key or legacy URL>
 // Checks the viewer, then 302s to a short-lived presigned R2 GET URL.
@@ -11,7 +12,7 @@ export async function GET(req) {
 
   const key = toKey(req.nextUrl.searchParams.get("ref"));
   if (!key) return new Response("Bad ref", { status: 400 });
-  if (!canView(token, key)) return new Response("Forbidden", { status: 403 });
+  if (!(await canViewKey(token, key))) return new Response("Forbidden", { status: 403 });
 
   const headers = { "Cache-Control": "private, no-store" };
   if (!getR2()) {

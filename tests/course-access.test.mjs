@@ -80,3 +80,28 @@ test("tutor set: year / section locks behave like courses once a lock exists", (
   assert.equal(canTutor(course({ section: "A" })), true);
   assert.equal(canTutor(course({ section: "A" }), stu({ studentNo: "66010099", email: "66010099@smnc.ac.th" })), false);
 });
+
+// R2 presign decision (lib/file-access.js canViewKey -> canStudentOpenLesson)
+import { canStudentOpenLesson } from "../lib/course-access.js";
+const openLesson = (l, c, s = stu()) => canStudentOpenLesson(l, c, s, sections, grades);
+
+test("lesson files: missing lesson / draft lesson / missing course are refused", () => {
+  assert.equal(openLesson(null, course()), false);
+  assert.equal(openLesson({ status: "draft" }, course()), false);
+  assert.equal(openLesson({ status: "active" }, null), false);
+});
+
+test("lesson files: normal course follows the course rule (open course ok, locked course refused)", () => {
+  const l = { status: "active" };
+  assert.equal(openLesson(l, course({ kind: "course" })), true);
+  assert.equal(openLesson(l, course()), true); // kind missing = normal course
+  assert.equal(openLesson(l, course({ year_level: [3] })), false);
+  assert.equal(openLesson(l, course({ section: "A" }), stu({ studentNo: "66010099", email: "66010099@smnc.ac.th" })), false);
+});
+
+test("lesson files: tutor set follows the fail-closed tutor rule", () => {
+  const l = { status: "active" };
+  assert.equal(openLesson(l, course({ kind: "tutor" })), false); // no lock = closed
+  assert.equal(openLesson(l, course({ kind: "tutor", year_level: [4] })), true);
+  assert.equal(openLesson(l, course({ kind: "tutor", year_level: [3] })), false);
+});
