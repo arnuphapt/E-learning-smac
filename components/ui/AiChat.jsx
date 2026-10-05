@@ -176,6 +176,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
         .select("*")
         .eq("student_id", studentId)
         .eq("lesson_id", currLessonId)
+        .eq("hidden_by_student", false)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
@@ -333,15 +334,12 @@ export default function AiChat({ lesson, course, open, onClose }) {
     if (!confirm("คุณต้องการลบประวัติการสนทนาของเซสชันนี้ใช่หรือไม่?")) return;
 
     try {
-      let query = supabase.from("ai_chat_logs").delete().eq("student_id", studentId);
-      if (sessId === "legacy") {
-        query = query.filter("session_id", "is", null);
-      } else {
-        query = query.eq("session_id", sessId);
-      }
-      const { error } = await query;
-
-      if (error) throw error;
+      const res = await fetch("/api/ai/history/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sessId }),
+      });
+      if (!res.ok) throw new Error(`clear failed: ${res.status}`);
 
       if (activeSessionId === sessId) {
         handleStartNewSession();
