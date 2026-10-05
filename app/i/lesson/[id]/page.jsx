@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense, useRef, useImperativeHandle, forw
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { fileHref } from "@/lib/files";
+import { nextChoiceId } from "@/lib/questions";
 import Icon from "@/components/ui/Icon";
 import { Badge, Dialog, Ph, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -265,7 +266,7 @@ function QuestionEditor({ q, onClose, onSave }) {
   const [choices, setChoices] = React.useState(q.choices || [{ id: "a", text: "" }, { id: "b", text: "" }]);
   const [answer, setAnswer] = React.useState(q.answer || "a");
   const setC = (id, v) => setChoices((cs) => cs.map((c) => c.id === id ? { ...c, text: v } : c));
-  const addC = () => { const id = String.fromCharCode(97 + choices.length); setChoices([...choices, { id, text: "" }]); };
+  const addC = () => setChoices([...choices, { id: nextChoiceId(choices), text: "" }]);
   return (
     <Dialog title={q.text ? "แก้ไขข้อสอบ" : "เพิ่มข้อสอบใหม่"} desc="ข้อสอบปรนัย เลือกคำตอบที่ถูกต้อง 1 ข้อ" onClose={onClose} lg
       footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={() => onSave({ ...q, text, choices, answer })}><Icon name="check" size={15} />บันทึกข้อสอบ</button></>}>
