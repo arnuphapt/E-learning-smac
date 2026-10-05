@@ -44,3 +44,39 @@ test("fillAiClaim updates message + reply of the claim row and throws on error; 
   assert.deepEqual(ok.calls[1], ["delete", "ai_chat_logs", "id", "c1"]);
   await releaseAiClaim(tableDb({ message: "denied" }), "c1"); // logged, not thrown
 });
+
+import { claimAiQuotaFailOpen } from "../lib/ai-quota.js";
+
+const seqDb = (...results) => { const calls = []; return { calls, rpc: async (_n, a) => { calls.push(a); return results.shift(); } }; };
+const quiet = async (fn) => { const orig = console.error; console.error = () => {}; try { return await fn(); } finally { console.error = orig; } };
+const A = { studentId: "s", limit: 15, mode: "chat", lessonId: "l1", courseId: "c1" };
+
+test("failOpen: a claim and an over-limit NULL pass through untouched (over limit is not an error)", async () => {
+  assert.deepEqual(await claimAiQuotaFailOpen(seqDb({ data: [{ claim_id: "c", used: 2 }], error: null }), A), { claimId: "c", used: 2 });
+  assert.deepEqual(await claimAiQuotaFailOpen(seqDb({ data: [{ claim_id: null, used: 15 }], error: null }), A), { claimId: null, used: 15 });
+});
+
+test("failOpen: function missing / DB error -> fail open, no retry", async () => {
+  const db = seqDb({ data: null, error: { code: "PGRST202", message: "function not found" } });
+  const r = await quiet(() => claimAiQuotaFailOpen(db, A));
+  assert.deepEqual(r, { claimId: null, used: 0, failOpen: true });
+  assert.equal(db.calls.length, 1);
+});
+
+test("failOpen: FK violation retries once without lesson/course and is counted", async () => {
+  const db = seqDb({ data: null, error: { code: "23503", message: "fk" } }, { data: [{ claim_id: "c2", used: 3 }], error: null });
+  const r = await quiet(() => claimAiQuotaFailOpen(db, A));
+  assert.deepEqual(r, { claimId: "c2", used: 3 });
+  assert.equal(db.calls.length, 2);
+  assert.equal(db.calls[1].p_lesson, null);
+  assert.equal(db.calls[1].p_course, null);
+});
+
+test("failOpen: FK violation then a failing retry -> fail open; FK without lesson/course is not retried", async () => {
+  const fk = { data: null, error: { code: "23503", message: "fk" } };
+  const db = seqDb(fk, { data: null, error: { code: "42883", message: "gone" } });
+  assert.deepEqual(await quiet(() => claimAiQuotaFailOpen(db, A)), { claimId: null, used: 0, failOpen: true });
+  const db2 = seqDb(fk);
+  assert.deepEqual(await quiet(() => claimAiQuotaFailOpen(db2, { studentId: "s", limit: 1, mode: "chat" })), { claimId: null, used: 0, failOpen: true });
+  assert.equal(db2.calls.length, 1);
+});

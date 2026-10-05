@@ -7,7 +7,7 @@ import { toKey, readObject } from "@/lib/r2";
 import { canViewKey } from "@/lib/file-access";
 import { isStaffRole } from "@/lib/roles";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { claimAiQuota, fillAiClaim, releaseAiClaim } from "@/lib/ai-quota";
+import { claimAiQuotaFailOpen, fillAiClaim, releaseAiClaim } from "@/lib/ai-quota";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -124,7 +124,7 @@ export async function POST(req) {
     if (currentUserId && !isBypassed) {
       // Atomic: count today's calls and insert a claim row under a per-student lock (migration 20261006040000), so N
       // parallel requests cannot all pass the check. The claim is filled with the reply below, or deleted if the call fails.
-      const claim = await claimAiQuota(supabaseAdmin(), {
+      const claim = await claimAiQuotaFailOpen(supabaseAdmin(), {
         studentId: currentUserId,
         limit: dailyLimit,
         mode: logMode,
@@ -132,14 +132,16 @@ export async function POST(req) {
         courseId: logLesson ? lessonContext.courseId : null,
         sessionId,
       });
-      if (!claim.claimId) {
-        return NextResponse.json(
-          { error: "rate_limit_exceeded", used: claim.used, limit: dailyLimit },
-          { status: 429 }
-        );
-      }
-      claimId = claim.claimId;
-      todayCount = claim.used - 1;
+      if (!claim.failOpen) {
+        if (!claim.claimId) {
+          return NextResponse.json(
+            { error: "rate_limit_exceeded", used: claim.used, limit: dailyLimit },
+            { status: 429 }
+          );
+        }
+        claimId = claim.claimId;
+        todayCount = claim.used - 1;
+      } // else: the claim could not be made (logged): continue unclaimed, the turn is logged the old way below
     }
 
     // Fetch AI-only documents from lessons table
