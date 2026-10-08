@@ -205,6 +205,7 @@ export async function cleanFixtures(db) {
   await del(db, "course_instructors", "course_id", courseIds);
   await del(db, "courses_all", "id", courseIds);
   await del(db, "users", "id", userIds);
+  must(await db.from("users").delete().like("id", `${FX_PREFIX}%`), "delete fixture users by prefix"); // extra students seeded by a spec
 }
 
 // Throws when anything fixture-like is still in the database. Counts only; never reads other people's rows.

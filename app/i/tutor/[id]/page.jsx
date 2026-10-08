@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import LessonPanel from "@/components/tutor/LessonPanel";
 import TutorSettings from "@/components/tutor/TutorSettings";
+import TutorResults from "@/components/tutor/TutorResults";
 
 const newLessonId = () => "l_" + Date.now();
 
@@ -187,15 +188,16 @@ function Workspace() {
         </div>
       </div>
 
-      {canManage && (
-        <div className="tabs mb-4">
-          <button className={tab === "lessons" ? "on" : ""} onClick={() => setTab("lessons")}><Icon name="video" size={15} />บทเรียนและคลังข้อสอบ</button>
-          <button className={tab === "settings" ? "on" : ""} onClick={() => setTab("settings")}><Icon name="settings" size={15} />ตั้งค่าและการเข้าถึง</button>
-        </div>
-      )}
+      <div className="tabs mb-4">
+        <button className={tab === "lessons" ? "on" : ""} onClick={() => setTab("lessons")}><Icon name="video" size={15} />บทเรียนและคลังข้อสอบ</button>
+        <button className={tab === "results" ? "on" : ""} onClick={() => setTab("results")}><Icon name="chart" size={15} />ผลการทำข้อสอบ</button>
+        {canManage && <button className={tab === "settings" ? "on" : ""} onClick={() => setTab("settings")}><Icon name="settings" size={15} />ตั้งค่าและการเข้าถึง</button>}
+      </div>
 
       {tab === "settings" && canManage ? (
         <TutorSettings course={course} canManage={canManage} onSaved={(f) => setCourse((c) => ({ ...c, ...f }))} />
+      ) : tab === "results" ? (
+        <TutorResults course={course} lessons={lessons} />
       ) : (
         <div className="tw-grid" ref={gridRef}>
           <div className="tw-rail">
