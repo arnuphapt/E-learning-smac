@@ -3,7 +3,9 @@
 // own ids; the rows are found by the code typed here (UI_CODE_PREFIX) and by the fixture instructor's
 // course_instructors link, and removed by global teardown.
 import { test, expect } from "@playwright/test";
-import { FX, STATE, UI_CODE_PREFIX, adminDb } from "./fixtures.mjs";
+import XLSX from "xlsx";
+import { FX, FX_PREFIX, STATE, UI_CODE_PREFIX, adminDb } from "./fixtures.mjs";
+import { TEMPLATE_HEADERS } from "../lib/tutor-import.js";
 
 test.use({ storageState: STATE.instructor });
 
@@ -109,4 +111,74 @@ test("create a tutor set, add a lesson, lock it, add a bank question with a topi
   await expect(page.getByText("กำลังโหลดข้อมูล")).toHaveCount(0);
   await expect(page.getByText(code)).toHaveCount(0);
   await expect(page.getByText(FX.course.code)).toHaveCount(0);
+});
+
+// Excel import into a bank. Own fx_e2e_ course + lesson (the shared fixture lesson feeds the student spec, so its bank must
+// not change); removed in finally, and global teardown sweeps anything left by the prefix.
+test("import bank questions from an Excel file: preview, errors, untick, topics reused or created", async ({ page }) => {
+  const db = adminDb();
+  const courseId = FX_PREFIX + "course_import";
+  const lessonId = FX_PREFIX + "lesson_import";
+  const topicId = FX_PREFIX + "topic_import";
+  const ok = (r) => { if (r.error) throw new Error("e2e import seed: " + r.error.message); };
+  const sheet = (rows) => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([TEMPLATE_HEADERS, ...rows]), "ข้อสอบ");
+    return XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+  };
+
+  try {
+    ok(await db.from("courses_all").upsert({ id: courseId, code: UI_CODE_PREFIX + "IMPORT", title: "[E2E] นำเข้า Excel", subtitle: "E2E fixture, safe to delete", term: "E2E", year: "2999", instructor: FX.instructor.name, hero: "#0d6e8c", access: { allowedYears: [], allowedEmails: [] }, year_level: [], section: null, kind: "tutor" }));
+    ok(await db.from("lessons").upsert({ id: lessonId, course_id: courseId, index: 1, title: "[E2E] บทนำเข้า", description: "E2E fixture lesson", status: "active", tutor_draw_count: null }));
+    ok(await db.from("tutor_topics").upsert({ id: topicId, lesson_id: lessonId, name: "E2E Heart" }));
+
+    // [โจทย์, ก, ข, ค, ง, จ, เฉลย, คำอธิบาย, หัวข้อ]; row 5 points at an empty choice, row 6 gets unticked
+    const file = sheet([
+      ["E2E-IMP-1", "ตัวแรก", "ตัวสอง", "ตัวสาม", "", "", "ข", "E2E-IMP คำอธิบาย", "  e2e heart "],
+      ["E2E-IMP-2", "w", "x", "y", "z", "", "C", "", "E2E Import ใหม่"],
+      ["E2E-IMP-3", "หนึ่ง", "สอง", "", "", "", 2, "", ""],
+      ["E2E-IMP-4 เสีย", "a", "b", "", "", "", "ค", "", ""],
+      ["E2E-IMP-5 ไม่นำเข้า", "a", "b", "", "", "", "ก", "", ""],
+    ]);
+
+    await page.goto(`/i/lesson/${lessonId}/bank`);
+    await expect(page.getByText("คลังข้อสอบ (0 ข้อ · 1 หัวข้อ)")).toBeVisible();
+    await page.getByRole("button", { name: "นำเข้าจาก Excel" }).click();
+    const dialog = page.locator(".dialog");
+
+    // the template downloads as .xlsx
+    const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "ดาวน์โหลดไฟล์ตัวอย่าง" }).click()]);
+    expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
+
+    await dialog.locator("input[type=file]").setInputFiles({ name: "e2e-import.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: file });
+    await expect(dialog.getByText("อ่านได้")).toContainText("4");
+    await expect(dialog.getByRole("alert")).toContainText("แถว 5: เฉลยชี้ไปที่ตัวเลือก ค ซึ่งว่างอยู่");
+    await expect(dialog.locator(".tw-imp-row[data-row]")).toHaveCount(4);
+
+    await dialog.getByLabel("นำเข้าแถว 6").uncheck();
+    await dialog.getByRole("button", { name: "นำเข้า 3 ข้อ" }).click();
+
+    await expect(page.getByText("คลังข้อสอบ (3 ข้อ · 2 หัวข้อ)")).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+
+    const [{ data: topics }, { data: qs }] = await Promise.all([
+      db.from("tutor_topics").select("id, name").eq("lesson_id", lessonId),
+      db.from("questions").select("no, text, choices, answer, explanation, topic_id, kind").eq("lesson_id", lessonId).order("no"),
+    ]);
+    expect(topics).toHaveLength(2); // "e2e heart" reused the existing row, "E2E Import ใหม่" created
+    const created = topics.find((t) => t.name === "E2E Import ใหม่");
+    expect(created).toBeTruthy();
+    expect(qs.map((q) => [q.text, q.kind, q.no])).toEqual([["E2E-IMP-1", "tutor", 1], ["E2E-IMP-2", "tutor", 2], ["E2E-IMP-3", "tutor", 3]]);
+    const answerText = (q) => q.choices.find((c) => c.id === q.answer)?.text;
+    expect(qs.map(answerText)).toEqual(["ตัวสอง", "y", "สอง"]);
+    expect(qs.map((q) => q.choices.length)).toEqual([3, 4, 2]);
+    expect(qs.map((q) => q.topic_id)).toEqual([topicId, created.id, null]);
+    expect(qs[0].explanation).toBe("E2E-IMP คำอธิบาย");
+    expect(new Set(qs.flatMap((q) => q.choices.map((c) => c.id))).size).toBe(9);
+  } finally {
+    await db.from("questions").delete().eq("lesson_id", lessonId);
+    await db.from("tutor_topics").delete().eq("lesson_id", lessonId);
+    await db.from("lessons").delete().eq("id", lessonId);
+    await db.from("courses_all").delete().eq("id", courseId);
+  }
 });

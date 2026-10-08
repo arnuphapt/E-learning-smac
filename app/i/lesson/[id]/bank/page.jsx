@@ -11,6 +11,7 @@ import { Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import BankImport from "@/components/tutor/BankImport";
 
 const blankQuestion = () => ({
   id: null,
@@ -86,6 +87,7 @@ export default function TutorBank() {
 
   const [state, setState] = useState({ loading: true, lesson: null, course: null, questions: [], topics: [] });
   const [editing, setEditing] = useState(null);
+  const [importing, setImporting] = useState(false);
   const [whole, setWhole] = useState(true);
   const [drawInput, setDrawInput] = useState("");
 
@@ -170,6 +172,54 @@ export default function TutorBank() {
     }
   };
 
+  // Excel import: items = parsed rows ({ row, text, choices, answer, explanation, topicName }). Topics follow the editor's
+  // rules (topicIdFor: trimmed case-insensitive match, else create). Questions go in chunks so a failing chunk is reported
+  // by row instead of losing the rest. Returns { imported, failed: [{ row, message }] } for the dialog.
+  const importQuestions = async (items) => {
+    const failed = [];
+    const known = [...state.topics];
+    const ids = new Map();
+    const ready = [];
+    for (const q of items) {
+      const key = normalizeTopic(q.topicName).toLowerCase();
+      try {
+        if (key && !ids.has(key)) {
+          const id = await topicIdFor(q.topicName, known);
+          known.push({ id, name: normalizeTopic(q.topicName) });
+          ids.set(key, id);
+        }
+        ready.push({ row: q.row, topic_id: key ? ids.get(key) : null, q });
+      } catch (e) {
+        failed.push({ row: q.row, message: "สร้างหัวข้อไม่สำเร็จ: " + e.message });
+      }
+    }
+    const stamp = Date.now();
+    const firstNo = Math.max(0, ...state.questions.map((x) => x.no || 0)) + 1;
+    let imported = 0;
+    for (let i = 0; i < ready.length; i += 50) {
+      const chunk = ready.slice(i, i + 50);
+      const { error } = await supabase.from("questions").insert(chunk.map(({ q, topic_id }, j) => ({
+        id: `q_${stamp}_${i + j}`,
+        no: firstNo + i + j,
+        type: "single",
+        text: q.text,
+        choices: q.choices,
+        answer: q.answer,
+        explanation: q.explanation || null,
+        topic_id,
+        lesson_id: lessonId,
+        kind: "tutor",
+      })));
+      if (error) failed.push(...chunk.map((c) => ({ row: c.row, message: error.message })));
+      else imported += chunk.length;
+    }
+    failed.sort((a, b) => a.row - b.row);
+    if (failed.length) toast(`นำเข้าสำเร็จ ${imported} ข้อ ไม่สำเร็จ ${failed.length} ข้อ (แถว ${failed.map((f) => f.row).join(", ")})`, "error");
+    else toast(`นำเข้าข้อสอบ ${imported} ข้อแล้ว`);
+    await refresh().catch((e) => toast("โหลดคลังไม่สำเร็จ: " + e.message, "error"));
+    return { imported, failed };
+  };
+
   const deleteQuestion = async (q) => {
     const ok = await confirm({ title: "ลบข้อสอบ", message: "ลบข้อสอบนี้ออกจากคลังใช่หรือไม่?", danger: true, confirmText: "ลบ", cancelText: "ยกเลิก" });
     if (!ok) return;
@@ -230,7 +280,10 @@ export default function TutorBank() {
           <div className="flex-1" style={{ minWidth: 300 }}>
             <div className="flex items-center justify-between mb-3">
               <div className="t-base fw-7">คลังข้อสอบ ({questions.length} ข้อ · {topics.length} หัวข้อ)</div>
-              <button className="btn btn-primary btn-sm" onClick={() => setEditing(blankQuestion())}><Icon name="plus" size={15} />เพิ่มข้อสอบ</button>
+              <div className="flex items-center gap-2 wrap">
+                <button className="btn btn-outline btn-sm" onClick={() => setImporting(true)}><Icon name="excel" size={15} />นำเข้าจาก Excel</button>
+                <button className="btn btn-primary btn-sm" onClick={() => setEditing(blankQuestion())}><Icon name="plus" size={15} />เพิ่มข้อสอบ</button>
+              </div>
             </div>
             {questions.length === 0 ? (
               <button className="tw-rail empty pointer" onClick={() => setEditing(blankQuestion())} style={{ borderStyle: "dashed", width: "100%", padding: "40px 0" }}>
@@ -286,6 +339,7 @@ export default function TutorBank() {
           </div>
         </div>
 
+        {importing && <BankImport topics={topics} onClose={() => setImporting(false)} onImport={importQuestions} />}
         {editing && <QuestionEditor q={editing} topics={topics} onClose={() => setEditing(null)} onSave={saveQuestion} />}
       </div>
     </div>
