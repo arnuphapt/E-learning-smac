@@ -1,40 +1,83 @@
-// Instructor flow: create a tutor set from the existing create-course page (the "ชุดติว" checkbox), add a lesson, add a
-// question with a topic to the lesson's bank. The UI generates its own ids; the rows are found by the code typed here
-// (UI_CODE_PREFIX) and by the fixture instructor's course_instructors link, and removed by global teardown.
+// Instructor flow: create a tutor set from /i/tutor (the course pages no longer offer it), add a lesson, set the draw
+// count, lock the set to one student by email, add a question with a topic to the lesson's bank. The UI generates its
+// own ids; the rows are found by the code typed here (UI_CODE_PREFIX) and by the fixture instructor's
+// course_instructors link, and removed by global teardown.
 import { test, expect } from "@playwright/test";
 import { FX, STATE, UI_CODE_PREFIX, adminDb } from "./fixtures.mjs";
 
 test.use({ storageState: STATE.instructor });
 
-test("create a tutor set, add a lesson, add a bank question with a topic", async ({ page }) => {
+test("create a tutor set, add a lesson, lock it, add a bank question with a topic", async ({ page }) => {
   const code = UI_CODE_PREFIX + Date.now();
-  const title = "[E2E] ชุดติวจากหน้าสร้าง " + code;
+  const title = "[E2E] ชุดติวจากหน้าชุดติว " + code;
   const topic = "E2E หัวข้อใหม่";
 
-  // ---- create from the existing course page ----
+  // ---- the course creation page is for courses only ----
   await page.goto("/i/course/new");
-  await page.getByPlaceholder("เช่น การพยาบาลผู้ใหญ่ 1").fill(title);
-  await page.getByPlaceholder("เช่น NUR301").fill(code);
-  await page.locator("label", { hasText: "ชุดติว" }).getByRole("checkbox").check();
-  await page.getByRole("button", { name: "สร้างรายวิชา" }).click();
-  await page.waitForURL(/\/i\/course\/c_\d+$/); // a tutor set goes straight to its edit page
+  await expect(page.getByPlaceholder("เช่น การพยาบาลผู้ใหญ่ 1")).toBeVisible();
+  await expect(page.locator("label", { hasText: "ชุดติว" })).toHaveCount(0);
+
+  // ---- create from the tutor list ----
+  await page.goto("/i/tutor");
+  await page.getByRole("button", { name: "สร้างชุดติว", exact: true }).click();
+  await page.getByPlaceholder("เช่น ติวสอบรวบยอด การพยาบาลผู้ใหญ่ 1").fill(title);
+  await page.getByPlaceholder("เช่น NUR301-TUTOR").fill(code);
+  await page.getByRole("button", { name: "สร้างและเปิดชุดนี้" }).click();
+  await page.waitForURL(/\/i\/tutor\/c_\d+$/);
   const courseId = new URL(page.url()).pathname.split("/").pop();
 
-  const { data: course, error } = await adminDb().from("courses_all").select("kind, code").eq("id", courseId).single();
+  const db = adminDb();
+  const { data: course, error } = await db.from("courses_all").select("kind, code").eq("id", courseId).single();
   expect(error).toBeNull();
   expect(course).toEqual({ kind: "tutor", code });
 
-  // ---- add a lesson ----
-  await expect(page.getByRole("heading", { name: title }).or(page.getByText(title).first()).first()).toBeVisible();
-  await page.getByRole("button", { name: "เพิ่มบทเรียน", exact: true }).click();
-  await page.waitForURL(/\/i\/lesson\/l_\d+$/);
-  const lessonId = new URL(page.url()).pathname.split("/").pop();
+  // a new set has no lock: nobody sees it, and the page says so
+  await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ยังไม่ได้ล็อค ไม่มีนักศึกษาเห็นชุดนี้" })).toBeVisible();
 
-  // ---- the set is on the tutor list (not the course list) and its lesson links to the bank ----
+  // ---- add a lesson (in the workspace, no navigation) ----
+  await page.locator(".tw-rail").getByRole("button", { name: "เพิ่มบทเรียน" }).click();
+  await expect(page.locator(".tw-item")).toHaveCount(1);
+  await expect(page.locator(".tw-item").getByText("คลังไม่พอ")).toBeVisible(); // empty bank
+  const { data: lessons } = await db.from("lessons").select("id").eq("course_id", courseId);
+  expect(lessons).toHaveLength(1);
+  const lessonId = lessons[0].id;
+
+  // ---- the course pages hand a tutor set / lesson over to the workspace ----
+  await page.goto("/i/course/" + courseId);
+  await page.waitForURL(new RegExp(`/i/tutor/${courseId}$`));
+  await page.goto("/i/lesson/" + lessonId);
+  await page.waitForURL(`**/i/tutor/${courseId}?lesson=${lessonId}`);
+
+  // ---- draw count: the panel warns when the bank is short, then saves ----
+  await page.getByLabel("ใช้ทั้งคลัง").uncheck();
+  await page.getByLabel("จำนวนข้อต่อรอบ").fill("5");
+  await page.getByRole("button", { name: "บันทึกจำนวนข้อ" }).click();
+  await expect.poll(async () => (await db.from("lessons").select("tutor_draw_count").eq("id", lessonId).single()).data.tutor_draw_count).toBe(5);
+
+  // ---- lock the set to the fixture student by email ----
+  await page.getByRole("button", { name: "ตั้งค่าและการเข้าถึง" }).click();
+  await expect(page.getByText("จะไม่มีนักศึกษาเห็นชุดนี้")).toBeVisible(); // the "empty = nobody" wording
+  await page.getByRole("button", { name: "เพิ่มนักศึกษา" }).click();
+  const picker = page.locator(".dialog");
+  await picker.getByPlaceholder("ค้นหา…").fill(FX.student.email);
+  await picker.getByText(FX.student.name).click();
+  await picker.getByRole("button", { name: "ตกลง" }).click();
+  await page.getByRole("button", { name: "บันทึกชุดติว" }).click();
+  await expect.poll(async () => (await db.from("courses_all").select("access").eq("id", courseId).single()).data.access.allowedEmails).toEqual([FX.student.email]);
+  await expect(page.getByRole("button", { name: "1 อีเมลพิเศษ" })).toBeVisible();
+
+  // ---- the set is on the tutor list (not the course list) ----
   await page.goto("/i/tutor");
-  const card = page.locator(".card", { has: page.getByText(title, { exact: true }) }).last();
-  await expect(card.getByText(`${code} · 1 บท`)).toBeVisible();
-  await card.getByRole("button", { name: "คลังข้อสอบ" }).click();
+  const row = page.locator(".tw-sets-row", { hasText: title });
+  await expect(row).toContainText(code);
+  await expect(row).toContainText("1 บท");
+  await expect(row).toContainText("1 บทคลังไม่พอ");
+
+  // ---- open it, go to the lesson's bank ----
+  await row.getByRole("button", { name: /เปิดชุดนี้/ }).click();
+  await page.waitForURL(new RegExp(`/i/tutor/${courseId}$`));
+  await page.getByRole("button", { name: "เปิดคลังข้อสอบ" }).click();
   await page.waitForURL(`**/i/lesson/${lessonId}/bank`);
 
   // ---- add a bank question with a topic ----
@@ -52,7 +95,6 @@ test("create a tutor set, add a lesson, add a bank question with a topic", async
   await expect(page.getByText("E2E ข้อสอบที่เพิ่มโดยอาจารย์")).toBeVisible();
   await expect(page.getByText(topic, { exact: true })).toBeVisible();
 
-  const db = adminDb();
   const [{ data: topics }, { data: questions }] = await Promise.all([
     db.from("tutor_topics").select("id, name").eq("lesson_id", lessonId),
     db.from("questions").select("kind, answer, topic_id, explanation").eq("lesson_id", lessonId),

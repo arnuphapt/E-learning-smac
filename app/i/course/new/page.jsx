@@ -203,7 +203,6 @@ export default function CreateCourse() {
   const [subjectGroup, setSubjectGroup] = React.useState("");
   const [section, setSection] = React.useState("");
   const [yearLevels, setYearLevels] = React.useState([]);
-  const [isTutor, setIsTutor] = React.useState(false);
 
   const [terms, setTerms] = React.useState([]);
   const [instructors, setInstructors] = React.useState([]);
@@ -353,10 +352,9 @@ export default function CreateCourse() {
         return isNaN(parsed) ? null : parsed;
       }).filter(Boolean),
       access: { allowedYears: [], allowedEmails: [] },
-      kind: isTutor ? "tutor" : "course"
+      kind: "course"
     };
 
-    // courses_all (not the `courses` view): the view's WITH CHECK OPTION rejects kind = 'tutor' rows.
     const { error } = await supabase.from("courses_all").insert([newCourse]);
 
     if (error) {
@@ -385,9 +383,8 @@ export default function CreateCourse() {
         }
       }
 
-      toast(isTutor ? "สร้างชุดติวเรียบร้อยแล้ว" : "สร้างรายวิชาเรียบร้อยแล้ว");
-      // a tutor set is hidden from /i/courses (it reads the `courses` view), so go straight to its edit page
-      setTimeout(() => nav(isTutor ? "/i/course/" + newCourse.id : "/i/courses"), 700);
+      toast("สร้างรายวิชาเรียบร้อยแล้ว");
+      setTimeout(() => nav("/i/courses"), 700);
     }
   };
 
@@ -539,16 +536,6 @@ export default function CreateCourse() {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-
-          <div className="card mb-4">
-            <div className="card-p">
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-                <input type="checkbox" checked={isTutor} onChange={(e) => setIsTutor(e.target.checked)} />
-                <span className="fw-7">ชุดติว</span>
-                <span className="t-xs muted">ไม่แสดงในรายวิชาปกติของนักศึกษาและอาจารย์</span>
-              </label>
             </div>
           </div>
 

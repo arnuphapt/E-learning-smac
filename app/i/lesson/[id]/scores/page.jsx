@@ -59,6 +59,7 @@ function ScoresContent() {
   const loadData = async () => {
     if (!lessonId) return;
 
+    let redirected = false;
     try {
       const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
       if (!lData) {
@@ -68,6 +69,8 @@ function ScoresContent() {
 
       // courses_all, not the `courses` view: the view hides tutor sets.
       const { data: cData } = await supabase.from("courses_all").select("*").eq("id", lData.course_id).single();
+      // tutor lessons have no pre/post scores: back to the tutor workspace
+      if (cData?.kind === "tutor") { redirected = true; router.replace("/i/tutor/" + cData.id + "?lesson=" + lessonId); return; }
 
       const [qRes, aRes, subRes, tsRes, stRes, sgRes, secRes] = await Promise.all([
         supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),
@@ -98,7 +101,7 @@ function ScoresContent() {
       console.error(error);
       toast("เกิดข้อผิดพลาดในการดึงข้อมูล: " + error.message, "error");
     } finally {
-      setLoading(false);
+      if (!redirected) setLoading(false);
     }
   };
 

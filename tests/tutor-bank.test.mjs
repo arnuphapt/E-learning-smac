@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeTopic, findTopic, bankWarning, parseDrawCount } from "../lib/tutor-bank.js";
+import { normalizeTopic, findTopic, bankWarning, parseDrawCount, lockSummary } from "../lib/tutor-bank.js";
 
 test("topics are reused by trimmed, case-insensitive name", () => {
   const topics = [{ id: "t1", name: "Heart failure" }];
@@ -28,4 +28,12 @@ test("draw count input: blank = whole bank, positive integer ok, rest invalid", 
   assert.equal(parseDrawCount("-3"), undefined);
   assert.equal(parseDrawCount("2.5"), undefined);
   assert.equal(parseDrawCount("abc"), undefined);
+});
+
+test("lock summary: no lock means nobody (tutor sets fail closed), any lock opens the set", () => {
+  assert.equal(lockSummary({ year_level: [], section: null, access: { allowedEmails: [] } }).open, false);
+  assert.equal(lockSummary({ year_level: [], section: "ไม่ระบุ Section", access: {} }).open, false);
+  assert.match(lockSummary({ year_level: [], access: {} }).text, /ไม่มีนักศึกษา/);
+  assert.deepEqual(lockSummary({ year_level: [3, 2], section: "A", access: { allowedEmails: ["a@x"] } }), { open: true, text: "ชั้นปี 2, 3 · A · 1 อีเมลพิเศษ" });
+  assert.equal(lockSummary({ access: { allowedEmails: ["a@x"] } }).text, "1 อีเมลพิเศษ");
 });

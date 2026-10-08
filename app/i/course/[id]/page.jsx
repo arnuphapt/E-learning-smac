@@ -378,6 +378,8 @@ export default function InstructorCourse() {
     
     // The `courses` view hides tutor sets, so fall back to courses_all to load one for editing.
     const cData = cRes.data ?? (await supabase.from("courses_all").select("*").eq("id", courseId).single()).data;
+    // tutor sets are managed in their own workspace, never through the course editor
+    if (cData?.kind === "tutor") { router.replace("/i/tutor/" + courseId); return; }
     if (cData) {
       const c = cData;
       const instructorsList = ciRes?.data || [];

@@ -26,11 +26,11 @@ function InstructorSidebarContent({ open, onClose }) {
 
   let items1 = [];
   if (hasPermission(user, PERMISSIONS.COURSES_VIEW)) {
-    items1.push(["/i/courses", "grid", "ภาพรวม / รายวิชา", pathname.startsWith("/i/course") || pathname === "/i/courses" || pathname.startsWith("/i/lesson")]);
+    items1.push(["/i/courses", "grid", "ภาพรวม / รายวิชา", (pathname.startsWith("/i/course") || pathname === "/i/courses" || pathname.startsWith("/i/lesson")) && !pathname.endsWith("/bank")]);
   }
 
   if (hasPermission(user, PERMISSIONS.COURSES_VIEW)) {
-    items1.push(["/i/tutor", "award", "ชุดติว", pathname.startsWith("/i/tutor")]);
+    items1.push(["/i/tutor", "award", "ชุดติว", pathname.startsWith("/i/tutor") || pathname.endsWith("/bank")]);
   }
 
   let items2 = [];

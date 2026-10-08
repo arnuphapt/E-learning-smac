@@ -195,8 +195,9 @@ export default function InstructorMobileTabbar() {
   const { data: session } = useSession();
   const user = session?.user;
  
-  const onHome = pathname === "/i/courses" || pathname.startsWith("/i/course") || pathname.startsWith("/i/lesson");
-  const onTutor = pathname.startsWith("/i/tutor");
+  const onBank = pathname.endsWith("/bank"); // the tutor question bank lives under /i/lesson
+  const onHome = !onBank && (pathname === "/i/courses" || pathname.startsWith("/i/course") || pathname.startsWith("/i/lesson"));
+  const onTutor = pathname.startsWith("/i/tutor") || onBank;
   const onSubmissions = pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade");
   const onReports = pathname.startsWith("/i/reports");
   const onMaster = pathname.startsWith("/i/master");

@@ -1154,6 +1154,9 @@ function InstructorLessonContent() {
         setLoading(false);
         return;
       }
+      // a tutor set gets its lessons from the tutor workspace
+      const { data: target } = await supabase.from("courses_all").select("kind").eq("id", queryCourseId).maybeSingle();
+      if (target?.kind === "tutor") { router.replace("/i/tutor/" + queryCourseId); return; }
       const { data: existingLessons } = await supabase.from("lessons").select("id").eq("course_id", queryCourseId);
       const nextIndex = existingLessons ? existingLessons.length + 1 : 1;
 
@@ -1194,6 +1197,8 @@ function InstructorLessonContent() {
 
     // courses_all, not the `courses` view: the view hides tutor sets (course would be empty -> broken links).
     const { data: cData } = await supabase.from("courses_all").select("*").eq("id", lData.course_id).single();
+    // tutor lessons are edited in the tutor workspace, never in the course lesson editor
+    if (cData?.kind === "tutor") { router.replace("/i/tutor/" + cData.id + "?lesson=" + lessonId); return; }
 
     const [qRes, aRes, rRes, subRes, tsRes, stRes, sgRes, secRes] = await Promise.all([
       supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),

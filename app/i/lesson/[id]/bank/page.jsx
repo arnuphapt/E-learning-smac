@@ -7,7 +7,7 @@ import { normalizeTopic, findTopic, bankWarning, parseDrawCount } from "@/lib/tu
 import { uniqueChoiceId } from "@/lib/questions";
 import Icon from "@/components/ui/Icon";
 import { Badge, Dialog } from "@/components/ui/Primitives";
-import { PageHead, Crumb } from "@/components/ui/Shared";
+import { Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -207,77 +207,87 @@ export default function TutorBank() {
   const topicName = (id) => topics.find((t) => t.id === id)?.name;
   const draftValue = whole ? null : parseDrawCount(drawInput);
   const warning = bankWarning(questions.length, draftValue ?? null);
+  const workspace = "/i/tutor/" + course.id + "?lesson=" + lesson.id;
 
   return (
-    <div className="container-wide">
-      <Crumb nav={nav} items={[{ label: "ชุดติว", to: "/i/tutor" }, { label: course.code, to: "/i/course/" + course.id }, { label: "บทที่ " + lesson.index + " · คลังข้อสอบ" }]} />
-      <PageHead kicker={"คลังข้อสอบชุดติว · " + course.code} title={lesson.title}
-        desc="ข้อสอบในคลังนี้ นักศึกษาจะเห็นผ่านหน้าทำข้อสอบของชุดติวเท่านั้น และเห็นเฉลยหลังส่งชุดข้อสอบ"
-        right={<button className="btn btn-outline" onClick={() => nav("/i/lesson/" + lesson.id)}><Icon name="pencil" size={15} />จัดการบทเรียน</button>} />
-
-      <div className="flex gap-5 items-start wrap">
-        <div className="flex-1" style={{ minWidth: 300 }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="t-base fw-7">คลังข้อสอบ ({questions.length} ข้อ · {topics.length} หัวข้อ)</div>
-            <button className="btn btn-primary btn-sm" onClick={() => setEditing(blankQuestion())}><Icon name="plus" size={15} />เพิ่มข้อสอบ</button>
+    <div className="tutor">
+      <div className="container-wide">
+        <Crumb nav={nav} items={[{ label: "ชุดติว", to: "/i/tutor" }, { label: course.code, to: workspace }, { label: "บทที่ " + lesson.index + " · คลังข้อสอบ" }]} />
+        <div className="tw-head">
+          <div style={{ minWidth: 0 }}>
+            <div className="flex items-center gap-2"><span className="tw-tag">คลังข้อสอบ</span><span className="tw-tag mono">{course.code}</span></div>
+            <h1>{lesson.title}</h1>
+            <div className="tw-stats">
+              <span><b>{questions.length}</b>ข้อ</span>
+              <span><b>{topics.length}</b>หัวข้อ</span>
+            </div>
+            <div className="t-sm mt-2 pretty" style={{ color: "#d3cff5" }}>นักศึกษาเห็นข้อสอบผ่านหน้าทำข้อสอบของชุดติวเท่านั้น และเห็นเฉลยหลังส่งชุด</div>
           </div>
-          <div className="flex col gap-3">
-            {questions.length === 0 && (
-              <div className="card empty pointer" onClick={() => setEditing(blankQuestion())} style={{ borderStyle: "dashed", padding: "40px 0" }}>
+          <button className="btn btn-ghost" onClick={() => nav(workspace)}><Icon name="arrL" size={15} />กลับไปที่บทเรียน</button>
+        </div>
+
+        <div className="flex gap-5 items-start wrap">
+          <div className="flex-1" style={{ minWidth: 300 }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="t-base fw-7">คลังข้อสอบ ({questions.length} ข้อ · {topics.length} หัวข้อ)</div>
+              <button className="btn btn-primary btn-sm" onClick={() => setEditing(blankQuestion())}><Icon name="plus" size={15} />เพิ่มข้อสอบ</button>
+            </div>
+            {questions.length === 0 ? (
+              <button className="tw-rail empty pointer" onClick={() => setEditing(blankQuestion())} style={{ borderStyle: "dashed", width: "100%", padding: "40px 0" }}>
                 <div className="ec"><Icon name="clipboard" size={22} style={{ color: "var(--subtle)" }} /></div>
                 <div className="t-sm muted">ยังไม่มีข้อสอบในคลัง คลิกเพื่อเพิ่มข้อแรก</div>
-              </div>
-            )}
-            {questions.map((q, i) => (
-              <div key={q.id} className="card card-p">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2 wrap">
-                      <Badge tone="primary">ข้อ {i + 1}</Badge>
-                      {topicName(q.topic_id) ? <Badge tone="info">{topicName(q.topic_id)}</Badge> : <Badge tone="muted">ไม่มีหัวข้อ</Badge>}
-                      {!q.explanation && <Badge tone="warning">ยังไม่มีคำอธิบาย</Badge>}
+              </button>
+            ) : (
+              <div className="tw-rail">
+                {questions.map((q, i) => (
+                  <div key={q.id} className="tw-q">
+                    <div className="tw-q-no">{String(i + 1).padStart(2, "0")}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2 wrap">
+                        {topicName(q.topic_id) ? <Badge tone="primary">{topicName(q.topic_id)}</Badge> : <Badge tone="muted">ไม่มีหัวข้อ</Badge>}
+                        {!q.explanation && <Badge tone="warning">ยังไม่มีคำอธิบาย</Badge>}
+                      </div>
+                      <div className="t-sm fw-6 pretty mb-2">{q.text}</div>
+                      <div className="flex col gap-1">
+                        {(q.choices || []).map((c) => (
+                          <div key={c.id} className="flex items-center gap-2 t-sm" style={{ color: c.id === q.answer ? "var(--success)" : "var(--muted-fg)", fontWeight: c.id === q.answer ? 600 : 400 }}>
+                            <Icon name={c.id === q.answer ? "checkC" : "circle"} size={14} />{c.text}
+                          </div>
+                        ))}
+                      </div>
+                      {q.explanation && <div className="t-xs muted mt-2 pretty" style={{ whiteSpace: "pre-line" }}>คำอธิบาย: {q.explanation}</div>}
                     </div>
-                    <div className="t-sm fw-6 pretty mb-2">{q.text}</div>
                     <div className="flex col gap-1">
-                      {(q.choices || []).map((c) => (
-                        <div key={c.id} className="flex items-center gap-2 t-sm" style={{ color: c.id === q.answer ? "var(--success)" : "var(--muted-fg)", fontWeight: c.id === q.answer ? 600 : 400 }}>
-                          <Icon name={c.id === q.answer ? "checkC" : "circle"} size={14} />{c.text}
-                        </div>
-                      ))}
+                      <button className="iconbtn ghost" aria-label="แก้ไขข้อสอบ" onClick={() => setEditing({ id: q.id, text: q.text || "", choices: q.choices || blankQuestion().choices, answer: q.answer || "a", explanation: q.explanation || "", topicName: topicName(q.topic_id) || "" })}><Icon name="pencil" size={15} /></button>
+                      <button className="iconbtn ghost c-danger" aria-label="ลบข้อสอบ" onClick={() => deleteQuestion(q)}><Icon name="trash" size={15} /></button>
                     </div>
-                    {q.explanation && <div className="t-xs muted mt-2 pretty" style={{ whiteSpace: "pre-line" }}>คำอธิบาย: {q.explanation}</div>}
                   </div>
-                  <div className="flex col gap-1">
-                    <button className="iconbtn ghost" onClick={() => setEditing({ id: q.id, text: q.text || "", choices: q.choices || blankQuestion().choices, answer: q.answer || "a", explanation: q.explanation || "", topicName: topicName(q.topic_id) || "" })}><Icon name="pencil" size={15} /></button>
-                    <button className="iconbtn ghost c-danger" onClick={() => deleteQuestion(q)}><Icon name="trash" size={15} /></button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ width: 300, flex: "0 0 300px" }}>
-          <div className="card card-p">
-            <div className="t-sm fw-7 mb-3">จำนวนข้อต่อรอบ</div>
-            <label className="flex items-center gap-2 t-sm mb-3" style={{ cursor: "pointer" }}>
-              <input type="checkbox" checked={whole} onChange={(e) => setWhole(e.target.checked)} />ใช้ทั้งคลัง
-            </label>
-            <div className="field">
-              <label className="label">หรือกำหนดจำนวนข้อต่อรอบ</label>
-              <input className="input" inputMode="numeric" value={drawInput} disabled={whole} onChange={(e) => setDrawInput(e.target.value.replace(/[^0-9]/g, ""))} placeholder="เช่น 20" />
-            </div>
-            {warning && (
-              <div className="t-xs pretty mb-3" style={{ padding: "8px 10px", borderRadius: 8, background: "var(--warning-soft)", color: "var(--warning)" }}>
-                <Icon name="alert" size={13} /> {warning}
+                ))}
               </div>
             )}
-            <button className="btn btn-primary btn-block" onClick={saveDraw}><Icon name="check" size={15} />บันทึกการตั้งค่า</button>
+          </div>
+
+          <div style={{ flex: "1 1 280px", maxWidth: 360 }}>
+            <div className="tw-panel"><div className="tw-sec">
+              <div className="tw-sec-t">จำนวนข้อต่อรอบ</div>
+              <p className="tw-sec-d">นักศึกษาแต่ละรอบได้ข้อที่สุ่มจากคลังนี้</p>
+              <label className="flex items-center gap-2 t-sm mb-3" style={{ cursor: "pointer" }}>
+                <input type="checkbox" checked={whole} onChange={(e) => setWhole(e.target.checked)} />ใช้ทั้งคลัง
+              </label>
+              <div className="field">
+                <label className="label">หรือกำหนดจำนวนข้อต่อรอบ</label>
+                <input className="input" inputMode="numeric" value={drawInput} disabled={whole} onChange={(e) => setDrawInput(e.target.value.replace(/[^0-9]/g, ""))} placeholder="เช่น 20" />
+              </div>
+              {warning && (
+                <div className="tw-warn mb-3"><Icon name="alert" size={14} style={{ flex: "0 0 14px", marginTop: 3 }} /><span className="pretty">{warning}</span></div>
+              )}
+              <button className="btn btn-primary btn-block" onClick={saveDraw}><Icon name="check" size={15} />บันทึกการตั้งค่า</button>
+            </div></div>
           </div>
         </div>
-      </div>
 
-      {editing && <QuestionEditor q={editing} topics={topics} onClose={() => setEditing(null)} onSave={saveQuestion} />}
+        {editing && <QuestionEditor q={editing} topics={topics} onClose={() => setEditing(null)} onSave={saveQuestion} />}
+      </div>
     </div>
   );
 }
