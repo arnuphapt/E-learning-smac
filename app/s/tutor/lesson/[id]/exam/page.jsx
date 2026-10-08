@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import { Badge } from "@/components/ui/Primitives";
 import { Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
@@ -249,12 +248,18 @@ export default function StudentTutorExam() {
   if (empty) {
     return (
       <div className="container p-5">
-        <div className="card"><div className="empty">
-          <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
-          <div className="fw-6 fg" style={{ fontSize: "16px" }}>ข้อสอบรอบนี้ใช้งานไม่ได้</div>
-          <div className="t-sm muted">ข้อสอบของบทนี้ถูกอาจารย์แก้ไขหรือลบ กรุณากลับมาทำใหม่ภายหลัง</div>
-          <button className="btn btn-outline btn-sm" onClick={() => nav("/s/tutor")}>กลับไปรายการชุดติว</button>
-        </div></div>
+        <div className="clay-card" style={{ padding: "48px 24px" }}>
+          <div className="empty">
+            <div className="clay-well" style={{ width: 48, height: 48, display: "grid", placeItems: "center", margin: "0 auto 12px" }}>
+              <Icon name="alert" size={22} style={{ color: "var(--warning)" }} />
+            </div>
+            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ข้อสอบรอบนี้ใช้งานไม่ได้</div>
+            <div className="t-sm muted mt-1">ข้อสอบของบทนี้ถูกอาจารย์แก้ไขหรือลบ กรุณากลับมาทำใหม่ภายหลัง</div>
+            <button className="clay-btn clay-btn-soft clay-btn-sm mt-3" onClick={() => nav("/s/tutor")}>
+              <Icon name="arrL" size={14} />กลับไปรายการชุดติว
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -271,14 +276,17 @@ export default function StudentTutorExam() {
   // ---- pre-start: question count and time before the clock starts ----
   if (!exam) {
     return (
-      <div className="container">
+      <div className="container" style={{ paddingBottom: 40 }}>
         <Crumb nav={nav} items={crumb} />
-        <div className="card card-p" style={{ maxWidth: 560 }}>
-          <div className="flex items-center gap-2 mb-2"><Badge tone="primary">{set.code}</Badge><Badge tone="outline">ชุดติว</Badge></div>
-          <div className="t-xl fw-7 serif mb-1">{lesson.title}</div>
-          <div className="muted t-sm mb-4">บทที่ {lesson.index}</div>
+        <div className="clay-card" style={{ maxWidth: 560, margin: "0 auto", padding: 32 }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="clay-badge clay-badge-primary" style={{ fontWeight: 700 }}>{set.code}</span>
+            <span className="clay-badge">ชุดติว</span>
+          </div>
+          <h1 className="t-xl fw-7 serif mb-1" style={{ margin: "0 0 4px" }}>{lesson.title}</h1>
+          <div className="muted t-sm mb-4" style={{ color: "#64748b" }}>บทที่ {lesson.index}</div>
           {notice && (
-            <div className="flex items-start gap-3 mb-4" style={{ padding: 14, borderRadius: 10, background: "var(--warning-soft)", color: "var(--warning)" }}>
+            <div className="clay-well flex items-start gap-3 mb-4" style={{ padding: 14, background: "var(--warning-soft)", color: "var(--warning)" }}>
               <Icon name="alert" size={18} /><div className="t-sm">{notice}</div>
             </div>
           )}
@@ -286,16 +294,22 @@ export default function StudentTutorExam() {
             <div className="t-sm muted mb-2">บทนี้ยังไม่มีข้อสอบ</div>
           ) : (
             <>
-              <div className="flex gap-4 mb-4 wrap">
-                <div><div className="t-xs muted">จำนวนข้อ</div><div className="t-xl fw-7">{pre.count} ข้อ</div></div>
-                <div><div className="t-xs muted">เวลาทั้งหมด</div><div className="t-xl fw-7">{pre.minutes} นาที</div></div>
+              <div className="flex gap-3 mb-4 wrap">
+                <div className="clay-well flex-1" style={{ padding: "14px 18px", textAlign: "center" }}>
+                  <div className="t-xs muted" style={{ color: "#64748b" }}>จำนวนข้อ</div>
+                  <div className="t-xl fw-7 mt-1" style={{ color: "var(--fg)" }}>{pre.count} ข้อ</div>
+                </div>
+                <div className="clay-well flex-1" style={{ padding: "14px 18px", textAlign: "center" }}>
+                  <div className="t-xs muted" style={{ color: "#64748b" }}>เวลาทั้งหมด</div>
+                  <div className="t-xl fw-7 mt-1" style={{ color: "var(--fg)" }}>{pre.minutes} นาที</div>
+                </div>
               </div>
-              <ul className="t-sm muted pretty" style={{ margin: "0 0 20px", paddingLeft: 18, lineHeight: 1.7 }}>
+              <ul className="t-sm muted pretty" style={{ margin: "0 0 24px", paddingLeft: 18, lineHeight: 1.7, color: "#475569" }}>
                 <li>เวลา 1 นาทีต่อข้อ นับรวมทั้งชุดเป็นนาฬิกาเดียว</li>
                 <li>นาฬิกาเริ่มเมื่อคุณกดเริ่ม และเดินต่อแม้ปิดหน้าจอหรือเน็ตหลุด</li>
                 <li>ชุดข้อสุ่มใหม่ทุกรอบ ถ้ากลับเข้ามาระหว่างทำจะได้รอบเดิมต่อ</li>
               </ul>
-              <button className="btn btn-primary" disabled={busy} onClick={start}>
+              <button className="clay-btn clay-btn-primary w-full" disabled={busy} onClick={start} style={{ width: "100%", padding: "12px 20px" }}>
                 <Icon name="play" size={16} />{busy ? "กำลังเริ่ม..." : "เริ่มทำข้อสอบ"}
               </button>
             </>
@@ -309,16 +323,24 @@ export default function StudentTutorExam() {
   if (result) {
     const attempt = exam.attempt;
     return (
-      <div className="container">
+      <div className="container" style={{ paddingBottom: 40 }}>
         <Crumb nav={nav} items={crumb} />
-        <div className="card card-p text-center" style={{ maxWidth: 560 }}>
-          <div className="t-sm muted mb-1">{result.status === "expired" ? "หมดเวลา ระบบส่งคำตอบให้แล้ว" : "ส่งคำตอบแล้ว"}</div>
-          <div className="t-xs muted mb-3">{set.code} · บทที่ {lesson.index} · {lesson.title}</div>
-          <div className="serif fw-7" style={{ fontSize: 56, lineHeight: 1.1 }} aria-label="คะแนนรวม">{result.score}<span className="muted" style={{ fontSize: 28 }}> / {result.total}</span></div>
-          <div className="t-sm muted mt-2 mb-4">คะแนนรวม (ข้อที่ไม่ได้ตอบนับเป็นผิด)</div>
-          <div className="flex gap-2 justify-center wrap">
-            <button className="btn btn-primary" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/result?attempt=" + encodeURIComponent(attempt.id))}><Icon name="check" size={16} />ดูผลวิเคราะห์</button>
-            <button className="btn btn-outline" onClick={() => nav("/s/tutor/lesson/" + lesson.id)}>กลับไปหน้าบทเรียน</button>
+        <div className="clay-card text-center" style={{ maxWidth: 560, margin: "0 auto", padding: "40px 28px" }}>
+          <div className="t-sm muted mb-1" style={{ color: "#64748b" }}>{result.status === "expired" ? "หมดเวลา ระบบส่งคำตอบให้แล้ว" : "ส่งคำตอบแล้ว"}</div>
+          <div className="t-xs muted mb-4" style={{ color: "#94a3b8" }}>{set.code} · บทที่ {lesson.index} · {lesson.title}</div>
+          <div className="clay-well" style={{ display: "inline-flex", flexDirection: "column", padding: "20px 40px", borderRadius: 24, margin: "0 auto 16px" }}>
+            <div className="serif fw-7" style={{ fontSize: 56, lineHeight: 1.1, color: "var(--primary)" }} aria-label="คะแนนรวม">
+              {result.score}<span className="muted" style={{ fontSize: 28, color: "#64748b" }}> / {result.total}</span>
+            </div>
+          </div>
+          <div className="t-sm muted mb-5" style={{ color: "#64748b" }}>คะแนนรวม (ข้อที่ไม่ได้ตอบนับเป็นผิด)</div>
+          <div className="flex gap-3 justify-center wrap">
+            <button className="clay-btn clay-btn-primary" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/result?attempt=" + encodeURIComponent(attempt.id))}>
+              <Icon name="check" size={16} />ดูผลวิเคราะห์
+            </button>
+            <button className="clay-btn clay-btn-soft" onClick={() => nav("/s/tutor/lesson/" + lesson.id)}>
+              กลับไปหน้าบทเรียน
+            </button>
           </div>
         </div>
       </div>
@@ -335,62 +357,106 @@ export default function StudentTutorExam() {
   const go = (i) => patch({ cur: i });
 
   return (
-    <div className="container">
-      <div className="flex items-center gap-3 mb-3" style={{ position: "sticky", top: 0, zIndex: 5, background: "#fff", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 12 }}>
+    <div className="container" style={{ paddingBottom: 60 }}>
+      <div className="clay-sticky-header flex items-center gap-3 mb-4">
         <div className="flex-1" style={{ minWidth: 0 }}>
-          <div className="t-xs muted">{set.code} · ทำข้อสอบ</div>
+          <div className="t-xs muted" style={{ color: "#64748b" }}>{set.code} · ทำข้อสอบ</div>
           <div className="t-sm fw-7 truncate">บทที่ {lesson.index} · {lesson.title}</div>
         </div>
-        <div className={"flex items-center gap-2 badge " + (timeUp ? "badge-danger" : "badge-muted")} style={{ height: 30 }} aria-label="เวลาที่เหลือ">
+        <div
+          className={"clay-badge " + (timeUp || remaining <= 60 ? "clay-badge-danger" : "clay-badge-primary")}
+          style={{ height: 32, padding: "0 14px", fontWeight: 700 }}
+          aria-label="เวลาที่เหลือ"
+        >
           <Icon name="clock" size={14} />{formatTime(remaining)}
         </div>
-        <button className="btn btn-primary btn-sm" disabled={submitting || timeUp} onClick={() => submit(true)}>
+        <button
+          className="clay-btn clay-btn-primary clay-btn-sm"
+          disabled={submitting || timeUp}
+          onClick={() => submit(true)}
+        >
           <Icon name="check" size={14} />{submitting ? "กำลังส่ง..." : "ส่งคำตอบ"}
         </button>
       </div>
 
       {saveError && (
-        <div className="flex items-start gap-3 mb-3" role="alert" style={{ padding: 14, borderRadius: 10, background: "var(--danger-soft)", color: "var(--danger)" }}>
+        <div className="clay-well flex items-start gap-3 mb-3" role="alert" style={{ padding: 14, background: "var(--danger-soft)", color: "var(--danger)" }}>
           <Icon name="alert" size={18} /><div className="t-sm">{saveError}</div>
         </div>
       )}
       {!timeUp && submitError && (
-        <div className="flex items-start gap-3 mb-3" role="alert" style={{ padding: 14, borderRadius: 10, background: "var(--danger-soft)", color: "var(--danger)" }}>
+        <div className="clay-well flex items-start gap-3 mb-3" role="alert" style={{ padding: 14, background: "var(--danger-soft)", color: "var(--danger)" }}>
           <Icon name="alert" size={18} /><div className="t-sm">ส่งคำตอบไม่สำเร็จ กรุณาลองใหม่</div>
         </div>
       )}
 
       {timeUp && (
-        <div className="flex items-start gap-3 mb-3" style={{ padding: 14, borderRadius: 10, background: "var(--danger-soft)", color: "var(--danger)" }}>
+        <div className="clay-well flex items-start gap-3 mb-3" style={{ padding: 14, background: "var(--danger-soft)", color: "var(--danger)" }}>
           <Icon name="alert" size={18} /><div className="t-sm flex-1">{submitError ? "หมดเวลาแล้ว แต่ส่งคำตอบไม่สำเร็จ กรุณาลองส่งอีกครั้ง" : "หมดเวลาแล้ว กำลังส่งคำตอบ..."}</div>
-          {submitError && <button className="btn btn-outline btn-sm" disabled={submitting} onClick={() => submit(false)}>ส่งอีกครั้ง</button>}
+          {submitError && <button className="clay-btn clay-btn-soft clay-btn-sm" disabled={submitting} onClick={() => submit(false)}>ส่งอีกครั้ง</button>}
         </div>
       )}
 
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexDirection: mobile ? "column" : "row" }}>
         <div className="flex-1" style={{ minWidth: 0, width: "100%" }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="t-sm muted">ข้อ <b className="fg">{cur + 1}</b> จาก {questions.length}</div>
-            <div className="t-xs muted">ตอบแล้ว {answered}/{questions.length}</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="t-sm muted" style={{ color: "#64748b" }}>ข้อ <b className="fg">{cur + 1}</b> จาก {questions.length}</div>
+            <div className="t-xs muted" style={{ color: "#64748b" }}>ตอบแล้ว {answered}/{questions.length}</div>
           </div>
-          <div className="progress mb-5" style={{ height: 6 }}><i style={{ width: ((cur + 1) / questions.length * 100) + "%" }} /></div>
+          <div className="clay-progress mb-4">
+            <div className="clay-progress-bar" style={{ width: ((cur + 1) / questions.length * 100) + "%" }} />
+          </div>
 
-          <div className="card card-p" style={{ padding: mobile ? 18 : 28 }}>
-            <div className="flex items-start gap-3 mb-4">
-              <div style={{ flex: "0 0 34px", width: 34, height: 34, borderRadius: 9, background: "var(--primary)", color: "#fff", display: "grid", placeItems: "center", fontWeight: 700 }}>{cur + 1}</div>
-              <div className="t-md fw-6 pretty" style={{ paddingTop: 3, lineHeight: 1.55 }}>{q.text}</div>
+          <div className="clay-card" style={{ padding: mobile ? 20 : 30 }}>
+            <div className="flex items-start gap-3 mb-5">
+              <div
+                className="clay-well"
+                style={{
+                  flex: "0 0 38px",
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  display: "grid",
+                  placeItems: "center",
+                  fontWeight: 700,
+                  color: "var(--primary)",
+                  fontSize: 16,
+                }}
+              >
+                {cur + 1}
+              </div>
+              <div className="t-md fw-6 pretty" style={{ paddingTop: 4, lineHeight: 1.6, fontSize: 16, color: "var(--fg)" }}>
+                {q.text}
+              </div>
             </div>
-            <div className="flex col gap-2" style={{ paddingLeft: mobile ? 0 : 46 }}>
+            <div className="flex col gap-2.5" style={{ paddingLeft: mobile ? 0 : 50 }}>
               {q.choices.map((ch) => {
                 const sel = answers[q.id] === ch.id;
                 return (
-                  <button key={ch.id} disabled={timeUp} onClick={() => choose(q.id, ch.id)}
-                    style={{ display: "flex", alignItems: "center", gap: 13, textAlign: "left", padding: "13px 15px", borderRadius: 11, cursor: timeUp ? "default" : "pointer",
-                      border: "1.5px solid " + (sel ? "var(--primary)" : "var(--border-strong)"), background: sel ? "var(--primary-soft)" : "#fff", transition: ".12s" }}>
-                    <span style={{ flex: "0 0 22px", width: 22, height: 22, borderRadius: 99, border: "2px solid " + (sel ? "var(--primary)" : "#cbd5e1"), display: "grid", placeItems: "center" }}>
+                  <button
+                    key={ch.id}
+                    disabled={timeUp}
+                    onClick={() => choose(q.id, ch.id)}
+                    className={"clay-choice" + (sel ? " selected" : "")}
+                  >
+                    <span
+                      style={{
+                        flex: "0 0 22px",
+                        width: 22,
+                        height: 22,
+                        borderRadius: 99,
+                        border: "2px solid " + (sel ? "var(--primary)" : "#cbd5e1"),
+                        background: sel ? "var(--primary-soft)" : "#ffffff",
+                        display: "grid",
+                        placeItems: "center",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
                       {sel && <span style={{ width: 10, height: 10, borderRadius: 99, background: "var(--primary)" }} />}
                     </span>
-                    <span className="t-base" style={{ fontWeight: sel ? 600 : 400 }}>{ch.text}</span>
+                    <span className="t-base flex-1" style={{ fontWeight: sel ? 600 : 400, color: "var(--fg)", lineHeight: 1.5 }}>
+                      {ch.text}
+                    </span>
                   </button>
                 );
               })}
@@ -398,30 +464,50 @@ export default function StudentTutorExam() {
           </div>
 
           <div className="flex items-center justify-between mt-4">
-            <button className="btn btn-outline" disabled={cur === 0} onClick={() => go(cur - 1)}><Icon name="arrL" size={16} />ก่อนหน้า</button>
-            <button className="btn btn-primary" disabled={cur >= questions.length - 1} onClick={() => go(cur + 1)}>ข้อถัดไป<Icon name="arrR" size={16} /></button>
+            <button className="clay-btn clay-btn-soft" disabled={cur === 0} onClick={() => go(cur - 1)}>
+              <Icon name="arrL" size={16} />ก่อนหน้า
+            </button>
+            <button className="clay-btn clay-btn-primary" disabled={cur >= questions.length - 1} onClick={() => go(cur + 1)}>
+              ข้อถัดไป<Icon name="arrR" size={16} />
+            </button>
           </div>
         </div>
 
         {/* navigator: the numbers are the locked order of this round */}
-        <div className="card card-p" style={{ width: mobile ? "100%" : 230, flex: mobile ? "1" : "0 0 230px", position: mobile ? "static" : "sticky", top: 78 }}>
-          <div className="t-sm fw-7 mb-1">รายการข้อสอบ</div>
-          <div className="t-xs muted mb-3">{questions.length} ข้อ · {attempt.minutes} นาที</div>
+        <div
+          className="clay-card"
+          style={{
+            width: mobile ? "100%" : 240,
+            flex: mobile ? "1" : "0 0 240px",
+            position: mobile ? "static" : "sticky",
+            top: 86,
+            padding: 20,
+          }}
+        >
+          <div className="t-sm fw-7 mb-1" style={{ fontSize: 15 }}>รายการข้อสอบ</div>
+          <div className="t-xs muted mb-3" style={{ color: "#64748b" }}>{questions.length} ข้อ · {attempt.minutes} นาที</div>
           <div className="grid" style={{ gridTemplateColumns: "repeat(5,1fr)", gap: 8 }}>
             {questions.map((qq, i) => {
-              const done = answers[qq.id] != null; const here = i === cur;
+              const done = answers[qq.id] != null;
+              const here = i === cur;
               return (
-                <button key={qq.id} onClick={() => go(i)} style={{ aspectRatio: "1", borderRadius: 9, cursor: "pointer", fontWeight: 700, fontSize: 13,
-                  border: "1.5px solid " + (here ? "var(--primary)" : done ? "transparent" : "var(--border-strong)"),
-                  background: done ? "var(--primary)" : "#fff", color: done ? "#fff" : "var(--fg)" }}>
+                <button
+                  key={qq.id}
+                  onClick={() => go(i)}
+                  className={"clay-keycap" + (here ? " active" : done ? " done" : "")}
+                >
                   {i + 1}
                 </button>
               );
             })}
           </div>
           <hr className="divider mt-4 mb-3" />
-          <div className="flex items-center gap-2 t-xs muted mb-2"><span style={{ width: 12, height: 12, borderRadius: 4, background: "var(--primary)" }} /> ตอบแล้ว</div>
-          <div className="flex items-center gap-2 t-xs muted"><span style={{ width: 12, height: 12, borderRadius: 4, border: "1.5px solid var(--border-strong)" }} /> ยังไม่ตอบ</div>
+          <div className="flex items-center gap-2 t-xs muted mb-2" style={{ color: "#64748b" }}>
+            <span style={{ width: 14, height: 14, borderRadius: 5, background: "linear-gradient(135deg, #1084a7 0%, #0d6e8c 100%)" }} /> ตอบแล้ว
+          </div>
+          <div className="flex items-center gap-2 t-xs muted" style={{ color: "#64748b" }}>
+            <span style={{ width: 14, height: 14, borderRadius: 5, background: "#fff", border: "1.5px solid #e2e8f0" }} /> ยังไม่ตอบ
+          </div>
         </div>
       </div>
     </div>

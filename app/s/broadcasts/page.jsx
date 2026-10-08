@@ -88,9 +88,7 @@ export default function StudentBroadcastsPage() {
       ) : (
         <div className="flex col gap-3">
           {broadcasts.map(b => (
-            <div key={b.id} className="card card-p" style={{
-              borderLeft: `4px solid ${b.pinned ? "var(--primary)" : "var(--border)"}`,
-            }}>
+            <div key={b.id} className="card card-p">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2">
                   {b.pinned && <span>📌</span>}

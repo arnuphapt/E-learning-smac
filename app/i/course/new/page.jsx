@@ -566,11 +566,12 @@ export default function CreateCourse() {
           <div className="card" style={{ overflow: "hidden" }}>
             <div className="card-h"><div className="title t-sm">ตัวอย่างการ์ดรายวิชา</div></div>
             <div className="card-p">
-              <div className="card" style={{ overflow: "hidden" }}>
-                <div style={{ height: 64, background: `linear-gradient(120deg, ${color}, ${color}cc)`, display: "flex", alignItems: "center", padding: "0 16px" }}>
-                  <span className="badge" style={{ background: "rgba(255,255,255,.22)", color: "#fff", fontWeight: 700 }}>{code || "รหัสวิชา"}</span>
-                </div>
-                <div className="card-p" style={{ padding: 16 }}>
+              <div className="card">
+                <div className="card-p" style={{ padding: 18 }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="badge badge-primary">{code || "รหัสวิชา"}</span>
+                    <span className="t-xs muted">{term || "ภาคเรียน"}</span>
+                  </div>
                   <div className="fw-7">{title || "ชื่อรายวิชา"}</div>
                   <div className="t-xs muted mt-1 pretty" style={{ minHeight: 30 }}>{subtitle || "คำอธิบายรายวิชาจะแสดงที่นี่"}</div>
                   <div className="flex items-center gap-2 mt-2 t-xs muted">

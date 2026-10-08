@@ -147,9 +147,17 @@ export default function Reports() {
 
         {/* export panel */}
         <div style={{ width: mobile ? "100%" : 310, flex: mobile ? "1" : "0 0 310px", position: mobile ? "static" : "sticky", top: 18 }}>
-          <div className="card" style={{ overflow: "hidden" }}>
-            <div style={{ background: "linear-gradient(120deg,#15803d,#0f6b32)", padding: 18, color: "#fff" }}>
-              <div className="flex items-center gap-2"><div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(255,255,255,.18)", display: "grid", placeItems: "center" }}><Icon name="excel" size={20} /></div><div><div className="fw-7">ส่งออกเป็น Excel</div><div className="t-xs" style={{ opacity: .85 }}>.xlsx · พร้อมใช้งาน</div></div></div>
+          <div className="card">
+            <div className="card-h">
+              <div className="flex items-center gap-3">
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--success-soft)", color: "var(--success)", display: "grid", placeItems: "center" }}>
+                  <Icon name="excel" size={20} />
+                </div>
+                <div>
+                  <div className="fw-7 t-sm">ส่งออกเป็น Excel</div>
+                  <div className="t-xs muted">.xlsx · พร้อมใช้งาน</div>
+                </div>
+              </div>
             </div>
             <div className="card-p">
               <div className="flex items-center justify-between t-sm mb-2"><span className="muted">รายวิชา</span><span className="fw-6">{courses.find((c) => c.id === course)?.code || "-"}</span></div>

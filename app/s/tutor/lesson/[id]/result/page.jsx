@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import { Badge } from "@/components/ui/Primitives";
 import { Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { STATUS_LABEL, PASS_PERCENT, STRONG_PERCENT } from "@/lib/tutor-analysis";
@@ -25,12 +24,16 @@ const COLOR = { weak: "var(--danger)", fair: "var(--warning)", strong: "var(--su
 function Empty({ title, text, nav, to, action }) {
   return (
     <div className="container p-5">
-      <div className="card"><div className="empty">
-        <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
-        <div className="fw-6 fg" style={{ fontSize: "16px" }}>{title}</div>
-        <div className="t-sm muted">{text}</div>
-        <button className="btn btn-outline btn-sm" onClick={() => nav(to)}>{action}</button>
-      </div></div>
+      <div className="clay-card" style={{ padding: "48px 24px" }}>
+        <div className="empty">
+          <div className="clay-well" style={{ width: 48, height: 48, display: "grid", placeItems: "center", margin: "0 auto 12px" }}>
+            <Icon name="alert" size={22} style={{ color: "var(--warning)" }} />
+          </div>
+          <div className="fw-6 fg" style={{ fontSize: "16px" }}>{title}</div>
+          <div className="t-sm muted mt-1">{text}</div>
+          <button className="clay-btn clay-btn-soft clay-btn-sm mt-3" onClick={() => nav(to)}>{action}</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -52,26 +55,35 @@ function SummaryCard({ attemptId, initial }) {
 
   const s = state.s;
   return (
-    <div className="card card-p mb-4">
-      <div className="flex items-center gap-2 mb-2"><Icon name="sparkle" size={16} style={{ color: "var(--primary)" }} /><span className="t-base fw-7">สรุปจาก AI</span></div>
-      {state.loading && <div className="t-sm muted">AI กำลังสรุปผลของคุณ…</div>}
-      {state.busy && <div className="t-sm muted">AI กำลังสรุปผลอยู่ ลองเปิดหน้านี้ใหม่อีกครั้งในอีกสักครู่</div>}
-      {state.failed && <div className="t-sm muted">ยังสรุปด้วย AI ไม่ได้ในตอนนี้ ผลคะแนนและเฉลยด้านล่างใช้ได้ตามปกติ ลองเปิดหน้านี้ใหม่อีกครั้งเพื่อให้ AI สรุปใหม่</div>}
+    <div className="clay-card mb-4" style={{ padding: "26px 28px" }}>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="clay-badge clay-badge-primary">
+          <Icon name="sparkle" size={14} style={{ color: "var(--primary)" }} />
+          สรุปจาก AI
+        </span>
+      </div>
+      {state.loading && <div className="t-sm muted" style={{ color: "#64748b" }}>AI กำลังสรุปผลของคุณ…</div>}
+      {state.busy && <div className="t-sm muted" style={{ color: "#64748b" }}>AI กำลังสรุปผลอยู่ ลองเปิดหน้านี้ใหม่อีกครั้งในอีกสักครู่</div>}
+      {state.failed && <div className="t-sm muted" style={{ color: "#64748b" }}>ยังสรุปด้วย AI ไม่ได้ในตอนนี้ ผลคะแนนและเฉลยด้านล่างใช้ได้ตามปกติ ลองเปิดหน้านี้ใหม่อีกครั้งเพื่อให้ AI สรุปใหม่</div>}
       {s && (
         <>
-          <div className="t-sm pretty mb-3" style={{ whiteSpace: "pre-line", lineHeight: 1.6 }}>{s.overview}</div>
+          <div className="t-sm pretty mb-3" style={{ whiteSpace: "pre-line", lineHeight: 1.65, color: "#334155" }}>{s.overview}</div>
           {s.topic_notes.length > 0 && (
             <div className="flex col gap-2 mb-3">
               {s.topic_notes.map((n, i) => (
-                <div key={i} className="t-sm"><b>{n.topic}</b><span className="muted"> · {n.comment}</span></div>
+                <div key={i} className="t-sm clay-well" style={{ padding: "10px 14px", borderRadius: 12 }}>
+                  <b>{n.topic}</b><span className="muted" style={{ color: "#64748b" }}> · {n.comment}</span>
+                </div>
               ))}
             </div>
           )}
           {s.next_steps.length > 0 && (
-            <>
-              <div className="t-sm fw-6 mb-1">ควรทำต่อ</div>
-              <ul className="t-sm" style={{ paddingLeft: 20, margin: 0 }}>{s.next_steps.map((x, i) => <li key={i}>{x}</li>)}</ul>
-            </>
+            <div className="clay-well" style={{ padding: "14px 18px", borderRadius: 14 }}>
+              <div className="t-sm fw-6 mb-1" style={{ color: "var(--fg)" }}>ควรทำต่อ</div>
+              <ul className="t-sm" style={{ paddingLeft: 20, margin: 0, color: "#475569", lineHeight: 1.6 }}>
+                {s.next_steps.map((x, i) => <li key={i}>{x}</li>)}
+              </ul>
+            </div>
           )}
         </>
       )}
@@ -81,40 +93,41 @@ function SummaryCard({ attemptId, initial }) {
 
 function ReviewItem({ r, attemptId }) {
   const status = r.unanswered ? "unanswered" : r.correct ? "correct" : "wrong";
-  const badge = { correct: ["success", "ตอบถูก"], wrong: ["danger", "ตอบผิด"], unanswered: ["warning", "ไม่ได้ตอบ"] }[status];
+  const badgeClass = { correct: "clay-badge-success", wrong: "clay-badge-danger", unanswered: "clay-badge-warning" }[status];
+  const badgeLabel = { correct: "ตอบถูก", wrong: "ตอบผิด", unanswered: "ไม่ได้ตอบ" }[status];
   const known = (id) => r.choices.some((c) => c.id === id);
   return (
-    <div className="card card-p mb-3">
+    <div className="clay-card mb-4" style={{ padding: "24px 26px" }}>
       <div className="flex items-center gap-2 mb-3 wrap">
-        <b>ข้อ {r.n}</b>
-        <Badge tone={badge[0]} dot>{badge[1]}</Badge>
-        {r.topic && <Badge tone="outline">{r.topic}</Badge>}
+        <span className="fw-7 t-base">ข้อ {r.n}</span>
+        <span className={"clay-badge " + badgeClass}>{badgeLabel}</span>
+        {r.topic && <span className="clay-badge">{r.topic}</span>}
       </div>
       {r.deleted ? (
         <div className="t-sm muted">ข้อนี้ถูกลบแล้ว</div>
       ) : (
         <>
-          <div className="t-base fw-6 pretty mb-3" style={{ lineHeight: 1.55 }}>{r.text}</div>
-          <div className="flex col gap-2 mb-3">
+          <div className="t-base fw-6 pretty mb-3" style={{ lineHeight: 1.6, color: "var(--fg)" }}>{r.text}</div>
+          <div className="flex col gap-2.5 mb-3">
             {r.choices.map((c) => {
               const isAnswer = c.id === r.answer;
               const isChosen = c.id === r.chosen;
-              const border = isAnswer ? "var(--success)" : isChosen ? "var(--danger)" : "var(--border-strong)";
-              const bg = isAnswer ? "var(--success-soft)" : isChosen ? "var(--danger-soft)" : "#fff";
+              const border = isAnswer ? "var(--success)" : isChosen ? "var(--danger)" : "#e2e8f0";
+              const bg = isAnswer ? "var(--success-soft)" : isChosen ? "var(--danger-soft)" : "#ffffff";
               return (
-                <div key={c.id} className="flex items-center gap-3 wrap" style={{ padding: "11px 14px", borderRadius: 10, border: "1.5px solid " + border, background: bg }}>
-                  <span className="t-base flex-1" style={{ minWidth: 0 }}>{c.text}</span>
-                  {isChosen && <Badge tone={isAnswer ? "success" : "danger"}>คำตอบของคุณ</Badge>}
-                  {isAnswer && <Badge tone="success">เฉลย</Badge>}
+                <div key={c.id} className="flex items-center gap-3 wrap" style={{ padding: "12px 16px", borderRadius: 14, border: "1.5px solid " + border, background: bg, boxShadow: "0 2px 6px rgba(15,23,42,.03)" }}>
+                  <span className="t-base flex-1" style={{ minWidth: 0, color: "var(--fg)", fontWeight: isChosen || isAnswer ? 600 : 400 }}>{c.text}</span>
+                  {isChosen && <span className={"clay-badge " + (isAnswer ? "clay-badge-success" : "clay-badge-danger")}>คำตอบของคุณ</span>}
+                  {isAnswer && <span className="clay-badge clay-badge-success">เฉลย</span>}
                 </div>
               );
             })}
           </div>
-          {r.chosen && !known(r.chosen) && <div className="t-xs muted mb-2">คำตอบของคุณเป็นตัวเลือกที่ถูกแก้ไขหรือลบไปแล้ว</div>}
-          {!known(r.answer) && <div className="t-xs muted mb-2">ตัวเลือกที่เป็นเฉลยถูกแก้ไขหรือลบไปแล้ว</div>}
-          <div style={{ padding: 14, borderRadius: 10, background: "var(--muted)" }}>
-            <div className="t-xs fw-6 muted mb-1">คำอธิบายของอาจารย์</div>
-            <div className="t-sm pretty" style={{ whiteSpace: "pre-line" }}>{r.explanation || "อาจารย์ยังไม่ได้เขียนคำอธิบายข้อนี้"}</div>
+          {r.chosen && !known(r.chosen) && <div className="t-xs muted mb-2" style={{ color: "#64748b" }}>คำตอบของคุณเป็นตัวเลือกที่ถูกแก้ไขหรือลบไปแล้ว</div>}
+          {!known(r.answer) && <div className="t-xs muted mb-2" style={{ color: "#64748b" }}>ตัวเลือกที่เป็นเฉลยถูกแก้ไขหรือลบไปแล้ว</div>}
+          <div className="clay-well mb-2" style={{ padding: 14, borderRadius: 12 }}>
+            <div className="t-xs fw-6 muted mb-1" style={{ color: "#64748b" }}>คำอธิบายของอาจารย์</div>
+            <div className="t-sm pretty" style={{ whiteSpace: "pre-line", color: "#334155", lineHeight: 1.6 }}>{r.explanation || "อาจารย์ยังไม่ได้เขียนคำอธิบายข้อนี้"}</div>
           </div>
           <AskAi attemptId={attemptId} questionId={r.questionId} />
         </>
@@ -181,13 +194,20 @@ export default function StudentTutorResult() {
 
   if (view === "none") {
     return (
-      <div className="container">
+      <div className="container" style={{ paddingBottom: 40 }}>
         <Crumb nav={nav} items={crumb} />
-        <div className="card"><div className="empty">
-          <div className="fw-6 fg" style={{ fontSize: "16px" }}>ยังไม่มีผลการทำข้อสอบ</div>
-          <div className="t-sm muted">ทำข้อสอบบทนี้และส่งคำตอบ แล้วผลวิเคราะห์จะแสดงที่นี่</div>
-          <button className="btn btn-primary btn-sm" onClick={() => nav(examPath)}><Icon name="play" size={14} />ทำข้อสอบ</button>
-        </div></div>
+        <div className="clay-card" style={{ padding: "48px 24px" }}>
+          <div className="empty">
+            <div className="clay-well" style={{ width: 48, height: 48, display: "grid", placeItems: "center", margin: "0 auto 12px" }}>
+              <Icon name="book" size={24} style={{ color: "var(--primary)" }} />
+            </div>
+            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ยังไม่มีผลการทำข้อสอบ</div>
+            <div className="t-sm muted mt-1">ทำข้อสอบบทนี้และส่งคำตอบ แล้วผลวิเคราะห์จะแสดงที่นี่</div>
+            <button className="clay-btn clay-btn-primary clay-btn-sm mt-3" onClick={() => nav(examPath)}>
+              <Icon name="play" size={14} />ทำข้อสอบ
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -197,61 +217,76 @@ export default function StudentTutorResult() {
   const { overall, groups } = analysis;
   const best = rounds.find((x) => x.id === bestId);
   return (
-    <div className="container" style={{ opacity: switching ? 0.6 : 1, transition: ".15s" }}>
+    <div className="container" style={{ opacity: switching ? 0.6 : 1, transition: ".15s", paddingBottom: 60 }}>
       <Crumb nav={nav} items={crumb} />
 
-      <div className="card card-p mb-4">
-        <div className="flex items-center gap-2 mb-2 wrap">
-          <Badge tone="primary">{set.code}</Badge>
-          <Badge tone={overall.pass ? "success" : "danger"} dot>{overall.pass ? "ผ่าน" : "ไม่ผ่าน"}</Badge>
-          {isBest ? <Badge tone="info">รอบที่ดีที่สุด</Badge> : <Badge tone="outline">รอบที่ {attempt.number}</Badge>}
+      <div className="clay-card mb-4" style={{ padding: "32px 30px" }}>
+        <div className="flex items-center gap-2 mb-3 wrap">
+          <span className="clay-badge clay-badge-primary" style={{ fontWeight: 700 }}>{set.code}</span>
+          <span className={"clay-badge " + (overall.pass ? "clay-badge-success" : "clay-badge-danger")}>
+            {overall.pass ? "ผ่าน" : "ไม่ผ่าน"}
+          </span>
+          {isBest ? (
+            <span className="clay-badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>รอบที่ดีที่สุด</span>
+          ) : (
+            <span className="clay-badge">รอบที่ {attempt.number}</span>
+          )}
         </div>
-        <div className="t-sm muted mb-1">บทที่ {lesson.index} · {lesson.title}</div>
-        <div className="serif fw-7" style={{ fontSize: 56, lineHeight: 1.1 }} aria-label="คะแนนรวม">
-          {attempt.score}<span className="muted" style={{ fontSize: 28 }}> / {attempt.total}</span>
-          <span className="muted" style={{ fontSize: 22 }}> ({overall.percent}%)</span>
+        <h1 className="t-xl fw-7 serif mb-1" style={{ margin: "0 0 6px" }}>บทที่ {lesson.index} · {lesson.title}</h1>
+        
+        <div className="clay-well my-4 text-center" style={{ padding: "20px 36px", display: "inline-flex", flexDirection: "column", borderRadius: 24, margin: "16px 0" }}>
+          <div className="serif fw-7" style={{ fontSize: 56, lineHeight: 1.1, color: overall.pass ? "var(--success)" : "var(--primary)" }} aria-label="คะแนนรวม">
+            {attempt.score}<span className="muted" style={{ fontSize: 28, color: "#64748b" }}> / {attempt.total}</span>
+            <span className="muted" style={{ fontSize: 22, color: "#64748b" }}> ({overall.percent}%)</span>
+          </div>
         </div>
-        <div className="t-sm muted mt-2 mb-3">คะแนนรวม (ข้อที่ไม่ได้ตอบนับเป็นผิด) · เกณฑ์ผ่าน {PASS_PERCENT}%</div>
-        <div className="t-sm muted mb-4">
+
+        <div className="t-sm muted mb-2" style={{ color: "#475569" }}>คะแนนรวม (ข้อที่ไม่ได้ตอบนับเป็นผิด) · เกณฑ์ผ่าน {PASS_PERCENT}%</div>
+        <div className="t-sm muted mb-4" style={{ color: "#64748b" }}>
           กำลังดูรอบที่ {attempt.number} จากที่ทำแล้ว {rounds.length} รอบ
           {attempt.status === "expired" ? " (หมดเวลา ระบบส่งให้)" : ""} · ส่งเมื่อ {fmt(attempt.submittedAt)}
           {!isBest && best && (
-            <> · <a href="#best" onClick={(e) => { e.preventDefault(); load(best.id); }} className="c-primary">ดูรอบที่ดีที่สุด (รอบที่ {best.number}: {best.score}/{best.total})</a></>
+            <> · <a href="#best" onClick={(e) => { e.preventDefault(); load(best.id); }} className="c-primary" style={{ fontWeight: 600 }}>ดูรอบที่ดีที่สุด (รอบที่ {best.number}: {best.score}/{best.total})</a></>
           )}
         </div>
-        <div className="flex gap-2 wrap">
-          <button className="btn btn-primary" onClick={() => nav(examPath)}><Icon name="play" size={16} />ทำอีกครั้ง</button>
-          <button className="btn btn-outline" onClick={() => nav("/s/tutor/lesson/" + lesson.id)}>กลับไปหน้าบทเรียน</button>
+        <div className="flex gap-2.5 wrap">
+          <button className="clay-btn clay-btn-primary" onClick={() => nav(examPath)}><Icon name="play" size={15} />ทำอีกครั้ง</button>
+          <button className="clay-btn clay-btn-soft" onClick={() => nav("/s/tutor/lesson/" + lesson.id)}>กลับไปหน้าบทเรียน</button>
         </div>
       </div>
 
       {rounds.length > 1 && (
-        <div className="card card-p mb-4">
-          <div className="t-base fw-7 mb-2">รอบที่ทำแล้ว</div>
+        <div className="clay-card mb-4" style={{ padding: "22px 26px" }}>
+          <div className="t-base fw-7 mb-2" style={{ fontSize: 16 }}>รอบที่ทำแล้ว</div>
           <div className="flex gap-2 wrap">
             {rounds.map((x) => (
-              <button key={x.id} className={"btn btn-sm " + (x.id === attempt.id ? "btn-primary" : "btn-outline")} disabled={switching || x.id === attempt.id} onClick={() => load(x.id)}>
+              <button
+                key={x.id}
+                className={"clay-btn clay-btn-sm " + (x.id === attempt.id ? "clay-btn-primary" : "clay-btn-soft")}
+                disabled={switching || x.id === attempt.id}
+                onClick={() => load(x.id)}
+              >
                 รอบที่ {x.number} · {x.score}/{x.total}{best && x.id === best.id ? " ★" : ""}
               </button>
             ))}
           </div>
-          <div className="t-xs muted mt-2">★ = รอบที่ดีที่สุด (สัดส่วนคะแนนสูงสุด ถ้าเท่ากันใช้รอบล่าสุด)</div>
+          <div className="t-xs muted mt-2" style={{ color: "#64748b" }}>★ = รอบที่ดีที่สุด (สัดส่วนคะแนนสูงสุด ถ้าเท่ากันใช้รอบล่าสุด)</div>
         </div>
       )}
 
-      <div className="card card-p mb-4">
-        <div className="t-base fw-7 mb-1">ผลรายหัวข้อ</div>
-        <div className="t-xs muted mb-4">ต่ำกว่า {PASS_PERCENT}% = {STATUS_LABEL.weak} · {PASS_PERCENT}–{STRONG_PERCENT - 1}% = {STATUS_LABEL.fair} · {STRONG_PERCENT}% ขึ้นไป = {STATUS_LABEL.strong}</div>
+      <div className="clay-card mb-4" style={{ padding: "26px 28px" }}>
+        <div className="t-base fw-7 mb-1" style={{ fontSize: 16 }}>ผลรายหัวข้อ</div>
+        <div className="t-xs muted mb-4" style={{ color: "#64748b" }}>ต่ำกว่า {PASS_PERCENT}% = {STATUS_LABEL.weak} · {PASS_PERCENT}–{STRONG_PERCENT - 1}% = {STATUS_LABEL.fair} · {STRONG_PERCENT}% ขึ้นไป = {STATUS_LABEL.strong}</div>
         <div className="flex col gap-4">
           {groups.map((g) => (
             <div key={g.topic_id ?? "none"}>
-              <div className="flex items-center gap-2 mb-1 wrap">
-                <span className="t-sm fw-6 flex-1" style={{ minWidth: 0 }}>{g.name}</span>
-                <span className="t-xs muted">ถูก {g.correct}/{g.total} ข้อ · {g.percent}%</span>
-                <Badge tone={TONE[g.status]}>{STATUS_LABEL[g.status]}</Badge>
+              <div className="flex items-center gap-2 mb-1.5 wrap">
+                <span className="t-sm fw-6 flex-1" style={{ minWidth: 0, color: "var(--fg)" }}>{g.name}</span>
+                <span className="t-xs muted" style={{ color: "#64748b" }}>ถูก {g.correct}/{g.total} ข้อ · {g.percent}%</span>
+                <span className={"clay-badge clay-badge-" + TONE[g.status]}>{STATUS_LABEL[g.status]}</span>
               </div>
-              <div className="progress" style={{ height: 8 }} role="img" aria-label={g.name + " " + g.percent + "%"}>
-                <i style={{ width: g.percent + "%", background: COLOR[g.status] }} />
+              <div className="clay-progress" role="img" aria-label={g.name + " " + g.percent + "%"}>
+                <div className="clay-progress-bar" style={{ width: g.percent + "%", background: COLOR[g.status] }} />
               </div>
             </div>
           ))}
@@ -260,18 +295,18 @@ export default function StudentTutorResult() {
 
       <SummaryCard key={attempt.id} attemptId={attempt.id} initial={data.summary} />
 
-      <div className="card card-p mb-4">
-        <div className="t-base fw-7 mb-3">หัวข้อที่ควรทบทวน</div>
+      <div className="clay-card mb-4" style={{ padding: "26px 28px" }}>
+        <div className="t-base fw-7 mb-3" style={{ fontSize: 16 }}>หัวข้อที่ควรทบทวน</div>
         {analysis.review.length === 0 ? (
-          <div className="t-sm muted">ไม่มีหัวข้อที่ต้องทบทวนเพิ่ม ทุกหัวข้อเป็นจุดแข็ง</div>
+          <div className="t-sm muted" style={{ color: "#64748b" }}>ไม่มีหัวข้อที่ต้องทบทวนเพิ่ม ทุกหัวข้อเป็นจุดแข็ง</div>
         ) : (
           <div className="flex col gap-3">
             {analysis.review.map((x) => (
-              <div key={x.topic_id ?? "none"} className="flex items-start gap-3">
-                <Badge tone={TONE[x.status]}>{STATUS_LABEL[x.status]}</Badge>
+              <div key={x.topic_id ?? "none"} className="clay-well flex items-start gap-3" style={{ padding: "12px 16px", borderRadius: 14 }}>
+                <span className={"clay-badge clay-badge-" + TONE[x.status]}>{STATUS_LABEL[x.status]}</span>
                 <div style={{ minWidth: 0 }}>
-                  <div className="t-sm fw-6">{x.name}</div>
-                  <div className="t-sm muted">{x.reason}</div>
+                  <div className="t-sm fw-6" style={{ color: "var(--fg)" }}>{x.name}</div>
+                  <div className="t-sm muted mt-0.5" style={{ color: "#64748b" }}>{x.reason}</div>
                 </div>
               </div>
             ))}
@@ -279,7 +314,7 @@ export default function StudentTutorResult() {
         )}
       </div>
 
-      <div className="t-base fw-7 mb-3">ทบทวนรายข้อ</div>
+      <h2 className="t-base fw-7 mb-3 px-1" style={{ fontSize: 17 }}>ทบทวนรายข้อ</h2>
       {review.map((r) => <ReviewItem key={r.questionId} r={r} attemptId={attempt.id} />)}
     </div>
   );

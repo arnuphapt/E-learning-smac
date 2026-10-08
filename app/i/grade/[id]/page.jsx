@@ -215,7 +215,7 @@ export default function Grader() {
             ) : null}
 
             {sub.text ? (
-              <div className="card card-p mb-3" style={{ borderLeft: "4px solid var(--primary)" }}>
+              <div className="card card-p mb-3">
                 <div className="t-sm fw-7 mb-2 flex items-center gap-2">
                   <Icon name="msg" size={16} className="c-primary" />
                   คำตอบของนักศึกษา (แบบข้อความ)

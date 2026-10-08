@@ -261,8 +261,7 @@ export default function StudentCourse() {
   return (
     <div className="container">
       <Crumb nav={nav} items={[{ label: "รายวิชาของฉัน", to: "/s/courses" }, { label: course.code }]} />
-      <div className="card mb-5" style={{ overflow: "hidden" }}>
-        <div style={{ height: 8, background: `linear-gradient(90deg, ${course.hero || "#0d6e8c"}, ${(course.hero || "#0d6e8c")}aa)` }} />
+      <div className="card mb-5">
         <div className="card-p flex items-start justify-between gap-4 wrap">
           <div style={{ minWidth: 260 }}>
             <div className="flex items-center gap-2 mb-2">
@@ -277,7 +276,7 @@ export default function StudentCourse() {
               <span className="flex items-center gap-1"><Icon name="book" size={15} />{lessons.length} บทเรียน</span>
             </div>
           </div>
-          <div className="card bg-muted" style={{ padding: 16, minWidth: 188, border: 0 }}>
+          <div className="clay-well" style={{ padding: 16, minWidth: 188 }}>
             <div className="t-xs muted mb-1">ความคืบหน้ารวม</div>
             <div className="flex items-end gap-2"><span className="t-3xl fw-7 tnum" style={{ lineHeight: 1 }}>{courseProgress}</span><span className="muted mb-1">%</span></div>
             <div className="mt-2"><Progress value={courseProgress} /></div>

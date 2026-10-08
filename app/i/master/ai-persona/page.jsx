@@ -318,16 +318,6 @@ export default function AiPersonaPage() {
           overflow: "hidden"
         }} className="ai-profile-preview-card">
 
-          {/* Subtle Gradient Accent Bar at Top */}
-          <div style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 4,
-            background: "linear-gradient(90deg, var(--primary) 0%, #0891b2 100%)"
-          }} />
-
           {/* Card Header (Modern style) */}
           <div style={{
             width: "100%",
@@ -423,16 +413,14 @@ export default function AiPersonaPage() {
           </div>
 
           {/* Tagline/Bio inside quotation balloon */}
-          <div style={{
+          <div className="clay-well" style={{
             fontSize: 13,
             color: "var(--muted-fg)",
             textAlign: "center",
             lineHeight: 1.5,
             padding: "12px 14px",
-            background: "var(--muted)",
             borderRadius: 14,
             width: "100%",
-            borderLeft: "3px solid var(--primary)",
             fontStyle: "italic",
             marginBottom: 20
           }}>
@@ -557,15 +545,6 @@ export default function AiPersonaPage() {
               border: "1px solid var(--border)",
             }}
           >
-            {/* Gold Gradient Top Border Bar (Premium Look) */}
-            <div
-              style={{
-                height: 4,
-                width: "100%",
-                background: "linear-gradient(90deg, #f59e0b 0%, var(--primary) 50%, #3b82f6 100%)",
-              }}
-            />
-
             <div style={{ padding: "24px 28px" }}>
               {isEditing ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -622,8 +601,7 @@ export default function AiPersonaPage() {
       </div>
 
       {/* Tutor-mode explain persona (ถาม AI ในหน้าทบทวนชุดติว) */}
-      <div className="card" style={{ marginTop: 24, borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.04)", border: "1px solid var(--border)" }}>
-        <div style={{ height: 4, background: "linear-gradient(90deg, #f59e0b 0%, var(--primary) 100%)" }} />
+      <div className="card" style={{ marginTop: 24 }}>
         <div style={{ padding: "20px 24px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
             <div>
@@ -652,8 +630,7 @@ export default function AiPersonaPage() {
       </div>
 
       {/* Token & Rate Limit Config Card */}
-      <div className="card" style={{ marginTop: 24, borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.04)", border: "1px solid var(--border)" }}>
-        <div style={{ height: 4, background: "linear-gradient(90deg, #3b82f6 0%, var(--primary) 100%)" }} />
+      <div className="card" style={{ marginTop: 24 }}>
         <div style={{ padding: "20px 24px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
             <div>

@@ -684,16 +684,6 @@ export default function StudentSeparateAiPage() {
           overflow: "hidden",
           gap: 16
         }} className="hide-m ai-side">
-          {/* Subtle Gradient Accent Bar at Top */}
-          <div style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 4,
-            background: "linear-gradient(90deg, var(--primary) 0%, #0891b2 100%)"
-          }} />
-
           {/* Card Header */}
           <div style={{
             width: "100%",

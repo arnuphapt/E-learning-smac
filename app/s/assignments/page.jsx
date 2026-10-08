@@ -11,6 +11,20 @@ import { PageHead, Crumb } from "@/components/ui/Shared";
 import { Avatar, Badge, statusBadge, Select } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
 
+function hexToRgba(hex, alpha = 1) {
+  if (!hex || typeof hex !== "string" || !hex.startsWith("#")) {
+    return alpha != null ? `rgba(13, 110, 140, ${alpha})` : "#0d6e8c";
+  }
+  let c = hex.slice(1);
+  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return `rgba(13, 110, 140, ${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export default function StudentAssignments() {
   const router = useRouter();
   const { data: session, status: authStatus } = useSession();
@@ -234,6 +248,7 @@ export default function StudentAssignments() {
         ) : (
           filteredAssignments.map((asg) => {
             const isDueSoon = !["submitted", "graded"].includes(asg.status);
+            const hero = asg.courseHero && asg.courseHero.startsWith("#") ? asg.courseHero : "#0d6e8c";
             
             return (
               <div
@@ -242,29 +257,57 @@ export default function StudentAssignments() {
                 style={{
                   display: "flex",
                   alignItems: "stretch",
-                  overflow: "hidden",
-                  borderLeft: `5px solid ${asg.courseHero}`,
                 }}
                 onClick={() => nav(`/s/assignment/${asg.id}`)}
               >
-                <div className="card-p flex items-center justify-between gap-4 flex-1" style={{ padding: "16px 20px" }}>
-                  <div className="flex-1" style={{ minWidth: 0 }}>
-                    <div className="flex items-center gap-2 wrap mb-1">
-                      <Badge tone="outline">{asg.courseCode}</Badge>
-                      <span className="t-xs muted">{asg.courseTitle}</span>
+                <div className="card-p flex items-center justify-between gap-4 flex-1" style={{ padding: "18px 22px" }}>
+                  <div className="flex items-center flex-1" style={{ minWidth: 0, gap: 16 }}>
+                    <div
+                      className="clay-pod"
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 14,
+                        background: `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
+                        border: `1.5px solid ${hexToRgba(hero, 0.28)}`,
+                        color: hero,
+                        boxShadow: `inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.95), inset -1.5px -1.5px 3px ${hexToRgba(hero, 0.18)}, 0 4px 10px -2px ${hexToRgba(hero, 0.2)}`,
+                      }}
+                    >
+                      <Icon name="clipboard" size={22} />
                     </div>
-                    <div className="fw-7 t-base pretty mb-2" style={{ color: "var(--fg)" }}>{asg.title}</div>
-                    
-                    <div className="flex items-center gap-3 t-xs muted wrap">
-                      <span className="flex items-center gap-1">
-                        <Icon name="cal" size={13} />
-                        กำหนดส่ง: <span className={isDueSoon ? "c-warning fw-6" : ""}>{asg.due}</span>
-                      </span>
-                      <i className="dot-sep" />
-                      <span className="flex items-center gap-1">
-                        <Icon name="star" size={13} />
-                        คะแนนเต็ม: {asg.points} คะแนน
-                      </span>
+
+                    <div className="flex-1" style={{ minWidth: 0 }}>
+                      <div className="flex items-center wrap mb-1.5" style={{ gap: 10 }}>
+                        <span
+                          style={{
+                            padding: "3px 10px",
+                            borderRadius: 999,
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            background: hexToRgba(hero, 0.12),
+                            color: hero,
+                            border: `1px solid ${hexToRgba(hero, 0.25)}`,
+                            boxShadow: "inset 1px 1px 2px rgba(255,255,255,.9)",
+                          }}
+                        >
+                          {asg.courseCode}
+                        </span>
+                        <span className="t-xs muted">{asg.courseTitle}</span>
+                      </div>
+                      <div className="fw-7 t-base pretty mb-2" style={{ color: "var(--fg)" }}>{asg.title}</div>
+                      
+                      <div className="flex items-center gap-3 t-xs muted wrap">
+                        <span className="flex items-center gap-1">
+                          <Icon name="cal" size={13} />
+                          กำหนดส่ง: <span className={isDueSoon ? "c-warning fw-6" : ""}>{asg.due}</span>
+                        </span>
+                        <i className="dot-sep" />
+                        <span className="flex items-center gap-1">
+                          <Icon name="star" size={13} />
+                          คะแนนเต็ม: {asg.points} คะแนน
+                        </span>
+                      </div>
                     </div>
                   </div>
 

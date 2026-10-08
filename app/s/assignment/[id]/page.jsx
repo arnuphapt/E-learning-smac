@@ -36,8 +36,8 @@ function GradedView({ a, rubric, instructorName }) {
   const ratio = totalMax > 0 ? totalScore / totalMax : 0;
 
   return (
-    <div className="card" style={{ borderColor: "var(--success)", borderWidth: 1 }}>
-      <div className="card-h flex items-center justify-between" style={{ background: "var(--success-soft)", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
+    <div className="card">
+      <div className="card-h flex items-center justify-between">
         <div className="title flex items-center gap-2 c-success"><Icon name="award" size={18} />ตรวจแล้ว — ผลคะแนนและข้อเสนอแนะ</div>
         <div className="t-2xl fw-7 c-success tnum">{totalScore}<span className="t-sm fw-5 muted">/{totalMax}</span></div>
       </div>

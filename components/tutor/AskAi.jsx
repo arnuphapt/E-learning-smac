@@ -53,34 +53,43 @@ export default function AskAi({ attemptId, questionId }) {
 
   if (!open) {
     return (
-      <button type="button" className="btn btn-outline btn-sm mt-3" onClick={() => setOpen(true)}>
-        <Icon name="sparkle" size={14} />ถาม AI
+      <button type="button" className="clay-btn clay-btn-soft clay-btn-sm mt-3" onClick={() => setOpen(true)}>
+        <Icon name="sparkle" size={14} style={{ color: "var(--primary)" }} />ถาม AI
       </button>
     );
   }
   return (
-    <div className="mt-3" style={{ border: "1px solid var(--border-strong)", borderRadius: 10, padding: 12 }}>
+    <div className="clay-well mt-3" style={{ padding: 14 }}>
       <div className="flex items-center gap-2 mb-2">
-        <Icon name="sparkle" size={14} style={{ color: "var(--primary)" }} />
+        <Icon name="sparkle" size={15} style={{ color: "var(--primary)" }} />
         <b className="t-sm flex-1">ถาม AI เกี่ยวกับข้อนี้</b>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)} aria-label="ปิด"><Icon name="x" size={14} /></button>
       </div>
-      <div className="flex col gap-2 mb-2">
+      <div className="flex col gap-2 mb-3">
         {messages.map((m, i) => (
           <div
             key={i}
             className="t-sm pretty"
-            style={{ whiteSpace: "pre-wrap", padding: "8px 12px", borderRadius: 10, alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "92%", background: m.role === "user" ? "var(--primary-soft)" : "var(--muted)" }}
+            style={{
+              whiteSpace: "pre-wrap",
+              padding: "10px 14px",
+              borderRadius: 14,
+              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+              maxWidth: "92%",
+              background: m.role === "user" ? "var(--primary-soft)" : "#ffffff",
+              color: "var(--fg)",
+              boxShadow: "0 2px 6px rgba(15,23,42,.04), inset 1px 1px 2px rgba(255,255,255,.9)",
+            }}
           >
             {m.content}
           </div>
         ))}
-        {busy && <div className="t-xs muted">AI กำลังตอบ…</div>}
+        {busy && <div className="t-xs muted" style={{ color: "#64748b" }}>AI กำลังตอบ…</div>}
       </div>
       {error && <div className="t-xs mb-2" style={{ color: "var(--danger)" }} role="alert">{error}</div>}
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); send(); }}>
-        <input className="input flex-1" style={{ minWidth: 0 }} value={input} onChange={(e) => setInput(e.target.value)} maxLength={500} placeholder="พิมพ์คำถาม" aria-label="คำถามถึง AI" />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !input.trim()}><Icon name="send" size={14} />ส่ง</button>
+        <input className="input flex-1" style={{ minWidth: 0, borderRadius: 12, background: "#ffffff" }} value={input} onChange={(e) => setInput(e.target.value)} maxLength={500} placeholder="พิมพ์คำถาม" aria-label="คำถามถึง AI" />
+        <button type="submit" className="clay-btn clay-btn-primary clay-btn-sm" disabled={busy || !input.trim()}><Icon name="send" size={14} />ส่ง</button>
       </form>
     </div>
   );

@@ -22,14 +22,58 @@ function PageHead({ kicker, title, desc, right }) {
   );
 }
 
+function hexToRgba(hex, alpha = 1) {
+  if (!hex || typeof hex !== "string" || !hex.startsWith("#")) {
+    return alpha != null ? `rgba(13, 110, 140, ${alpha})` : "#0d6e8c";
+  }
+  let c = hex.slice(1);
+  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return `rgba(13, 110, 140, ${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function CourseCard({ c, nav }) {
+  const hero = c.hero && c.hero.startsWith("#") ? c.hero : "#0d6e8c";
   return (
-    <div className="card pointer" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={() => nav("/s/course/" + c.id)}>
-      <div style={{ height: 76, background: `linear-gradient(120deg, ${c.hero}, ${c.hero}cc)`, position: "relative", display: "flex", alignItems: "center", padding: "0 18px" }}>
-        <span className="badge" style={{ background: "rgba(255,255,255,.22)", color: "#fff", fontWeight: 700 }}>{c.code}</span>
-        <Icon name="layers" size={56} style={{ position: "absolute", right: -6, top: 8, color: "rgba(255,255,255,.18)" }} />
-      </div>
+    <div className="card pointer" style={{ display: "flex", flexDirection: "column" }} onClick={() => nav("/s/course/" + c.id)}>
       <div className="card-p flex-1 flex col">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center" style={{ gap: 12 }}>
+            <div
+              className="clay-pod"
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
+                border: `1.5px solid ${hexToRgba(hero, 0.28)}`,
+                color: hero,
+                boxShadow: `inset 1px 1px 2px rgba(255, 255, 255, 0.95), inset -1px -1px 2px ${hexToRgba(hero, 0.18)}, 0 3px 8px -2px ${hexToRgba(hero, 0.18)}`,
+              }}
+            >
+              <Icon name="book" size={18} />
+            </div>
+            <span
+              style={{
+                padding: "3px 10px",
+                borderRadius: 999,
+                fontSize: "11.5px",
+                fontWeight: 700,
+                background: hexToRgba(hero, 0.12),
+                color: hero,
+                border: `1px solid ${hexToRgba(hero, 0.25)}`,
+                boxShadow: "inset 1px 1px 2px rgba(255,255,255,.9)",
+              }}
+            >
+              {c.code}
+            </span>
+          </div>
+          <span className="t-xs muted">{c.term}</span>
+        </div>
         <div className="t-md fw-7 serif" style={{ letterSpacing: "-.01em" }}>{c.title}</div>
         <div className="muted t-sm mt-1 pretty" style={{ minHeight: 36 }}>{c.subtitle}</div>
         <div className="flex items-center gap-2 mt-3 t-xs muted"><Icon name="user" size={14} />{c.instructor}</div>
@@ -47,13 +91,45 @@ function CourseCard({ c, nav }) {
 }
 
 function CourseListItem({ c, nav }) {
+  const hero = c.hero && c.hero.startsWith("#") ? c.hero : "#0d6e8c";
   return (
-    <div className="card pointer" style={{ display: "flex", alignItems: "stretch", overflow: "hidden" }} onClick={() => nav("/s/course/" + c.id)}>
-      <div style={{ flex: "0 0 8px", background: `linear-gradient(${c.hero}, ${c.hero}aa)` }} />
+    <div className="card pointer" style={{ display: "flex", alignItems: "stretch" }} onClick={() => nav("/s/course/" + c.id)}>
       <div className="card-p flex items-center gap-4 flex-1 course-list-item-p">
-        <div className="course-icon-badge" style={{ width: 46, height: 46, borderRadius: 11, background: c.hero, color: "#fff", display: "grid", placeItems: "center", flex: "0 0 46px", fontWeight: 700, fontSize: 12 }}>{c.code.replace(/[^0-9]/g, "").slice(0, 3)}</div>
+        <div
+          className="clay-pod"
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            background: `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
+            border: `1.5px solid ${hexToRgba(hero, 0.28)}`,
+            color: hero,
+            display: "grid",
+            placeItems: "center",
+            flex: "0 0 48px",
+            boxShadow: `inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.95), inset -1.5px -1.5px 3px ${hexToRgba(hero, 0.18)}, 0 4px 10px -2px ${hexToRgba(hero, 0.2)}`,
+          }}
+        >
+          <Icon name="book" size={22} />
+        </div>
         <div className="flex-1" style={{ minWidth: 0 }}>
-          <div className="flex items-center gap-2 wrap"><span className="fw-7 t-base">{c.title}</span><Badge tone="outline">{c.code}</Badge></div>
+          <div className="flex items-center gap-3 wrap mb-1">
+            <span className="fw-7 t-base">{c.title}</span>
+            <span
+              style={{
+                padding: "3px 10px",
+                borderRadius: 999,
+                fontSize: "11px",
+                fontWeight: 700,
+                background: hexToRgba(hero, 0.12),
+                color: hero,
+                border: `1px solid ${hexToRgba(hero, 0.25)}`,
+                boxShadow: "inset 1px 1px 2px rgba(255,255,255,.9)",
+              }}
+            >
+              {c.code}
+            </span>
+          </div>
           <div className="t-xs muted mt-1 truncate">{c.subtitle}</div>
           <div className="flex items-center gap-2 mt-1 t-xs muted wrap"><span className="flex items-center gap-1"><Icon name="user" size={12} />{c.instructor}</span><i className="dot-sep" /><span className="flex items-center gap-1"><Icon name="book" size={12} />{c.lessons} บทเรียน</span><i className="dot-sep" /><span>{c.term}</span></div>
         </div>

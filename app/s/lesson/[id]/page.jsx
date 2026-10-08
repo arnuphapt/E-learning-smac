@@ -279,9 +279,9 @@ function NoVideoContentStage({ lesson, assignments, submissions, nav }) {
   return (
     <div className="flex col gap-4 w-full">
       {hasDocs && (
-        <div className="card" style={{ overflow: "hidden" }}>
-          <div className="card-h" style={{ background: "var(--primary-soft)", borderTopLeftRadius: 14, borderTopRightRadius: 14, padding: "14px 18px" }}>
-            <div className="title flex items-center gap-2 c-primary"><Icon name="folder" size={18} />เอกสารประกอบการเรียน</div>
+        <div className="card">
+          <div className="card-h" style={{ padding: "16px 20px" }}>
+            <div className="title flex items-center gap-2"><Icon name="folder" size={18} className="c-primary" />เอกสารประกอบการเรียน</div>
           </div>
           <div className="card-p flex col gap-3" style={{ padding: 18 }}>
             {docs.map((doc, i) => (
@@ -305,9 +305,9 @@ function NoVideoContentStage({ lesson, assignments, submissions, nav }) {
       )}
 
       {hasAssigns && (
-        <div className="card" style={{ overflow: "hidden" }}>
-          <div className="card-h" style={{ background: "var(--primary-soft)", borderTopLeftRadius: 14, borderTopRightRadius: 14, padding: "14px 18px" }}>
-            <div className="title flex items-center gap-2 c-primary"><Icon name="file" size={18} />ใบงานสำหรับบทเรียนนี้</div>
+        <div className="card">
+          <div className="card-h" style={{ padding: "16px 20px" }}>
+            <div className="title flex items-center gap-2"><Icon name="file" size={18} className="c-primary" />ใบงานสำหรับบทเรียนนี้</div>
           </div>
           <div className="card-p flex col gap-3" style={{ padding: 18 }}>
             {assignments.map((a) => {

@@ -108,23 +108,23 @@ export default function TestResult() {
   return (
     <div style={{ background: "#f7f9fb", minHeight: '100vh' }}>
       <div style={{ maxWidth: 860, margin: "0 auto", padding: mobile ? "20px 16px 64px" : "40px 24px 80px" }}>
-        <div className="card" style={{ overflow: "hidden", marginBottom: 20 }}>
-          <div style={{ background: "linear-gradient(120deg,var(--primary),#0a5d77)", padding: mobile ? "24px 20px" : "32px 36px", color: "#fff" }}>
-            <div className="flex items-center gap-2 t-sm" style={{ opacity: .85 }}>
+        <div className="card mb-5">
+          <div className="card-p" style={{ padding: mobile ? "20px 18px" : "28px 32px", borderBottom: "1px solid var(--border)" }}>
+            <div className="flex items-center gap-2 t-sm c-primary fw-6">
               <Icon name="checkC" size={16} />ส่งคำตอบเรียบร้อยแล้ว
             </div>
-            <div className="t-xl fw-7 mt-1">{kind === "pre" ? "ผลแบบทดสอบก่อนเรียน" : "ผลแบบทดสอบหลังเรียน"}</div>
-            <div className="t-sm mt-1" style={{ opacity: .85 }}>บทที่ {lesson.index} · {lesson.title}</div>
+            <div className="t-2xl fw-7 mt-1 serif">{kind === "pre" ? "ผลแบบทดสอบก่อนเรียน" : "ผลแบบทดสอบหลังเรียน"}</div>
+            <div className="t-sm muted mt-1">บทที่ {lesson.index} · {lesson.title}</div>
           </div>
           <div className="card-p flex items-center gap-6 wrap" style={{ padding: mobile ? 20 : 28 }}>
             <Ring value={score} total={total} size={mobile ? 116 : 140} label={"จาก " + total + " คะแนน"} />
             <div className="flex-1" style={{ minWidth: 220 }}>
               <div className="grid grid-2 gap-3">
-                <div className="card bg-muted" style={{ border: 0, padding: 14 }}>
+                <div className="clay-well" style={{ padding: 14 }}>
                   <div className="flex items-center gap-2 c-success"><Icon name="checkC" size={16} /><span className="t-xs fw-6">ตอบถูก</span></div>
                   <div className="t-2xl fw-7 mt-1 tnum">{correct} <span className="muted t-sm fw-5">ข้อ</span></div>
                 </div>
-                <div className="card bg-muted" style={{ border: 0, padding: 14 }}>
+                <div className="clay-well" style={{ padding: 14 }}>
                   <div className="flex items-center gap-2 c-danger"><Icon name="xC" size={16} /><span className="t-xs fw-6">ตอบผิด</span></div>
                   <div className="t-2xl fw-7 mt-1 tnum">{wrong} <span className="muted t-sm fw-5">ข้อ</span></div>
                 </div>
