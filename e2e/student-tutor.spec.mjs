@@ -159,7 +159,7 @@ test("explain gate after submit: unknown question refused, ถาม AI answers 
   expect(foreign.status()).toBe(404);
 
   await page.goto(resultUrl);
-  const item = page.locator(".card", { has: page.getByText(questionText(4), { exact: true }) }).last();
+  const item = page.locator(".clay-card", { has: page.getByText(questionText(4), { exact: true }) }).last();
   await item.getByRole("button", { name: "ถาม AI" }).click();
   const answered = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith(`/api/tutor/attempts/${attemptId}/explain`));
   await item.getByRole("button", { name: "ส่ง", exact: true }).click();
