@@ -12,6 +12,88 @@ import { Select, Dialog } from "@/components/ui/Primitives";
 import AiAvatar from "@/components/ui/AiAvatar";
 
 // ---- Simple markdown renderer (bold, bullets, code) ----
+function GeminiSparkleIcon({ size = 20, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, ...style }}>
+      <defs>
+        <linearGradient id="geminiSparkleGradPage" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1a73e8" />
+          <stop offset="50%" stopColor="#8b5cf6" />
+          <stop offset="100%" stopColor="#ec4899" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 2C12 7.52285 7.52285 12 2 12C7.52285 12 12 16.4772 12 22C12 16.4772 16.4772 12 22 12C16.4772 12 12 7.52285 12 2Z"
+        fill="url(#geminiSparkleGradPage)"
+      />
+    </svg>
+  );
+}
+
+function GeminiCodeBlock({ code, language }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+  return (
+    <div style={{
+      margin: "12px 0",
+      borderRadius: 14,
+      overflow: "hidden",
+      border: "1px solid #1e293b",
+      background: "#0b1220",
+      color: "#e2e8f0",
+      fontSize: 13,
+      fontFamily: "var(--mono), ui-monospace, monospace",
+    }}>
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "8px 14px",
+        background: "#111b2e",
+        borderBottom: "1px solid #1e293b",
+        fontSize: 11.5,
+        color: "#94a3b8",
+        fontWeight: 500
+      }}>
+        <span style={{ textTransform: "lowercase" }}>{language || "code"}</span>
+        <button
+          onClick={handleCopy}
+          type="button"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            background: "transparent",
+            border: 0,
+            color: copied ? "#34d399" : "#cbd5e1",
+            cursor: "pointer",
+            fontSize: 11.5,
+            padding: "2px 8px",
+            borderRadius: 6,
+          }}
+        >
+          <Icon name={copied ? "check" : "clipboard"} size={13} />
+          {copied ? "คัดลอกแล้ว" : "คัดลอกโค้ด"}
+        </button>
+      </div>
+      <pre style={{
+        padding: "14px 16px",
+        margin: 0,
+        overflowX: "auto",
+        lineHeight: 1.6,
+      }}>
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
 function MarkdownText({ text }) {
   if (!text) return null;
 
@@ -22,26 +104,46 @@ function MarkdownText({ text }) {
   while (i < lines.length) {
     const line = lines[i];
 
-    if (line.startsWith("## ")) {
+    if (line.startsWith("### ")) {
       elements.push(
-        <div key={i} style={{ fontWeight: 700, fontSize: 15, marginTop: 12, marginBottom: 6, color: "var(--primary)" }}>
+        <div key={i} style={{ fontWeight: 700, fontSize: 14.5, marginTop: 14, marginBottom: 6, color: "var(--fg)" }}>
+          {renderInline(line.slice(4))}
+        </div>
+      );
+    } else if (line.startsWith("## ")) {
+      elements.push(
+        <div key={i} style={{ fontWeight: 700, fontSize: 16, marginTop: 16, marginBottom: 6, color: "var(--fg)" }}>
           {renderInline(line.slice(3))}
         </div>
       );
     } else if (line.startsWith("# ")) {
       elements.push(
-        <div key={i} style={{ fontWeight: 700, fontSize: 16, marginTop: 14, marginBottom: 8 }}>
+        <div key={i} style={{ fontWeight: 700, fontSize: 18, marginTop: 18, marginBottom: 8, color: "var(--fg)" }}>
           {renderInline(line.slice(2))}
         </div>
       );
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
       elements.push(
-        <div key={i} style={{ display: "flex", gap: 8, marginTop: 4, paddingLeft: 4 }}>
-          <span style={{ color: "var(--primary)", marginTop: 2, flexShrink: 0 }}>•</span>
-          <span>{renderInline(line.slice(2))}</span>
+        <div key={i} style={{ display: "flex", gap: 9, marginTop: 5, alignItems: "flex-start", paddingLeft: 2 }}>
+          <span style={{
+            display: "inline-block", width: 5, height: 5, borderRadius: "50%",
+            background: "#8b5cf6", marginTop: 8, flexShrink: 0
+          }} />
+          <span style={{ lineHeight: 1.65 }}>{renderInline(line.slice(2))}</span>
+        </div>
+      );
+    } else if (/^\d+\.\s/.test(line)) {
+      const match = line.match(/^(\d+)\.\s(.*)/);
+      elements.push(
+        <div key={i} style={{ display: "flex", gap: 8, marginTop: 5, alignItems: "flex-start", paddingLeft: 2 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)", marginTop: 1, minWidth: 18, flexShrink: 0 }}>
+            {match[1]}.
+          </span>
+          <span style={{ lineHeight: 1.65 }}>{renderInline(match[2])}</span>
         </div>
       );
     } else if (line.startsWith("```")) {
+      const language = line.slice(3).trim();
       let codeLines = [];
       i++;
       while (i < lines.length && !lines[i].startsWith("```")) {
@@ -49,19 +151,13 @@ function MarkdownText({ text }) {
         i++;
       }
       elements.push(
-        <pre key={i} style={{
-          background: "var(--muted)", borderRadius: 10, padding: "12px 16px",
-          fontSize: 13, overflowX: "auto", margin: "8px 0", fontFamily: "monospace",
-          border: "1px solid var(--border)"
-        }}>
-          {codeLines.join("\n")}
-        </pre>
+        <GeminiCodeBlock key={i} code={codeLines.join("\n")} language={language} />
       );
     } else if (line.trim() === "") {
       elements.push(<div key={i} style={{ height: 8 }} />);
     } else {
       elements.push(
-        <div key={i} style={{ marginTop: 4, lineHeight: 1.6 }}>
+        <div key={i} style={{ marginTop: 4, lineHeight: 1.7, color: "var(--fg)" }}>
           {renderInline(line)}
         </div>
       );
@@ -69,20 +165,21 @@ function MarkdownText({ text }) {
     i++;
   }
 
-  return <div style={{ fontSize: 14.5 }}>{elements}</div>;
+  return <div style={{ fontSize: 14.5, letterSpacing: "0.01em" }}>{elements}</div>;
 }
 
 function renderInline(text) {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
+      return <strong key={i} style={{ fontWeight: 700, color: "var(--fg)" }}>{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith("`") && part.endsWith("`")) {
       return (
         <code key={i} style={{
           background: "var(--muted)", borderRadius: 6, padding: "2px 6px",
-          fontFamily: "monospace", fontSize: 13
+          fontFamily: "var(--mono), monospace", fontSize: 13, color: "var(--primary)",
+          border: "1px solid var(--border)"
         }}>
           {part.slice(1, -1)}
         </code>
@@ -92,16 +189,68 @@ function renderInline(text) {
   });
 }
 
-function TypingDots() {
+function MessageActionBar({ text }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
   return (
-    <div style={{ display: "flex", gap: 5, alignItems: "center", padding: "8px 4px" }}>
-      {[0, 1, 2].map((i) => (
-        <div key={i} style={{
-          width: 7, height: 7, borderRadius: "50%",
-          background: "var(--primary)", opacity: 0.7,
-          animation: `aiTypingDot 1.2s ${i * 0.2}s infinite ease-in-out`
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+      <button
+        onClick={handleCopy}
+        type="button"
+        title="คัดลอกคำตอบ"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "4px 10px",
+          borderRadius: 8,
+          border: 0,
+          background: "transparent",
+          color: copied ? "var(--success)" : "var(--muted-fg)",
+          cursor: "pointer",
+          fontSize: 12,
+          transition: "all 0.15s",
+        }}
+        onMouseOver={(e) => { e.currentTarget.style.background = "var(--muted)"; e.currentTarget.style.color = "var(--fg)"; }}
+        onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = copied ? "var(--success)" : "var(--muted-fg)"; }}
+      >
+        <Icon name={copied ? "check" : "clipboard"} size={13} />
+        <span>{copied ? "คัดลอกแล้ว" : "คัดลอก"}</span>
+      </button>
+    </div>
+  );
+}
+
+function GeminiThinking() {
+  return (
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "8px 2px" }}>
+      <div className="gemini-sparkle-pulse" style={{ marginTop: 2 }}>
+        <GeminiSparkleIcon size={22} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, maxWidth: 320 }}>
+        <div style={{
+          height: 12,
+          borderRadius: 6,
+          background: "linear-gradient(90deg, var(--muted) 20%, var(--primary-soft) 50%, var(--muted) 80%)",
+          backgroundSize: "200% 100%",
+          animation: "geminiShimmer 1.8s infinite ease-in-out",
+          width: "90%",
         }} />
-      ))}
+        <div style={{
+          height: 12,
+          borderRadius: 6,
+          background: "linear-gradient(90deg, var(--muted) 20%, var(--primary-soft) 50%, var(--muted) 80%)",
+          backgroundSize: "200% 100%",
+          animation: "geminiShimmer 1.8s infinite ease-in-out",
+          width: "65%",
+        }} />
+      </div>
     </div>
   );
 }
@@ -111,28 +260,46 @@ const parseEmotionAndReply = (text) => {
   let emotion = "smile";
   let cleanText = text;
 
-  const match = text.match(/\[emotion:\s*(impressive|mad|smile|idle)\]/i);
+  const match = text.match(/\[emotion:\s*(impressive|mad|smile|idle|sad)\]/i);
   if (match) {
     emotion = match[1].toLowerCase();
-    cleanText = text.replace(/\[emotion:\s*(impressive|mad|smile|idle)\]/gi, "").trim();
+    cleanText = text.replace(/\[emotion:\s*(impressive|mad|smile|idle|sad)\]/gi, "").trim();
   }
 
   return { emotion, cleanText };
 };
 
-const SUGGESTIONS = [
-  "สรุปเนื้อหาบทเรียนนี้ให้หน่อย",
-  "อธิบายจุดสำคัญของบทเรียนนี้",
-  "มีแนวคิดอะไรที่ยากในบทเรียนนี้บ้าง?",
-  "ช่วยยกตัวอย่างให้เข้าใจง่ายขึ้นหน่อย",
+const PROMPT_CARDS = [
+  {
+    title: "สรุปเนื้อหาสำคัญ",
+    desc: "ประเด็นหลักและจุดสำคัญที่ต้องจำในบทเรียนนี้",
+    prompt: "ช่วยสรุปเนื้อหาสำคัญและประเด็นหลักของบทเรียนนี้แบบกระชับ เข้าใจง่ายให้หน่อยค่ะ/ครับ",
+  },
+  {
+    title: "อธิบายจุดที่มักเข้าใจผิด",
+    desc: "ชี้เป้าจุดยากหรือหัวข้อที่มักสับสนในบทเรียนนี้",
+    prompt: "ในบทเรียนนี้ มีจุดไหนที่นักศึกษามักเข้าใจผิด หรือเป็นจุดยากที่ควรทำความเข้าใจเป็นพิเศษบ้างคะ/ครับ?",
+  },
+  {
+    title: "ยกตัวอย่างการนำไปใช้จริง",
+    desc: "เชื่อมโยงทฤษฎีกับการปฏิบัติและการดูแลผู้ป่วยจริง",
+    prompt: "ช่วยยกตัวอย่างสถานการณ์การนำความรู้ในบทเรียนนี้ไปประยุกต์ใช้ในการปฏิบัติการพยาบาลจริงให้เห็นภาพหน่อยค่ะ/ครับ",
+  },
+  {
+    title: "ท้าทายด้วยคำถามทดสอบ",
+    desc: "สุ่มคำถาม 3 ข้อเพื่อทดสอบความเข้าใจพร้อมเฉลย",
+    prompt: "ช่วยตั้งคำถามทดสอบความเข้าใจเกี่ยวกับบทเรียนนี้ 3 ข้อพร้อมเฉลยและคำอธิบายละเอียดให้หน่อยค่ะ/ครับ",
+  },
 ];
 
 export default function StudentSeparateAiPage() {
   const router = useRouter();
   const { data: session, status: authStatus } = useSession();
-  const studentId = session?.dbId;
+  const studentId = session?.dbId || session?.user?.id;
   const role = session?.user?.role;
+  const isBypassed = isStaffRole(role);
   const studentYear = session?.user?.study_year ? Number(session.user.study_year) : null;
+  const studentName = session?.user?.name || "เพื่อนนักศึกษา";
 
   const [courses, setCourses] = useState([]);
   const [allLessons, setAllLessons] = useState([]);
@@ -155,6 +322,17 @@ export default function StudentSeparateAiPage() {
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [sessionHistory, setSessionHistory] = useState([]);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+
+  const [rateLimitInfo, setRateLimitInfo] = useState(null);
+  const [rateLimitError, setRateLimitError] = useState(false);
+  const [sessionTokenError, setSessionTokenError] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 960) {
+      setSidebarOpen(false);
+    }
+  }, []);
 
   const checkAiHealth = async () => {
     setAiStatus("checking");
@@ -339,7 +517,7 @@ export default function StudentSeparateAiPage() {
 
     try {
       // 1. Fetch custom greeting template
-      let greeting = `สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${currLessonTitle || "บทเรียนนี้"}"** 🎓\n\nผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`;
+      let greeting = `สวัสดีค่ะ! ยูริยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${currLessonTitle || "บทเรียนนี้"}"** 🎓\n\nยูริพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนแล้ว ถามคำถามมาด้านล่างได้เลยค่ะ!`;
       try {
         const pRes = await fetch("/api/ai/persona");
         if (pRes.ok) {
@@ -426,9 +604,46 @@ export default function StudentSeparateAiPage() {
     }
   };
 
+  const fetchQuotaUsage = async (studId) => {
+    try {
+      let limit = 15;
+      const { data: settingsData } = await supabase
+        .from("ai_settings")
+        .select("key, value");
+      if (settingsData) {
+        const limitRow = settingsData.find(r => r.key === "daily_chat_limit");
+        if (limitRow) limit = parseInt(limitRow.value, 10) || 15;
+      }
+
+      const windowStart = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
+
+      const { count, error } = await supabase
+        .from("ai_chat_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("student_id", studId)
+        .in("mode", ["chat", "summarize", "explain"])
+        .neq("reply", "")
+        .gte("created_at", windowStart);
+
+      if (!error) {
+        const used = count || 0;
+        setRateLimitInfo({ used, limit });
+        if (used >= limit) {
+          setRateLimitError(true);
+        } else {
+          setRateLimitError(false);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch quota usage:", err);
+    }
+  };
+
   useEffect(() => {
     if (selectedLesson && studentId) {
       loadHistoryAndSession(selectedLesson.id, selectedLesson.title);
+      fetchQuotaUsage(studentId);
+      setSessionTokenError(false);
     } else {
       setMessages([]);
       changeEmotion("idle");
@@ -440,7 +655,7 @@ export default function StudentSeparateAiPage() {
     const newSessId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
     setActiveSessionId(newSessId);
 
-    let greeting = `สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${selectedLesson?.title || "บทเรียนนี้"}"** 🎓\n\nผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`;
+    let greeting = `สวัสดีค่ะ! ยูริยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${selectedLesson?.title || "บทเรียนนี้"}"** 🎓\n\nยูริพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนแล้ว ถามคำถามมาด้านล่างได้เลยค่ะ!`;
     try {
       const pRes = await fetch("/api/ai/persona");
       if (pRes.ok) {
@@ -486,7 +701,7 @@ export default function StudentSeparateAiPage() {
   const handleSelectSession = (sess) => {
     setActiveSessionId(sess.id);
 
-    let greeting = `สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${selectedLesson?.title || "บทเรียนนี้"}"** 🎓\n\nผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`;
+    let greeting = `สวัสดีค่ะ! ยูริยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${selectedLesson?.title || "บทเรียนนี้"}"** 🎓\n\nยูริพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนแล้ว ถามคำถามมาด้านล่างได้เลยค่ะ!`;
     const chatMsgs = [
       { role: "assistant", content: greeting }
     ];
@@ -562,6 +777,17 @@ export default function StudentSeparateAiPage() {
 
       const data = await res.json();
       if (!res.ok || data.error) {
+        if (data.error === "rate_limit_exceeded") {
+          setRateLimitError(true);
+          if (data.used !== undefined && data.limit !== undefined) {
+            setRateLimitInfo({ used: data.used, limit: data.limit });
+          }
+          throw new Error("rate_limit_exceeded");
+        }
+        if (data.error === "session_token_limit") {
+          setSessionTokenError(true);
+          throw new Error("session_token_limit");
+        }
         throw new Error(data.error || "Failed to get AI response");
       }
       if (!data.reply) {
@@ -570,6 +796,13 @@ export default function StudentSeparateAiPage() {
       const reply = data.reply;
       const { emotion, cleanText } = parseEmotionAndReply(reply);
       changeEmotion(emotion);
+
+      if (data.rateLimitInfo) {
+        setRateLimitInfo(data.rateLimitInfo);
+        if (data.rateLimitInfo.used >= data.rateLimitInfo.limit) {
+          setRateLimitError(true);
+        }
+      }
 
       if (mode === "summarize") {
         setMessages([
@@ -587,7 +820,11 @@ export default function StudentSeparateAiPage() {
       
       let errMsg = "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ AI กรุณาลองใหม่อีกครั้ง";
       const errStr = String(err.message || "");
-      if (err.message === "Cannot answer the question") {
+      if (err.message === "rate_limit_exceeded") {
+        errMsg = "ขออภัย คุณถามคำถามเกินขีดจำกัด 15 คำถามในรอบ 5 ชั่วโมงแล้ว สามารถถามได้อีกครั้งในรอบถัดไป";
+      } else if (err.message === "session_token_limit") {
+        errMsg = "เซสชันนี้มีขนาดประวัติการสนทนาเกินขีดจำกัดแล้ว กรุณาเริ่มการสนทนาใหม่เพื่อคุยต่อ";
+      } else if (err.message === "Cannot answer the question") {
         errMsg = "ขออภัย ไม่สามารถตอบได้ในขณะนี้";
       } else if (errStr.includes("429") || errStr.includes("quota")) {
         errMsg = "ขออภัย เกิดข้อผิดพลาดระบบโควต้าการใช้งาน AI เต็ม กรุณาลองใหม่อีกครั้งในภายหลัง";
@@ -629,532 +866,813 @@ export default function StudentSeparateAiPage() {
   if (loading) return <Loading className="container p-5 text-center muted" />;
 
   return (
-    <div className="container-wide ai-page" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 100px)" }}>
-      {/* Header Panel with Dropdowns */}
-      <div className="card mb-4" style={{ padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "between", gap: 16, wrap: "wrap" }}>
-        <div className="flex items-center gap-3 wrap flex-1">
-          <div className="flex items-center gap-2">
-            <span style={{
-              width: 34, height: 34, borderRadius: 8,
-              background: "var(--primary-soft)", color: "var(--primary)",
-              display: "grid", placeItems: "center"
-            }}>
-              <Icon name="sparkle" size={17} />
-            </span>
-            <div className="t-lg fw-7 serif" style={{ color: "var(--fg)" }}>AI ผู้ช่วยเรียนรู้</div>
-          </div>
+    <div
+      className="gemini-shell"
+      style={{
+        display: "flex",
+        height: "100%",
+        width: "100%",
+        overflow: "hidden",
+        position: "relative",
+        background: "#ffffff",
+        color: "var(--fg)",
+      }}
+    >
+      {/* Mobile Backdrop Overlay */}
+      {sidebarOpen && (
+        <div
+          className="gemini-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-          <div className="flex items-center gap-2 ml-4 wrap">
-            <div className="flex items-center gap-1.5">
-              <span className="t-xs fw-6 muted uppercase p-2">รายวิชา</span>
-              <Select className="input" style={{ width: 220, height: 36 }} value={selectedCourseId} onChange={handleCourseChange}>
-                {courses.map(c => <option key={c.id} value={c.id}>{c.code} - {c.title}</option>)}
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-1.5 ml-2">
-              <span className="t-xs fw-6 muted uppercase p-2">บทเรียน</span>
-              <Select className="input" style={{ width: 280, height: 36 }} value={selectedLessonId} onChange={(e) => setSelectedLessonId(e.target.value)}>
-                {lessonsForSelectedCourse.length === 0 ? (
-                  <option value="">(ไม่มีบทเรียน)</option>
-                ) : (
-                  lessonsForSelectedCourse.map(l => <option key={l.id} value={l.id}>บทที่ {l.index}: {l.title}</option>)
-                )}
-              </Select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Split Interface */}
-      <div style={{ display: "flex", flex: 1, gap: 20, minHeight: 0, flexDirection: "row" }} className="ai-layout-container">
-
-        {/* Left Side: AI Profile Card & Lesson Details */}
-        <div style={{
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          borderRadius: 20,
-          padding: "24px 20px",
+      {/* Left Sidebar (Gemini Style Drawer) */}
+      <aside
+        className={`gemini-sidebar ${sidebarOpen ? "open" : "closed"}`}
+        style={{
+          width: sidebarOpen ? 280 : 0,
+          minWidth: sidebarOpen ? 280 : 0,
+          background: "#f0f4f9",
+          borderRight: "1px solid var(--border)",
           display: "flex",
           flexDirection: "column",
-          color: "var(--fg)",
-          boxShadow: "0 8px 30px rgba(13,110,140,0.06)",
-          flexShrink: 0,
-          position: "relative",
+          transition: "width 0.22s ease-in-out, transform 0.22s ease-in-out",
           overflow: "hidden",
-          gap: 16
-        }} className="hide-m ai-side">
-          {/* Card Header */}
-          <div style={{
-            width: "100%",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderBottom: "1px solid var(--border)",
-            paddingBottom: 12,
-            marginBottom: 4,
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Icon name="sparkle" size={14} style={{ color: "var(--primary)" }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)", letterSpacing: 0.5 }}>ติวเตอร์</span>
-            </div>
-            {/* Status indicator */}
-            <div
-              onClick={checkAiHealth}
+          zIndex: 40,
+        }}
+      >
+        {/* Sidebar Header: Hamburger & New Chat */}
+        <div style={{ padding: "16px 14px 12px 14px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background:
-                  aiStatus === "online" ? "var(--success-soft, rgba(16,185,129,0.1))" :
-                    aiStatus === "degraded" ? "var(--warning-soft, rgba(245,158,11,0.1))" :
-                      aiStatus === "checking" ? "var(--muted)" :
-                        "var(--danger-soft, rgba(239,68,68,0.1))",
-                padding: "4px 8px",
-                borderRadius: 12,
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                border: 0,
+                background: "transparent",
+                color: "var(--fg)",
                 cursor: "pointer",
-                userSelect: "none"
+                display: "grid",
+                placeItems: "center",
               }}
-              title={aiStatusReason ? `คลิกเพื่อตรวจสอบสถานะใหม่ (เหตุผล: ${aiStatusReason})` : "คลิกเพื่อตรวจสอบสถานะใหม่"}
+              className="hover-bg-muted"
+              title="สลับเมนูข้าง"
             >
-              {aiStatus === "checking" ? (
-                <>
-                  <Icon name="loader" size={10} className="spin" style={{ color: "var(--muted-fg)" }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-fg)" }}>ตรวจสอบ...</span>
-                </>
-              ) : (
-                <>
-                  <span
-                    className={aiStatus === "online" ? "pulse-dot" : ""}
-                    style={{
-                      display: "inline-block",
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background:
-                        aiStatus === "online" ? "#10b981" :
-                          aiStatus === "degraded" ? "#f59e0b" :
-                            "#ef4444"
-                    }}
-                  />
-                  <span style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color:
-                      aiStatus === "online" ? "#0f766e" :
-                        aiStatus === "degraded" ? "#b45309" :
-                          "#b91c1c"
-                  }}>
-                    {aiStatus === "online" ? "ออนไลน์" : aiStatus === "degraded" ? "บริการขัดข้อง" : "ออฟไลน์"}
-                  </span>
-                </>
-              )}
+              <Icon name="menu" size={18} />
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginRight: 6 }}>
+              <GeminiSparkleIcon size={18} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--fg)", letterSpacing: "-0.01em" }}>
+                Yuri Gemini
+              </span>
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-            {/* Large Animated Avatar Portrait */}
-            <div style={{
-              position: "relative",
-              marginBottom: 12,
+          {/* New Chat Pill Button */}
+          <button
+            type="button"
+            onClick={handleStartNewSession}
+            style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-            }}>
-              {/* Inner Ring Glow */}
-              <div style={{
-                position: "absolute",
-                inset: -6,
-                borderRadius: "20px",
-                background: "linear-gradient(135deg, var(--primary-soft) 0%, rgba(255,255,255,0) 100%)",
-                zIndex: 0,
-                opacity: 0.8
-              }} />
-              <AiAvatar size={120} emotion={aiStatus === "offline" ? "sleeping" : apiLoading ? "thinking" : currentEmotion} style={{ borderRadius: "16px", zIndex: 1, border: "2px solid var(--primary)", boxShadow: "0 6px 15px rgba(13,110,140,0.12)" }} />
-            </div>
+              gap: 10,
+              padding: "10px 18px",
+              borderRadius: 24,
+              border: "1px solid #d0d7de",
+              background: "#ffffff",
+              color: "var(--fg)",
+              fontSize: 13.5,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              transition: "all 0.15s ease",
+            }}
+            className="gemini-new-chat-btn"
+          >
+            <Icon name="plus" size={16} style={{ color: "var(--primary)" }} />
+            <span>สนทนาใหม่</span>
+          </button>
+        </div>
 
-            {/* Name & Role */}
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fg)", marginBottom: 4 }}>ยูริจัง</div>
-            <div style={{ fontSize: 11, color: "var(--primary)", fontWeight: 600, marginBottom: 12, background: "var(--primary-soft)", padding: "2px 8px", borderRadius: 20 }}>
-              ผู้ช่วยสอนประจำรายวิชา
+        {/* Course & Lesson Selection in Sidebar */}
+        <div style={{ padding: "0 14px 12px 14px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid #e2e8f0", position: "relative", zIndex: 30 }}>
+          <div style={{ position: "relative", zIndex: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-fg)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+              รายวิชา
             </div>
+            <Select
+              className="input"
+              style={{ width: "100%", height: 36, fontSize: 12.5, borderRadius: 10 }}
+              value={selectedCourseId}
+              onChange={handleCourseChange}
+            >
+              {courses.map(c => (
+                <option key={c.id} value={c.id}>{c.code} - {c.title}</option>
+              ))}
+            </Select>
           </div>
 
-          {/* Info Details List & Lesson details */}
-          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
-            {/* Info Table */}
-            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
-                <span style={{ color: "var(--subtle)", fontWeight: 500 }}>โมเดลประมวลผล</span>
-                <span style={{ color: "var(--fg)", fontWeight: 600 }}>Gemini 2.5 Flash</span>
+          <div style={{ position: "relative", zIndex: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-fg)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+              บทเรียน
+            </div>
+            <Select
+              className="input"
+              style={{ width: "100%", height: 36, fontSize: 12.5, borderRadius: 10 }}
+              value={selectedLessonId}
+              onChange={(e) => setSelectedLessonId(e.target.value)}
+            >
+              {lessonsForSelectedCourse.length === 0 ? (
+                <option value="">(ไม่มีบทเรียน)</option>
+              ) : (
+                lessonsForSelectedCourse.map(l => (
+                  <option key={l.id} value={l.id}>บทที่ {l.index}: {l.title}</option>
+                ))
+              )}
+            </Select>
+          </div>
+        </div>
+
+        {/* Recent Chats Section */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 10px", display: "flex", flexDirection: "column", gap: 3 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-fg)", padding: "4px 8px", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            ล่าสุด
+          </div>
+          {sessionHistory.length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--subtle)", padding: "12px 8px", textAlign: "center" }}>
+              ยังไม่มีประวัติในบทเรียนนี้
+            </div>
+          ) : (
+            sessionHistory.map((sess) => {
+              const isCurrent = sess.id === activeSessionId;
+              return (
+                <div
+                  key={sess.id}
+                  className={`gemini-session-pill ${isCurrent ? "active" : ""}`}
+                  onClick={() => {
+                    handleSelectSession(sess);
+                    if (typeof window !== "undefined" && window.innerWidth < 960) {
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "8px 12px",
+                    borderRadius: 18,
+                    cursor: "pointer",
+                    background: isCurrent ? "#dbeafe" : "transparent",
+                    color: isCurrent ? "#1d4ed8" : "var(--fg)",
+                    fontWeight: isCurrent ? 600 : 400,
+                    fontSize: 13,
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", flex: 1, minWidth: 0 }}>
+                    <Icon name="msg" size={14} style={{ opacity: isCurrent ? 1 : 0.6, flexShrink: 0 }} />
+                    <span className="truncate" style={{ flex: 1 }}>
+                      {sess.firstQuestion || "บทสนทนาใหม่"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="gemini-del-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSession(sess.id);
+                    }}
+                    title="ลบเซสชันนี้"
+                    style={{
+                      background: "transparent",
+                      border: 0,
+                      color: "var(--danger)",
+                      cursor: "pointer",
+                      padding: "3px",
+                      borderRadius: 6,
+                      display: "grid",
+                      placeItems: "center",
+                      opacity: 0,
+                    }}
+                  >
+                    <Icon name="trash" size={13} />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Sidebar Footer: Yuri Profile & Status */}
+        <div style={{
+          padding: "12px 14px",
+          borderTop: "1px solid #e2e8f0",
+          background: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div style={{ position: "relative" }}>
+              <AiAvatar size={34} emotion={aiStatus === "offline" ? "sleeping" : apiLoading ? "thinking" : currentEmotion} style={{ borderRadius: 10 }} />
+              <span
+                style={{
+                  position: "absolute",
+                  bottom: -1,
+                  right: -1,
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: aiStatus === "online" ? "#10b981" : aiStatus === "degraded" ? "#f59e0b" : "#ef4444",
+                  border: "2px solid #ffffff",
+                }}
+                className={aiStatus === "online" ? "pulse-dot" : ""}
+              />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg)" }} className="truncate">
+                ยูริจัง
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
-                <span style={{ color: "var(--subtle)", fontWeight: 500 }}>ระบบตอบคำถาม</span>
-                <span style={{ color: "var(--fg)", fontWeight: 600 }}>RAG + คลังบทเรียน</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
-                <span style={{ color: "var(--subtle)", fontWeight: 500 }}>การรองรับไฟล์</span>
-                <span style={{ color: "var(--fg)", fontWeight: 600 }}>PDF, รูปภาพ, ข้อความ</span>
+              <div style={{ fontSize: 11, color: "var(--muted-fg)" }} className="truncate">
+                Gemini 3.8 Flash
               </div>
             </div>
+          </div>
+          <button
+            type="button"
+            onClick={checkAiHealth}
+            title={aiStatusReason ? `คลิกตรวจสอบสถานะ (${aiStatusReason})` : "คลิกตรวจสอบสถานะ"}
+            style={{
+              background: "transparent",
+              border: 0,
+              color: "var(--muted-fg)",
+              cursor: "pointer",
+              padding: 6,
+              borderRadius: 8,
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            <Icon name="refresh" size={14} className={aiStatus === "checking" ? "spin" : ""} />
+          </button>
+        </div>
+      </aside>
 
-            {selectedLesson ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Icon name="book" size={14} style={{ color: "var(--primary)" }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--fg)" }}>บทเรียนปัจจุบัน</span>
-                </div>
-                <div style={{ paddingLeft: 22 }}>
-                  <div className="t-xs fw-6 c-primary uppercase">บทที่ {selectedLesson.index}</div>
-                  <div className="fw-7 t-sm fg truncate" style={{ maxWidth: 220 }}>{selectedLesson.title}</div>
-                  <p className="t-xs muted pretty mt-1" style={{ whiteSpace: "pre-line", margin: 0, lineHeight: 1.4 }}>
-                    {selectedLesson.description || "ไม่มีคำอธิบายบทเรียน"}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div style={{ textAlign: "center", padding: "10px 0" }}>
-                <span className="muted t-xs">กรุณาเลือกบทเรียนเพื่อเริ่มแชท</span>
+      {/* Main Workspace (Full height column) */}
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          minWidth: 0,
+          background: "#ffffff",
+          position: "relative",
+        }}
+      >
+        {/* Top App Bar */}
+        <header
+          style={{
+            height: 56,
+            padding: "0 18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "1px solid #eef2f6",
+            background: "#ffffff",
+            flexShrink: 0,
+            zIndex: 10,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            {!sidebarOpen && (
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  border: 0,
+                  background: "transparent",
+                  color: "var(--fg)",
+                  cursor: "pointer",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+                className="hover-bg-muted"
+                title="เปิดเมนูข้าง"
+              >
+                <Icon name="menu" size={18} />
+              </button>
+            )}
+
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "#f0f4f9",
+              padding: "5px 12px",
+              borderRadius: 20,
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--fg)",
+              border: "1px solid #e2e8f0",
+            }}>
+              <GeminiSparkleIcon size={15} />
+              <span>Gemini 3.8 Flash</span>
+            </div>
+
+            {selectedLesson && (
+              <div className="hide-m truncate" style={{ fontSize: 13, color: "var(--muted-fg)" }}>
+                · บทที่ {selectedLesson.index}: <span style={{ color: "var(--fg)", fontWeight: 500 }}>{selectedLesson.title}</span>
               </div>
             )}
           </div>
 
-          {selectedLesson && selectedLesson.allow_ai !== false && (
-            <>
-              <div style={{ borderBottom: "1px solid var(--border)", margin: "4px 0" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {selectedLesson && selectedLesson.allow_ai !== false && (
               <button
                 onClick={() => sendMessage("", "summarize")}
                 disabled={apiLoading || summarizing}
                 style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  padding: "10px 16px", borderRadius: 12, border: 0,
-                  background: "linear-gradient(135deg, var(--primary) 0%, #0891b2 100%)",
-                  color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
-                  boxShadow: "0 4px 12px rgba(13,110,140,0.25)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 14px",
+                  borderRadius: 20,
+                  border: "1px solid #0d6e8c",
+                  background: "var(--primary-soft)",
+                  color: "var(--primary)",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: (apiLoading || summarizing) ? "not-allowed" : "pointer",
                   opacity: (apiLoading || summarizing) ? 0.6 : 1,
-                  flexShrink: 0
+                  transition: "all 0.15s ease",
                 }}
               >
-                <Icon name="sparkle" size={14} />
-                {summarizing ? "กำลังสรุปเนื้อหา..." : "สรุปบทเรียนด้วย AI"}
+                <GeminiSparkleIcon size={14} />
+                <span>{summarizing ? "กำลังสรุป..." : "สรุปบทเรียนนี้"}</span>
               </button>
-            </>
-          )}
-        </div>
+            )}
 
-        {/* Right Side: Chat or Locked State or Initial State */}
-        <div style={{
-          flex: 1,
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          borderRadius: 16,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          minWidth: 0,
-        }}>
-          {!selectedLesson ? (
-            /* Placeholder state */
-            <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 40, textAlign: "center" }}>
-              <div style={{ maxWidth: 440 }}>
-                <div style={{ width: 80, height: 80, borderRadius: 24, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center", margin: "0 auto 20px" }}>
-                  <Icon name="sparkle" size={32} />
-                </div>
-                <div className="t-xl fw-7 fg mb-2">ยินดีต้อนรับสู่ AI ผู้ช่วยเรียนรู้</div>
-                <p className="muted t-sm pretty" style={{ margin: 0, lineHeight: 1.6 }}>
-                  กรุณาเลือกวิชาและบทเรียนที่ต้องการสอบถามหรือขอสรุปเนื้อหาจาก AI ที่ด้านบน เพื่อเริ่มต้นการเรียนรู้แบบมีผู้ช่วยส่วนตัว
-                </p>
+            {rateLimitInfo && (
+              <div
+                className="hide-m"
+                style={{
+                  fontSize: 12,
+                  color: rateLimitInfo.used >= rateLimitInfo.limit ? "var(--danger)" : "var(--muted-fg)",
+                  background: rateLimitInfo.used >= rateLimitInfo.limit ? "var(--danger-soft)" : "#f0f4f9",
+                  padding: "4px 10px",
+                  borderRadius: 14,
+                  fontWeight: 500,
+                  border: "1px solid #e2e8f0",
+                }}
+                title="โควต้าการถามคำถามในรอบเวลา 5 ชั่วโมง"
+              >
+                โควต้า: {rateLimitInfo.used}/{rateLimitInfo.limit}
               </div>
-            </div>
-          ) : selectedLesson.allow_ai === false ? (
-            /* Locked State */
-            <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 40, textAlign: "center" }}>
-              <div style={{ maxWidth: 460 }}>
-                <div style={{ width: 80, height: 80, borderRadius: 24, background: "var(--warning-soft)", color: "var(--warning)", display: "grid", placeItems: "center", margin: "0 auto 20px" }}>
-                  <Icon name="lock" size={32} />
-                </div>
-                <div className="t-xl fw-7 fg mb-2">ขออภัย บทเรียนนี้ไม่อนุญาตให้ใช้ AI</div>
-                <p className="muted t-sm pretty" style={{ margin: 0, lineHeight: 1.6, color: "var(--muted-fg)" }}>
-                  บทเรียนนี้ผู้สอนยังไม่ได้เปิดใช้งาน AI ผู้ช่วยเรียนรู้ในการสรุปเนื้อหาและการติวข้อสอบ
-                </p>
-              </div>
-            </div>
-          ) : (
-            /* Chat Interface */
-            <>
-              {/* Chat Header */}
+            )}
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        {!selectedLesson ? (
+          /* Empty / No Lesson State */
+          <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 40, textAlign: "center" }}>
+            <div style={{ maxWidth: 460 }}>
               <div style={{
-                padding: "14px 20px",
-                borderBottom: "1px solid var(--border)",
-                background: "var(--muted)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                width: 72, height: 72, borderRadius: 24,
+                background: "#f0f4f9", color: "var(--primary)",
+                display: "grid", placeItems: "center", margin: "0 auto 20px"
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: 8,
-                    background: "linear-gradient(135deg, var(--primary), #0891b2)",
-                    display: "grid", placeItems: "center", color: "#fff",
-                  }}>
-                    <Icon name="sparkle" size={15} />
-                  </div>
-                  <div>
-                    <span className="fw-7 t-sm fg">ห้องแชท AI ติวเตอร์</span>
-                    <span className="t-xs muted ml-2 hide-d">· บทที่ {selectedLesson.index}</span>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button
-                    onClick={() => sendMessage("", "summarize")}
-                    disabled={apiLoading || summarizing}
-                    className="hide-d btn btn-soft btn-sm"
-                    style={{ padding: "6px 12px", fontSize: 12 }}
-                  >
-                    <Icon name="sparkle" size={13} />
-                    สรุปบทเรียน
-                  </button>
-
-                  <button
-                    onClick={handleStartNewSession}
-                    className="btn btn-soft btn-sm"
-                    style={{ padding: "6px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
-                    title="เริ่มการสนทนาใหม่"
-                  >
-                    <Icon name="plus" size={13} />
-                    <span className="hide-m">สนทนาใหม่</span>
-                  </button>
-
-                  <button
-                    onClick={() => setShowHistoryDialog(true)}
-                    className="btn btn-outline btn-sm"
-                    style={{ padding: "6px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
-                    title="ประวัติการสนทนา"
-                  >
-                    <Icon name="clock" size={13} />
-                    <span className="hide-m">ประวัติ</span>
-                  </button>
-                </div>
+                <GeminiSparkleIcon size={36} />
               </div>
-
-              {/* Quick Suggestions */}
-              {messages.length <= 1 && (
+              <div style={{ fontSize: 22, fontWeight: 700, color: "var(--fg)", marginBottom: 8 }}>
+                ยินดีต้อนรับสู่ AI ผู้ช่วยเรียนรู้
+              </div>
+              <p style={{ color: "var(--muted-fg)", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+                กรุณาเลือกรายวิชาและบทเรียนจากแถบเมนูด้านซ้าย เพื่อเริ่มการสนทนาหรือขอสรุปเนื้อหาจาก AI ติวเตอร์
+              </p>
+            </div>
+          </div>
+        ) : selectedLesson.allow_ai === false ? (
+          /* Locked State */
+          <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 40, textAlign: "center" }}>
+            <div style={{ maxWidth: 460 }}>
+              <div style={{
+                width: 72, height: 72, borderRadius: 24,
+                background: "var(--warning-soft)", color: "var(--warning)",
+                display: "grid", placeItems: "center", margin: "0 auto 20px"
+              }}>
+                <Icon name="lock" size={32} />
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "var(--fg)", marginBottom: 8 }}>
+                บทเรียนนี้ไม่อนุญาตให้ใช้ AI
+              </div>
+              <p style={{ color: "var(--muted-fg)", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+                อาจารย์ผู้สอนยังไม่ได้เปิดใช้งาน AI สำหรับบทเรียนนี้ นักศึกษาสามารถทบทวนบทเรียนผ่านเอกสารและวิดีโอประกอบการสอนตามปกติ
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* Conversation or Welcome Screen */
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            position: "relative",
+          }}>
+            {/* Scrollable Center Feed */}
+            <div style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "24px 20px",
+              display: "flex",
+              flexDirection: "column",
+            }}>
+              {messages.length <= 1 ? (
+                /* Gemini Welcome / Hero View */
                 <div style={{
-                  padding: "12px 20px 6px 20px",
+                  maxWidth: 840,
+                  width: "100%",
+                  margin: "auto auto",
+                  padding: "20px 8px 30px 8px",
                   display: "flex",
-                  gap: 8,
-                  overflowX: "auto",
-                  flexWrap: "wrap",
+                  flexDirection: "column",
                 }}>
-                  {SUGGESTIONS.map((s, i) => (
-                    <button
+                  <div style={{
+                    fontSize: "clamp(28px, 4.5vw, 42px)",
+                    fontWeight: 600,
+                    lineHeight: 1.25,
+                    letterSpacing: "-0.02em",
+                    background: "linear-gradient(90deg, #1a73e8 0%, #8b5cf6 45%, #ec4899 90%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    marginBottom: 8,
+                  }}>
+                    สวัสดีค่ะ, คุณ{studentName}
+                  </div>
+                  <div style={{
+                    fontSize: "clamp(18px, 2.5vw, 24px)",
+                    color: "var(--muted-fg)",
+                    fontWeight: 500,
+                    marginBottom: 24,
+                  }}>
+                    มีอะไรให้ยูริช่วยในบทเรียนนี้ไหมคะ?
+                  </div>
+
+                  {/* Lesson Context Pill Box */}
+                  <div style={{
+                    padding: "14px 18px",
+                    borderRadius: 16,
+                    background: "#f0f4f9",
+                    border: "1px solid #e2e8f0",
+                    marginBottom: 28,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    color: "var(--fg)",
+                  }}>
+                    <div style={{ fontWeight: 700, color: "var(--primary)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                      <Icon name="book" size={14} />
+                      บทที่ {selectedLesson.index}: {selectedLesson.title}
+                    </div>
+                    <div style={{ color: "var(--muted-fg)" }}>
+                      {selectedLesson.description || "คุณสามารถสอบถามเนื้อหา อธิบายข้อสงสัย หรือขอแบบฝึกหัดได้ทันที"}
+                    </div>
+                  </div>
+
+                  {/* 4 Prompt Starter Cards */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: 12,
+                    width: "100%",
+                  }}>
+                    {PROMPT_CARDS.map((card, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => sendMessage(card.prompt)}
+                        disabled={apiLoading}
+                        className="gemini-card-hover"
+                        style={{
+                          textAlign: "left",
+                          padding: "16px 18px",
+                          borderRadius: 16,
+                          border: "1px solid #e2e8f0",
+                          background: "#ffffff",
+                          color: "var(--fg)",
+                          cursor: apiLoading ? "not-allowed" : "pointer",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                        }}
+                      >
+                        <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.4, color: "var(--fg)" }}>
+                          {card.title}
+                        </div>
+                        <div style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          width: "100%",
+                          fontSize: 12,
+                          color: "var(--muted-fg)",
+                        }}>
+                          <span>{card.desc}</span>
+                          <span style={{
+                            width: 28, height: 28, borderRadius: "50%",
+                            background: "#f0f4f9", display: "grid", placeItems: "center",
+                            color: "var(--primary)", flexShrink: 0, marginLeft: 8,
+                          }}>
+                            <GeminiSparkleIcon size={13} />
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                /* Conversation Message Stream */
+                <div style={{
+                  maxWidth: 840,
+                  width: "100%",
+                  margin: "0 auto",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 24,
+                  paddingBottom: 16,
+                }}>
+                  {messages.map((msg, i) => (
+                    <div
                       key={i}
-                      onClick={() => sendMessage(s)}
-                      disabled={apiLoading}
                       style={{
-                        padding: "7px 14px", borderRadius: 20, border: "1px solid var(--border)",
-                        background: "var(--bg)", color: "var(--fg)", fontSize: 12.5,
-                        cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s",
+                        display: "flex",
+                        justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+                        gap: 14,
+                        alignItems: "flex-start",
+                        width: "100%",
                       }}
-                      onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; e.currentTarget.style.background = "var(--primary-soft)"; }}
-                      onMouseOut={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--bg)"; }}
                     >
-                      {s}
-                    </button>
+                      {msg.role === "assistant" && (
+                        <div style={{ marginTop: 2, flexShrink: 0 }}>
+                          <GeminiSparkleIcon size={24} />
+                        </div>
+                      )}
+
+                      <div style={{
+                        maxWidth: msg.role === "user" ? "80%" : "100%",
+                        ...(msg.role === "user" ? {
+                          padding: "12px 18px",
+                          borderRadius: "22px 22px 4px 22px",
+                          background: "#f0f4f9",
+                          color: "#1e293b",
+                          fontSize: 14.5,
+                          lineHeight: 1.6,
+                          border: "1px solid #e2e8f0",
+                        } : {
+                          /* Gemini Open Canvas: flowing clean typography */
+                          padding: "0 4px",
+                          color: "var(--fg)",
+                          fontSize: 14.5,
+                          lineHeight: 1.7,
+                          flex: 1,
+                          minWidth: 0,
+                        })
+                      }}>
+                        {msg.role === "assistant" ? (
+                          <div>
+                            <MarkdownText text={msg.content} />
+                            <MessageActionBar text={msg.content} />
+                          </div>
+                        ) : (
+                          <div>
+                            <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
+                            {msg.attachments && msg.attachments.length > 0 && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8, borderTop: "1px dashed #cbd5e1", paddingTop: 8 }}>
+                                {msg.attachments.map((f, idx) => (
+                                  <a
+                                    key={idx}
+                                    href={fileHref(f.url)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 6,
+                                      fontSize: 12,
+                                      color: "var(--primary)",
+                                      textDecoration: "underline",
+                                    }}
+                                  >
+                                    <Icon name="file" size={13} />
+                                    <span className="truncate" style={{ maxWidth: 240 }}>{f.name}</span>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   ))}
+
+                  {apiLoading && !summarizing && (
+                    <div style={{ width: "100%", maxWidth: 840, margin: "0 auto" }}>
+                      <GeminiThinking />
+                    </div>
+                  )}
+
+                  <div ref={bottomRef} />
+                </div>
+              )}
+            </div>
+
+            {/* Floating Capsule Input Area (Centered Max 840px) */}
+            <div style={{
+              width: "100%",
+              maxWidth: 840,
+              margin: "0 auto",
+              padding: "8px 16px 14px",
+              position: "relative",
+              flexShrink: 0,
+            }}>
+              {/* Document Attachment Selector Dropdown */}
+              {showAttachmentDropdown && (
+                <div ref={attachmentRef} className="card shadow-lg" style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 8px)",
+                  left: 20,
+                  zIndex: 1000,
+                  width: 320,
+                  maxHeight: 220,
+                  overflowY: "auto",
+                  background: "#ffffff",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: 16,
+                  padding: 8,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  boxShadow: "0 14px 36px rgba(0,0,0,0.12)",
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--subtle)", textTransform: "uppercase", padding: "4px 8px" }}>
+                    แนบเอกสารจากบทเรียน:
+                  </div>
+                  {(selectedLesson?.documents || []).map((doc, idx) => {
+                    const isAttached = attachedFiles.some(f => f.url === doc.url);
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        disabled={isAttached}
+                        onClick={() => {
+                          setAttachedFiles([...attachedFiles, doc]);
+                          setShowAttachmentDropdown(false);
+                        }}
+                        style={{
+                          border: 0,
+                          background: "transparent",
+                          color: "var(--fg)",
+                          padding: "8px 12px",
+                          borderRadius: 10,
+                          fontSize: 12.5,
+                          cursor: isAttached ? "not-allowed" : "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          width: "100%",
+                          textAlign: "left",
+                          opacity: isAttached ? 0.5 : 1,
+                        }}
+                        className="hover-bg-muted"
+                      >
+                        <Icon name="file" size={14} className="muted" />
+                        <span className="truncate flex-1">{doc.name}</span>
+                        {isAttached && <Icon name="check" size={12} className="success" />}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Messages Area */}
-              <div style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "20px 24px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 16,
-              }}>
-                {messages.map((msg, i) => (
-                  <div
-                    key={i}
+              {/* Rate Limit Banner */}
+              {rateLimitError && (
+                <div style={{
+                  background: "var(--danger-soft)",
+                  color: "var(--danger)",
+                  padding: "10px 14px",
+                  borderRadius: 14,
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 8,
+                }}>
+                  <Icon name="x" size={15} />
+                  <div style={{ flex: 1 }}>
+                    โควต้าการถามรอบนี้เต็มแล้ว ({rateLimitInfo?.used}/{rateLimitInfo?.limit} คำถาม) ระบบจะทยอยรีเซ็ตตามรอบเวลา 5 ชั่วโมง
+                  </div>
+                </div>
+              )}
+
+              {/* Session Token Limit Banner */}
+              {sessionTokenError && (
+                <div style={{
+                  background: "var(--warning-soft)",
+                  color: "var(--warning)",
+                  padding: "10px 14px",
+                  borderRadius: 14,
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 8,
+                }}>
+                  <Icon name="sparkle" size={15} />
+                  <div style={{ flex: 1 }}>
+                    เซสชันนี้คุยเยอะเกินขีดจำกัดแล้ว กรุณาเริ่มการสนทนาใหม่เพื่อพูดคุยต่อ
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSessionTokenError(false);
+                      handleStartNewSession();
+                    }}
                     style={{
-                      display: "flex",
-                      justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                      gap: 12,
-                      alignItems: "flex-start",
+                      background: "var(--warning)",
+                      color: "#fff",
+                      border: 0,
+                      borderRadius: 8,
+                      padding: "4px 10px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
                     }}
                   >
-                    {msg.role === "assistant" && (
-                      <AiAvatar size={32} />
-                    )}
+                    เริ่มใหม่
+                  </button>
+                </div>
+              )}
 
-                    <div className="ai-bubble" style={{
-                      padding: "12px 18px",
-                      borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
-                      background: msg.role === "user"
-                        ? "linear-gradient(135deg, var(--primary), #0891b2)"
-                        : "var(--muted)",
-                      color: msg.role === "user" ? "#fff" : "var(--fg)",
-                      boxShadow: msg.role === "user" ? "0 4px 12px rgba(13,110,140,0.15)" : "none",
-                      border: msg.role === "assistant" ? "1px solid var(--border)" : "none",
-                    }}>
-                      {msg.role === "assistant" ? (
-                        <MarkdownText text={msg.content} />
-                      ) : (
-                        <div>
-                          <div style={{ fontSize: 14.5, lineHeight: 1.6 }}>{msg.content}</div>
-                          {msg.attachments && msg.attachments.length > 0 && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, borderTop: "1px dashed rgba(255,255,255,0.3)", paddingTop: 6 }}>
-                              {msg.attachments.map((f, idx) => (
-                                <a
-                                  key={idx}
-                                  href={fileHref(f.url)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                    fontSize: 12,
-                                    color: "#fff",
-                                    opacity: 0.95,
-                                    textDecoration: "underline"
-                                  }}
-                                >
-                                  <Icon name="file" size={12} />
-                                  <span className="truncate" style={{ maxWidth: 220 }}>{f.name}</span>
-                                </a>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {apiLoading && !summarizing && (
-                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <AiAvatar size={32} />
-                    <div style={{
-                      padding: "12px 18px",
-                      borderRadius: "20px 20px 20px 4px",
-                      background: "var(--muted)",
-                      border: "1px solid var(--border)",
-                    }}>
-                      <TypingDots />
-                    </div>
-                  </div>
-                )}
-
-                <div ref={bottomRef} />
-              </div>
-
-              {/* Chat Input */}
+              {/* Gemini Capsule Container */}
               <div style={{
-                padding: "16px 24px 20px",
-                borderTop: "1px solid var(--border)",
-                background: "var(--card)",
-                position: "relative"
+                background: "#f0f4f9",
+                border: "1px solid #e2e8f0",
+                borderRadius: 28,
+                padding: "10px 14px 10px 18px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+                transition: "all 0.18s ease-in-out",
               }}>
-                {/* Document attachment selector dropdown */}
-                {showAttachmentDropdown && (
-                  <div ref={attachmentRef} className="card shadow-lg" style={{
-                    position: "absolute",
-                    bottom: "100%",
-                    left: 24,
-                    zIndex: 1000,
-                    width: 320,
-                    maxHeight: 200,
-                    overflowY: "auto",
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 12,
-                    padding: 8,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                    marginBottom: 6,
-                    animation: "selectFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)"
-                  }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--subtle)", textTransform: "uppercase", padding: "4px 8px" }}>
-                      แนบเอกสารจากบทเรียน:
-                    </div>
-                    {(selectedLesson?.documents || []).map((doc, idx) => {
-                      const isAttached = attachedFiles.some(f => f.url === doc.url);
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          disabled={isAttached}
-                          onClick={() => {
-                            setAttachedFiles([...attachedFiles, doc]);
-                            setShowAttachmentDropdown(false);
-                          }}
-                          style={{
-                            border: 0,
-                            background: "transparent",
-                            color: "var(--fg)",
-                            padding: "8px 10px",
-                            borderRadius: 8,
-                            fontSize: 12.5,
-                            cursor: isAttached ? "not-allowed" : "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            width: "100%",
-                            textAlign: "left",
-                            opacity: isAttached ? 0.5 : 1
-                          }}
-                          onMouseOver={(e) => { if (!isAttached) e.currentTarget.style.background = "var(--muted)"; }}
-                          onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
-                        >
-                          <Icon name="file" size={14} className="muted" />
-                          <span className="truncate flex-1">{doc.name}</span>
-                          {isAttached && <Icon name="check" size={12} className="success" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Render chips for attached files */}
+                {/* Attached File Chips */}
                 {attachedFiles.length > 0 && (
                   <div style={{
                     display: "flex",
                     flexWrap: "wrap",
                     gap: 6,
-                    padding: "0 12px 10px 12px",
-                    borderBottom: "1px dashed var(--border)",
-                    marginBottom: 10
+                    paddingBottom: 6,
+                    borderBottom: "1px dashed #cbd5e1",
                   }}>
                     {attachedFiles.map((file, idx) => (
                       <div key={idx} style={{
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 6,
-                        background: "var(--primary-soft)",
-                        color: "var(--primary)",
+                        background: "#ffffff",
+                        color: "var(--fg)",
+                        border: "1px solid #cbd5e1",
                         padding: "4px 10px",
-                        borderRadius: 8,
+                        borderRadius: 18,
                         fontSize: 12,
                         fontWeight: 500,
-                        maxWidth: "100%"
+                        maxWidth: "100%",
                       }}>
-                        <Icon name="file" size={12} />
-                        <span className="truncate" style={{ maxWidth: 220 }}>{file.name}</span>
+                        <Icon name="file" size={12} style={{ color: "var(--primary)" }} />
+                        <span className="truncate" style={{ maxWidth: 200 }}>{file.name}</span>
                         <button
                           type="button"
                           onClick={() => setAttachedFiles(attachedFiles.filter((_, i) => i !== idx))}
                           style={{
                             border: 0,
                             background: "transparent",
-                            color: "var(--primary)",
+                            color: "var(--muted-fg)",
                             cursor: "pointer",
                             padding: 0,
                             display: "grid",
-                            placeItems: "center"
+                            placeItems: "center",
                           }}
                         >
                           <Icon name="x" size={12} />
@@ -1164,87 +1682,117 @@ export default function StudentSeparateAiPage() {
                   </div>
                 )}
 
+                {/* Textarea */}
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="พิมพ์ถามคำถามเกี่ยวกับเนื้อหาบทเรียนกับยูริได้ที่นี่..."
+                  rows={1}
+                  disabled={apiLoading || rateLimitError || sessionTokenError}
+                  style={{
+                    width: "100%",
+                    resize: "none",
+                    border: 0,
+                    outline: "none",
+                    background: "transparent",
+                    color: "var(--fg)",
+                    fontSize: 14.5,
+                    fontFamily: "inherit",
+                    lineHeight: 1.55,
+                    maxHeight: 140,
+                    overflowY: "auto",
+                    padding: "2px 0",
+                  }}
+                  onInput={(e) => {
+                    e.target.style.height = "auto";
+                    e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
+                  }}
+                />
+
+                {/* Toolbar inside capsule */}
                 <div style={{
                   display: "flex",
-                  gap: 12,
-                  alignItems: "flex-end",
-                  background: "var(--bg)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 16,
-                  padding: "8px 12px",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: 2,
                 }}>
                   {/* Attachment Button */}
-                  {(selectedLesson?.documents || []).length > 0 && (
+                  {(selectedLesson?.documents || []).length > 0 ? (
                     <button
                       type="button"
                       onClick={() => setShowAttachmentDropdown(!showAttachmentDropdown)}
-                      disabled={apiLoading}
+                      disabled={apiLoading || rateLimitError || sessionTokenError}
                       style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 12,
-                        border: "1px solid var(--border)",
-                        background: showAttachmentDropdown ? "var(--primary-soft)" : "var(--card)",
-                        color: showAttachmentDropdown ? "var(--primary)" : "var(--subtle)",
-                        cursor: "pointer",
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        border: 0,
+                        background: showAttachmentDropdown ? "#dbeafe" : "transparent",
+                        color: showAttachmentDropdown ? "#1d4ed8" : "var(--muted-fg)",
+                        cursor: (apiLoading || rateLimitError || sessionTokenError) ? "not-allowed" : "pointer",
                         display: "grid",
                         placeItems: "center",
                         flexShrink: 0,
                         transition: "all 0.15s",
-                        marginBottom: 2
                       }}
-                      onMouseOver={(e) => { if (!showAttachmentDropdown) { e.currentTarget.style.borderColor = "var(--primary)"; e.currentTarget.style.color = "var(--primary)"; } }}
-                      onMouseOut={(e) => { if (!showAttachmentDropdown) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--subtle)"; } }}
                       title="แนบเอกสารบทเรียน"
                     >
                       <Icon name="clip" size={16} />
                     </button>
-                  )}
+                  ) : <div />}
 
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="พิมพ์ถามคำถามเกี่ยวกับเนื้อหาบทเรียนได้ที่นี่..."
-                    rows={1}
-                    disabled={apiLoading}
-                    style={{
-                      flex: 1, resize: "none", border: 0,
-                      borderRadius: 8, padding: "8px 4px", fontSize: 14.5,
-                      background: "transparent", color: "var(--fg)", outline: "none",
-                      fontFamily: "inherit", lineHeight: 1.5,
-                      maxHeight: 120, overflowY: "auto",
-                    }}
-                    onInput={(e) => {
-                      e.target.style.height = "auto";
-                      e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
-                    }}
-                  />
-
+                  {/* Gemini Circular Send Button */}
                   <button
                     onClick={() => sendMessage(input)}
-                    disabled={(!input.trim() && attachedFiles.length === 0) || apiLoading}
+                    disabled={(!input.trim() && attachedFiles.length === 0) || apiLoading || rateLimitError || sessionTokenError}
                     style={{
-                      width: 40, height: 40, borderRadius: 12, border: 0,
-                      background: (input.trim() || attachedFiles.length > 0) && !apiLoading ? "var(--primary)" : "var(--muted)",
-                      color: (input.trim() || attachedFiles.length > 0) && !apiLoading ? "#fff" : "var(--subtle)",
-                      cursor: (input.trim() || attachedFiles.length > 0) && !apiLoading ? "pointer" : "not-allowed",
-                      display: "grid", placeItems: "center",
-                      transition: "all 0.15s",
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      border: 0,
+                      background: (input.trim() || attachedFiles.length > 0) && !apiLoading && !rateLimitError && !sessionTokenError
+                        ? "linear-gradient(135deg, #1a73e8 0%, #8b5cf6 100%)"
+                        : "#cbd5e1",
+                      color: "#ffffff",
+                      cursor: (input.trim() || attachedFiles.length > 0) && !apiLoading && !rateLimitError && !sessionTokenError ? "pointer" : "not-allowed",
+                      display: "grid",
+                      placeItems: "center",
+                      transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
+                      transform: (input.trim() || attachedFiles.length > 0) && !apiLoading && !rateLimitError && !sessionTokenError ? "scale(1)" : "scale(0.92)",
+                      boxShadow: (input.trim() || attachedFiles.length > 0) && !apiLoading && !rateLimitError && !sessionTokenError
+                        ? "0 4px 14px rgba(37, 99, 235, 0.3)"
+                        : "none",
                       flexShrink: 0,
                     }}
+                    title="ส่งคำถาม"
                   >
-                    <Icon name="send" size={18} />
+                    <Icon name="send" size={16} />
                   </button>
                 </div>
               </div>
-            </>
-          )}
-        </div>
 
-      </div>
+              {/* Gemini Disclaimer & Quota text */}
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "6px 8px 0 8px",
+                fontSize: 11,
+                color: "var(--subtle)",
+              }}>
+                <span>ยูริอาจให้ข้อมูลคลาดเคลื่อนได้ กรุณาตรวจสอบกับเนื้อหาบทเรียน</span>
+                {rateLimitInfo && (
+                  <span>โควต้า (รอบ 5 ชม.): {rateLimitInfo.used}/{rateLimitInfo.limit} คำถาม</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
 
+      {/* History Dialog if triggered */}
       {showHistoryDialog && (
         <Dialog
           title="ประวัติการสนทนา"
@@ -1264,7 +1812,7 @@ export default function StudentSeparateAiPage() {
                   month: "short",
                   day: "numeric",
                   hour: "2-digit",
-                  minute: "2-digit"
+                  minute: "2-digit",
                 });
                 return (
                   <div
@@ -1280,11 +1828,9 @@ export default function StudentSeparateAiPage() {
                       background: isCurrent ? "var(--primary-soft)" : "var(--card)",
                       cursor: "pointer",
                       borderRadius: 12,
-                      transition: "all 0.12s"
+                      transition: "all 0.12s",
                     }}
                     onClick={() => handleSelectSession(sess)}
-                    onMouseOver={(e) => { if (!isCurrent) e.currentTarget.style.borderColor = "var(--primary)"; }}
-                    onMouseOut={(e) => { if (!isCurrent) e.currentTarget.style.borderColor = "var(--border)"; }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -1293,7 +1839,7 @@ export default function StudentSeparateAiPage() {
                           {formattedDate} {isCurrent && "(ปัจจุบัน)"}
                         </span>
                       </div>
-                      <div style={{ fontSize: 13, color: "var(--muted-fg)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }} className="pretty">
+                      <div style={{ fontSize: 13, color: "var(--muted-fg)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                         {sess.firstQuestion || "ไม่มีข้อความ"}
                       </div>
                     </div>
@@ -1310,8 +1856,6 @@ export default function StudentSeparateAiPage() {
                         borderColor: "rgba(239, 68, 68, 0.2)",
                         background: "transparent",
                       }}
-                      onMouseOver={(e) => { e.currentTarget.style.background = "var(--danger-soft)"; }}
-                      onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
                       title="ลบประวัติเซสชันนี้"
                     >
                       <Icon name="trash" size={14} />
@@ -1324,10 +1868,18 @@ export default function StudentSeparateAiPage() {
         </Dialog>
       )}
 
+      {/* Embedded CSS for animations and responsive styling */}
       <style>{`
-        @keyframes aiTypingDot {
-          0%, 80%, 100% { transform: scale(1); opacity: 0.5; }
-          40% { transform: scale(1.3); opacity: 1; }
+        @keyframes geminiShimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        @keyframes geminiSparklePulse {
+          0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+          50% { transform: scale(1.15) rotate(15deg); opacity: 1; }
+        }
+        .gemini-sparkle-pulse {
+          animation: geminiSparklePulse 2.4s ease-in-out infinite;
         }
         @keyframes pulseGlow {
           0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
@@ -1337,20 +1889,50 @@ export default function StudentSeparateAiPage() {
         .pulse-dot {
           animation: pulseGlow 2s infinite;
         }
-        @media (max-width: 900px) {
-          .hide-m { display: none !important; }
-          .hide-d { display: flex !important; }
+        .gemini-card-hover:hover {
+          border-color: #1a73e8 !important;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(26, 115, 232, 0.08) !important;
         }
-        @media (min-width: 901px) {
-          .hide-d { display: none !important; }
+        .gemini-new-chat-btn:hover {
+          background: #f0f4f9 !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important;
         }
-        .ai-side { width: 320px; }
-        .ai-bubble { max-width: 75%; }
-        /* notebook screens: give the chat column more room */
-        @media (min-width: 901px) and (max-width: 1440px) {
-          .ai-page.container-wide { padding-left: 20px; padding-right: 20px; }
-          .ai-side { width: 260px; }
-          .ai-bubble { max-width: 88%; }
+        .gemini-session-pill:hover {
+          background: #e2e8f0 !important;
+        }
+        .gemini-session-pill.active:hover {
+          background: #dbeafe !important;
+        }
+        .gemini-session-pill:hover .gemini-del-btn {
+          opacity: 1 !important;
+        }
+        .hover-bg-muted:hover {
+          background: #e2e8f0 !important;
+        }
+        @media (max-width: 959px) {
+          .gemini-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 35;
+          }
+          .gemini-sidebar {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 50 !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+          }
+          .gemini-sidebar.closed {
+            transform: translateX(-100%);
+            width: 0 !important;
+          }
+          .gemini-sidebar.open {
+            transform: translateX(0);
+            width: 280px !important;
+          }
         }
       `}</style>
     </div>

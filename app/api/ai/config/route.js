@@ -5,6 +5,7 @@ import { supabaseAuthHeaders } from "@/lib/supabase-token";
 import { isStaffRole } from "@/lib/roles";
 
 const CONFIG_KEYS = [
+  "model",
   "daily_chat_limit",
   "session_token_limit",
   "max_output_tokens",
@@ -12,10 +13,11 @@ const CONFIG_KEYS = [
 ];
 
 const CONFIG_DEFAULTS = {
+  model: "gemini-3.8-flash",
   daily_chat_limit: "15",
-  session_token_limit: "20000",
-  max_output_tokens: "2048",
-  max_output_tokens_with_files: "4096",
+  session_token_limit: "50000",
+  max_output_tokens: "4096",
+  max_output_tokens_with_files: "8192",
 };
 
 async function getSupabaseServerClient(req) {
@@ -70,7 +72,12 @@ export async function POST(req) {
     const updates = [];
     for (const key of CONFIG_KEYS) {
       if (body[key] !== undefined) {
-        const val = String(parseInt(body[key], 10) || CONFIG_DEFAULTS[key]);
+        let val;
+        if (key === "model") {
+          val = String(body[key]).trim() || CONFIG_DEFAULTS.model;
+        } else {
+          val = String(parseInt(body[key], 10) || CONFIG_DEFAULTS[key]);
+        }
         updates.push({ key, value: val });
       }
     }

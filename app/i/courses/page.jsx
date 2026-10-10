@@ -32,6 +32,19 @@ const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
   return last3 >= startVal && last3 <= endVal;
 };
 
+const hexToRgba = (hex, alpha = 1) => {
+  if (!hex || typeof hex !== "string" || !hex.startsWith("#")) {
+    return hex?.startsWith?.("var") ? `rgba(13, 110, 140, ${alpha})` : hex;
+  }
+  const clean = hex.replace("#", "");
+  const num = parseInt(clean.length === 3 ? clean.split("").map(c => c + c).join("") : clean, 16);
+  if (isNaN(num)) return hex;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 export default function InstructorCourses() {
   const router = useRouter();
   const { data: session } = useSession();
@@ -336,7 +349,30 @@ export default function InstructorCourses() {
                   </td>
                   <td>
                     <div className="flex items-center gap-3">
-                      <div style={{ width: 38, height: 38, borderRadius: 9, background: c.hero || "var(--primary)", color: "#fff", display: "grid", placeItems: "center", flex: "0 0 38px", fontWeight: 700, fontSize: 12 }}>{c.code.slice(-3)}</div>
+                      {(() => {
+                        const hero = c.hero && c.hero.startsWith("#") ? c.hero : "#0d6e8c";
+                        return (
+                          <div
+                            className="clay-pod"
+                            style={{
+                              width: 38,
+                              height: 38,
+                              borderRadius: 11,
+                              background: `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
+                              border: `1.5px solid ${hexToRgba(hero, 0.28)}`,
+                              color: hero,
+                              display: "grid",
+                              placeItems: "center",
+                              flex: "0 0 38px",
+                              fontWeight: 700,
+                              fontSize: 12,
+                              boxShadow: `inset 1px 1px 2px rgba(255, 255, 255, 0.95), inset -1px -1px 2px ${hexToRgba(hero, 0.18)}, 0 2px 6px -1px ${hexToRgba(hero, 0.16)}`,
+                            }}
+                          >
+                            {c.code.slice(-3)}
+                          </div>
+                        );
+                      })()}
                       <div><div className="fw-6">{c.title}</div><div className="t-xs muted">{c.code} · {c.subtitle?.slice(0, 28) || ""}…</div></div>
                     </div>
                   </td>
@@ -378,11 +414,11 @@ export default function InstructorCourses() {
                             {c.lessons.map((l) => (
                               <div key={l.id} className="flex items-center justify-between p-3 card" style={{ background: "#fff", cursor: "default" }} onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center gap-3">
-                                  <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 12 }}>{String(l.index).padStart(2, "0")}</div>
+                                  <div className="clay-pod clay-pod-primary" style={{ width: 30, height: 30, borderRadius: 8, fontWeight: 700, fontSize: 12 }}>{String(l.index).padStart(2, "0")}</div>
                                   <div>
                                     <div className="t-sm fw-6">{l.title || "(ไม่มีชื่อบทเรียน)"}</div>
                                     <div className="flex items-center gap-2 t-xs muted mt-0.5">
-                                      <Badge tone={l.status === "active" ? "success" : "muted"}>{l.status === "active" ? "เผยแพร่แล้ว" : "ฉบับร่าง"}</Badge>
+                                      <span className={`clay-pill clay-pill-${l.status === "active" ? "success" : "muted"}`}>{l.status === "active" ? "เผยแพร่แล้ว" : "ฉบับร่าง"}</span>
                                     </div>
                                   </div>
                                 </div>

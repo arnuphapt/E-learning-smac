@@ -135,19 +135,16 @@ export default function AiPersonaPage() {
   const [aiStatus, setAiStatus] = useState("checking"); // "checking", "online", "offline", "degraded"
   const [aiStatusReason, setAiStatusReason] = useState("");
 
-  // Token config states
+  // Token & Model config states
   const [configDraft, setConfigDraft] = useState({
+    model: "gemini-3.8-flash",
     daily_chat_limit: "15",
     session_token_limit: "20000",
     max_output_tokens: "2048",
     max_output_tokens_with_files: "4096",
   });
+  const [isCustomModel, setIsCustomModel] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
-
-  // Tutor-mode explain persona (ai_settings key persona_explain): its own card, apart from the lesson chat persona above
-  const [explainDraft, setExplainDraft] = useState("");
-  const [explainIsDefault, setExplainIsDefault] = useState(false);
-  const [explainSaving, setExplainSaving] = useState(false);
 
   const checkAiHealth = async () => {
     setAiStatus("checking");
@@ -169,16 +166,10 @@ export default function AiPersonaPage() {
 
   const fetchPersona = async () => {
     try {
-      const [personaRes, configRes, explainRes] = await Promise.all([
+      const [personaRes, configRes] = await Promise.all([
         fetch("/api/ai/persona"),
         fetch("/api/ai/config"),
-        fetch("/api/ai/persona?key=persona_explain"),
       ]);
-      if (explainRes.ok) {
-        const ex = await explainRes.json();
-        setExplainDraft(ex.content);
-        setExplainIsDefault(!!ex.isDefault);
-      }
       if (personaRes.ok) {
         const data = await personaRes.json();
         setContent(data.content);
@@ -188,11 +179,15 @@ export default function AiPersonaPage() {
       }
       if (configRes.ok) {
         const cfg = await configRes.json();
+        const currentModel = cfg.model || "gemini-3.8-flash";
+        const isPreset = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-2.5-pro"].includes(currentModel);
+        setIsCustomModel(!isPreset);
         setConfigDraft({
+          model: currentModel,
           daily_chat_limit: String(cfg.daily_chat_limit ?? "15"),
-          session_token_limit: String(cfg.session_token_limit ?? "20000"),
-          max_output_tokens: String(cfg.max_output_tokens ?? "2048"),
-          max_output_tokens_with_files: String(cfg.max_output_tokens_with_files ?? "4096"),
+          session_token_limit: String(cfg.session_token_limit ?? "50000"),
+          max_output_tokens: String(cfg.max_output_tokens ?? "4096"),
+          max_output_tokens_with_files: String(cfg.max_output_tokens_with_files ?? "8192"),
         });
       }
     } catch (e) {
@@ -212,7 +207,7 @@ export default function AiPersonaPage() {
         body: JSON.stringify(configDraft),
       });
       if (res.ok) {
-        toast("บันทึกการตั้งค่า Token สำเร็จ", "success");
+        toast("บันทึกการตั้งค่าโมเดลและโควต้าสำเร็จ", "success");
       } else {
         toast("บันทึกการตั้งค่าล้มเหลว");
       }
@@ -224,29 +219,11 @@ export default function AiPersonaPage() {
     }
   };
 
-  const handleSaveExplain = async () => {
-    setExplainSaving(true);
-    try {
-      const res = await fetch("/api/ai/persona", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "persona_explain", content: explainDraft }),
-      });
-      if (res.ok) {
-        setExplainIsDefault(false);
-        toast("บันทึกบทบาท AI โหมดติวสำเร็จแล้ว", "success");
-      } else {
-        toast("บันทึกข้อมูลล้มเหลว");
-      }
-    } catch (e) {
-      console.error(e);
-      toast("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
-    } finally {
-      setExplainSaving(false);
-    }
-  };
-
   const setConfig = (key, val) => {
+    if (key === "model") {
+      setConfigDraft(prev => ({ ...prev, [key]: val }));
+      return;
+    }
     // allow only positive integers
     const num = val.replace(/[^0-9]/g, "");
     setConfigDraft(prev => ({ ...prev, [key]: num }));
@@ -431,7 +408,7 @@ export default function AiPersonaPage() {
           <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
               <span style={{ color: "var(--subtle)", fontWeight: 500 }}>โมเดลประมวลผล</span>
-              <span style={{ color: "var(--fg)", fontWeight: 600 }}>Gemini 2.5 Flash</span>
+              <span style={{ color: "var(--fg)", fontWeight: 600 }}>{configDraft.model || "gemini-3.8-flash"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
               <span style={{ color: "var(--subtle)", fontWeight: 500 }}>ระบบตอบคำถาม</span>
@@ -600,45 +577,16 @@ export default function AiPersonaPage() {
         </div>
       </div>
 
-      {/* Tutor-mode explain persona (ถาม AI ในหน้าทบทวนชุดติว) */}
-      <div className="card" style={{ marginTop: 24 }}>
-        <div style={{ padding: "20px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--fg)", display: "flex", alignItems: "center", gap: 8 }}>
-                <Icon name="sparkle" size={16} style={{ color: "var(--primary)" }} />
-                บทบาท AI โหมดติว (อธิบายเฉลย)
-              </div>
-              <div style={{ fontSize: 12.5, color: "var(--muted-fg)", marginTop: 4 }} className="pretty">
-                ใช้กับปุ่ม &quot;ถาม AI&quot; ในหน้าทบทวนชุดติวเท่านั้น แยกจากบทบาทแชทบทเรียนด้านบน · กฎแกนกลาง (ยึดคำอธิบายอาจารย์ ไม่ใส่แท็กอารมณ์) ล็อคในระบบ แก้ไม่ได้
-                {explainIsDefault ? " · ตอนนี้ใช้ค่าเริ่มต้นของระบบ (ยังไม่เคยบันทึก)" : ""}
-              </div>
-            </div>
-            <button className="btn btn-primary btn-sm" onClick={handleSaveExplain} disabled={explainSaving}>
-              {explainSaving ? <><Icon name="loader" size={14} className="spin" /> บันทึก...</> : <><Icon name="check" size={14} /> บันทึกบทบาทโหมดติว</>}
-            </button>
-          </div>
-          <textarea
-            className="input"
-            value={explainDraft}
-            onChange={(e) => setExplainDraft(e.target.value)}
-            rows={7}
-            style={{ width: "100%", fontFamily: "monospace", fontSize: 14, lineHeight: 1.6, padding: "12px 16px", borderRadius: 12, background: "var(--bg)", border: "1px solid var(--border-strong)", resize: "vertical" }}
-            placeholder="เขียนน้ำเสียงและแนวทางของ AI เมื่ออธิบายเฉลย..."
-          />
-        </div>
-      </div>
-
-      {/* Token & Rate Limit Config Card */}
+      {/* Model & Rate Limit Config Card */}
       <div className="card" style={{ marginTop: 24 }}>
         <div style={{ padding: "20px 24px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--fg)", display: "flex", alignItems: "center", gap: 8 }}>
                 <Icon name="settings" size={16} style={{ color: "var(--primary)" }} />
-                การตั้งค่า Token & Rate Limit
+                การตั้งค่าโมเดล & โควต้า (Model & Rate Limit)
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--muted-fg)", marginTop: 4 }}>กำหนดขีดจำกัดการใช้งาน AI ต่อนักศึกษา 1 คน</div>
+              <div style={{ fontSize: 12.5, color: "var(--muted-fg)", marginTop: 4 }}>กำหนดโมเดลเริ่มต้นและขีดจำกัดการใช้งาน AI ในระบบ</div>
             </div>
             <button
               className="btn btn-primary btn-sm"
@@ -650,21 +598,85 @@ export default function AiPersonaPage() {
             </button>
           </div>
 
+          {/* Model Selection Row */}
+          <div style={{
+            background: "var(--muted)",
+            borderRadius: 14,
+            padding: "16px 20px",
+            border: "1px solid var(--border)",
+            marginBottom: 16,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                  <Icon name="sparkle" size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--fg)" }}>โมเดลเริ่มต้นของระบบ (Default AI Model)</div>
+                  <div style={{ fontSize: 11.5, color: "var(--muted-fg)" }}>โมเดลหลักที่ใช้สำหรับห้องแชทบทเรียนและโหมดติวเตอร์</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 280 }}>
+                <select
+                  className="input"
+                  style={{ fontWeight: 600, fontSize: 13, height: 38 }}
+                  value={
+                    isCustomModel || !["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-2.5-pro"].includes(configDraft.model)
+                      ? "custom"
+                      : configDraft.model
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "custom") {
+                      setIsCustomModel(true);
+                    } else {
+                      setIsCustomModel(false);
+                      setConfig("model", val);
+                    }
+                  }}
+                >
+                  <option value="gemini-3.8-flash">Gemini 3.8 Flash (ค่าเริ่มต้น แนะนำ)</option>
+                  <option value="gemini-3.5-flash">Gemini 3.5 Flash (รุ่นใหม่ ประสิทธิภาพสูง)</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (รุ่นเดิม เสถียร)</option>
+                  <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (เร็วพิเศษ ประหยัด)</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (คิดวิเคราะห์ลึก)</option>
+                  <option value="custom">กำหนดเอง (ระบุชื่อโมเดล)...</option>
+                </select>
+              </div>
+            </div>
+
+            {(isCustomModel || !["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-2.5-pro"].includes(configDraft.model)) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: "var(--muted-fg)", whiteSpace: "nowrap" }}>ชื่อโมเดล:</span>
+                <input
+                  className="input"
+                  style={{ flex: 1, fontFamily: "monospace", fontSize: 13, height: 36 }}
+                  value={configDraft.model}
+                  onChange={(e) => setConfig("model", e.target.value.trim())}
+                  placeholder="เช่น gemini-2.5-flash หรือ gemini-3.8-flash"
+                />
+              </div>
+            )}
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
             {[
               {
                 key: "daily_chat_limit",
-                label: "โควต้าต่อวัน (ครั้ง)",
-                desc: "จำนวนครั้งที่นักศึกษาถาม+สรุปได้ต่อวัน",
-                unit: "ครั้ง/วัน",
-                icon: "calendar"
+                label: "โควต้าการใช้งาน (ครั้ง)",
+                desc: "จำนวนครั้งที่นักศึกษาถาม+สรุปได้ในรอบ 5 ชั่วโมง",
+                unit: "ครั้ง/5 ชม.",
+                icon: "cal"
               },
               {
                 key: "session_token_limit",
                 label: "Session Token Limit",
                 desc: "ขีดจำกัด token รวมของข้อความในแต่ละ session",
                 unit: "tokens",
-                icon: "chat"
+                icon: "msg"
               },
               {
                 key: "max_output_tokens",
@@ -714,9 +726,9 @@ export default function AiPersonaPage() {
           </div>
 
           <div style={{ marginTop: 16, padding: "10px 14px", background: "var(--primary-soft)", borderRadius: 10, fontSize: 12, color: "var(--primary)", display: "flex", alignItems: "flex-start", gap: 8 }}>
-            <Icon name="info" size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+            <Icon name="alert" size={13} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>
-              ผู้สอน / Admin ไม่ถูกจำกัดโควต้า · โควต้าวันนี้รีเซ็ตเที่ยงคืนตามเวลาไทย · ค่า Token ประมาณการจากความยาวข้อความ (÷ 2.5)
+              ผู้สอน / Admin ไม่ถูกจำกัดโควต้า · โควต้านับแบบ Rolling Window ย้อนหลัง 5 ชั่วโมง · ค่า Token ประมาณการจากความยาวข้อความ (÷ 2.5)
             </span>
           </div>
         </div>

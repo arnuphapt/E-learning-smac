@@ -34,48 +34,29 @@ export async function POST(req, { params }) {
     if (!contents) return json({ error: "messages are required" }, 400);
 
     const cfg = await readExplainConfig(db);
-    if (!caller.staff) {
-      const tokens = contents.reduce((s, c) => s + estimateTokens(c.parts[0].text), 0);
-      if (tokens > cfg.sessionTokenLimit) return json({ error: "session_token_limit", used: tokens, limit: cfg.sessionTokenLimit }, 400);
-    }
+    const tokens = contents.reduce((s, c) => s + estimateTokens(c.parts[0].text), 0);
+    if (tokens > cfg.sessionTokenLimit) return json({ error: "session_token_limit", used: tokens, limit: cfg.sessionTokenLimit }, 400);
 
     const questions = await loadQuestionMap(db, attempt);
     if (!questions[questionId]) return tutorNotFound(); // in the attempt but deleted since: nothing to explain
-    const system = buildExplainSystem({ persona: cfg.persona, lessonTitle: lesson.title, questionId, rows: attempt.result.rows, questions });
+    const system = buildExplainSystem({ persona: cfg.persona, isStaff: !!caller.staff, lessonTitle: lesson.title, questionId, rows: attempt.result.rows, questions });
 
     // Same row shape as /api/ai/chat logs; mode "explain" is what the quota counter (both routes) looks for.
-    // Students claim their slot first (429 when none is left); staff are not limited but are still logged.
+    // Quota is claimed atomically (429 when none is left) for all roles.
     const sessionId = "tutor-" + attempt.id;
-    let claimId = null;
-    let used = 0;
-    if (!caller.staff) {
-      const claim = await claimAiQuota(db, { studentId, limit: cfg.dailyLimit, mode: "explain", lessonId: lesson.id, courseId: lesson.course_id, sessionId });
-      if (!claim.claimId) return json({ error: "rate_limit_exceeded", used: claim.used, limit: cfg.dailyLimit }, 429);
-      claimId = claim.claimId;
-      used = claim.used; // includes this claim
-    }
+    const claim = await claimAiQuota(db, { studentId, limit: cfg.dailyLimit, mode: "explain", lessonId: lesson.id, courseId: lesson.course_id, sessionId });
+    if (!claim.claimId) return json({ error: "rate_limit_exceeded", used: claim.used, limit: cfg.dailyLimit }, 429);
+    const claimId = claim.claimId;
+    const used = claim.used; // includes this claim
 
     try {
-      const reply = stripEmotionTags(await generateExplanation({ system, contents, maxOutputTokens: cfg.maxOutputTokens }));
+      const reply = stripEmotionTags(await generateExplanation({ system, contents, maxOutputTokens: cfg.maxOutputTokens, model: cfg.model }));
       if (!reply) throw new Error("empty reply from the model");
 
       // The log row IS the quota count, so an answer that could not be logged is not delivered (502, nothing shown).
       const message = contents[contents.length - 1].parts[0].text;
-      if (claimId) {
-        await fillAiClaim(db, claimId, { message, reply });
-      } else {
-        const { error: logErr } = await db.from("ai_chat_logs").insert({
-          student_id: studentId,
-          lesson_id: lesson.id,
-          course_id: lesson.course_id,
-          message,
-          reply,
-          mode: "explain",
-          session_id: sessionId,
-        });
-        if (logErr) throw logErr;
-      }
-      return json({ reply, rateLimitInfo: caller.staff ? null : { used, limit: cfg.dailyLimit } });
+      await fillAiClaim(db, claimId, { message, reply });
+      return json({ reply, rateLimitInfo: { used, limit: cfg.dailyLimit } });
     } catch (e) {
       if (claimId) await releaseAiClaim(db, claimId); // the call failed: it must not count against the quota
       throw e;

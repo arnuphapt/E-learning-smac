@@ -191,7 +191,7 @@ function LessonDocs({ lesson, allowDownload = true }) {
     <div className="card">
       {docs.map((doc, i) => (
         <div key={i} className={"flex items-center gap-3 card-p " + (i < docs.length - 1 ? "border-b" : "")} style={{ padding: "14px 18px" }}>
-          <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}><Icon name="file" size={18} /></div>
+          <div className="clay-pod clay-pod-danger" style={{ width: 40, height: 40, borderRadius: 12 }}><Icon name="file" size={18} /></div>
           <div className="flex-1" style={{ minWidth: 0 }}>
             <div className="t-sm fw-6 truncate">{doc.name}</div>
             <div className="t-xs muted">{doc.size}</div>
@@ -232,8 +232,21 @@ function LessonAssignTab({ assignments, submissions, nav }) {
         const status = getStatus(a.id);
         return (
           <div key={a.id} className="card card-p flex items-center justify-between gap-3 wrap" style={{ padding: "16px 20px" }}>
-            <div className="flex items-center gap-3">
-              <div style={{ width: 42, height: 42, borderRadius: 10, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="file" size={20} /></div>
+            <div className="flex items-center gap-3.5">
+              <div
+                className="clay-pod"
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 13,
+                  background: "linear-gradient(135deg, var(--primary-soft) 0%, rgba(13,110,140,0.06) 100%)",
+                  border: "1px solid rgba(13,110,140,0.22)",
+                  color: "var(--primary)",
+                  boxShadow: "inset 1.5px 1.5px 3px rgba(255,255,255,.95), inset -1.5px -1.5px 3px rgba(13,110,140,.12), 0 3px 8px -2px rgba(13,110,140,.15)",
+                }}
+              >
+                <Icon name="clipboard" size={20} />
+              </div>
               <div>
                 <div className="fw-6">{a.title}</div>
                 <div className="t-xs muted flex items-center gap-2 mt-1">
@@ -262,8 +275,8 @@ function NoVideoContentStage({ lesson, assignments, submissions, nav }) {
   if (!hasDocs && !hasAssigns) {
     return (
       <div className="card text-center animate-fade-in" style={{ padding: "48px 24px", background: "var(--muted)", borderRadius: 14 }}>
-        <div style={{ width: 64, height: 64, borderRadius: 16, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
-          <Icon name="book" size={24} />
+        <div className="clay-pod clay-pod-primary" style={{ width: 60, height: 60, borderRadius: 18, margin: "0 auto 16px" }}>
+          <Icon name="book" size={26} />
         </div>
         <div className="t-lg fw-7 fg">ไม่มีสื่อการเรียนการสอนแนบเพิ่มเติม</div>
         <p className="muted t-sm mt-2" style={{ margin: 0 }}>บทเรียนนี้ไม่มีวิดีโอ เอกสารแนบ หรือใบงานเพิ่มในบทเรียน</p>
@@ -286,7 +299,7 @@ function NoVideoContentStage({ lesson, assignments, submissions, nav }) {
           <div className="card-p flex col gap-3" style={{ padding: 18 }}>
             {docs.map((doc, i) => (
               <div key={i} className="flex items-center gap-3" style={{ padding: "14px 18px", border: "1px solid var(--border)", borderRadius: 12, background: "#fff" }}>
-                <div style={{ width: 42, height: 42, borderRadius: 10, background: "var(--danger-soft)", color: "var(--danger)", display: "grid", placeItems: "center" }}><Icon name="file" size={20} /></div>
+                <div className="clay-pod clay-pod-danger" style={{ width: 44, height: 44, borderRadius: 13 }}><Icon name="file" size={20} /></div>
                 <div className="flex-1" style={{ minWidth: 0 }}>
                   <div className="fw-6 t-sm truncate fg">{doc.name}</div>
                   <div className="t-xs muted">{doc.size}</div>
@@ -315,7 +328,7 @@ function NoVideoContentStage({ lesson, assignments, submissions, nav }) {
               return (
                 <div key={a.id} className="flex items-center justify-between gap-3 wrap" style={{ padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "#fff" }}>
                   <div className="flex items-center gap-3">
-                    <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="file" size={22} /></div>
+                    <div className="clay-pod clay-pod-primary" style={{ width: 44, height: 44, borderRadius: 13 }}><Icon name="clipboard" size={20} /></div>
                     <div>
                       <div className="fw-7 t-sm fg">{a.title}</div>
                       {a.instructions && (

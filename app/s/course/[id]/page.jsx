@@ -10,7 +10,21 @@ import { Badge, Progress, statusBadge } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 
-function LessonRow({ l, nav }) {
+function hexToRgba(hex, alpha = 1) {
+  if (!hex || typeof hex !== "string" || !hex.startsWith("#")) {
+    return alpha != null ? `rgba(13, 110, 140, ${alpha})` : "#0d6e8c";
+  }
+  let c = hex.slice(1);
+  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return `rgba(13, 110, 140, ${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function LessonRow({ l, nav, heroColor }) {
   const locked = l.status === "locked-pretest";
   
   // Check if lesson actually has a video
@@ -63,30 +77,54 @@ function LessonRow({ l, nav }) {
   }
   
   return (
-    <div className="card pointer" style={{ display: "flex", alignItems: "stretch", overflow: "hidden" }}
-      onClick={() => nav("/s/lesson/" + l.id)}>
-      <div style={{ flex: "0 0 56px", background: locked ? "var(--muted)" : "var(--primary-soft)", display: "grid", placeItems: "center" }}>
-        {locked
-          ? <Icon name="lock" size={20} style={{ color: "var(--subtle)" }} />
-          : <div className="t-lg fw-7" style={{ color: "var(--primary)" }}>{String(l.index).padStart(2, "0")}</div>}
-      </div>
-      <div className="card-p flex-1" style={{ padding: "15px 18px" }}>
-        <div className="flex items-center gap-2 justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 wrap">
-              <span className="fw-6 t-base">{l.title}</span>
+    <div
+      className="card pointer transition-all"
+      style={{ display: "flex", alignItems: "stretch" }}
+      onClick={() => nav("/s/lesson/" + l.id)}
+    >
+      <div className="card-p flex items-center justify-between gap-4 flex-1" style={{ padding: "16px 20px" }}>
+        <div className="flex items-center flex-1" style={{ minWidth: 0, gap: 16 }}>
+          <div
+            className="clay-pod"
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: locked
+                ? "var(--muted)"
+                : `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
+              border: `1.5px solid ${locked ? "var(--border)" : hexToRgba(hero, 0.28)}`,
+              color: locked ? "var(--subtle)" : hero,
+              boxShadow: locked
+                ? "inset 1px 1px 2px rgba(255,255,255,.9), inset -1px -1px 2px rgba(0,0,0,.04)"
+                : `inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.95), inset -1.5px -1.5px 3px ${hexToRgba(hero, 0.18)}, 0 4px 10px -2px ${hexToRgba(hero, 0.18)}`,
+            }}
+          >
+            {locked ? (
+              <Icon name="lock" size={20} style={{ color: "var(--subtle)" }} />
+            ) : (
+              <span className="t-base fw-7 tnum">{String(l.index).padStart(2, "0")}</span>
+            )}
+          </div>
+
+          <div className="flex-1" style={{ minWidth: 0 }}>
+            <div className="flex items-center gap-2 wrap mb-1.5">
+              <span className="fw-7 t-base" style={{ color: "var(--fg)" }}>{l.title}</span>
               {statusBadge(l.status)}
             </div>
             
             {/* Descriptive badges layout */}
-            <div className="flex items-center gap-2 mt-2 t-xs wrap">
+            <div className="flex items-center gap-2 wrap t-xs">
               {/* Video Badge */}
-              <span className="flex items-center gap-1" style={{ 
-                padding: "3px 8px", 
-                borderRadius: "6px", 
-                background: hasVideo ? "var(--primary-soft)" : "var(--muted)", 
-                color: hasVideo ? "var(--primary)" : "var(--subtle)",
-                fontWeight: 600
+              <span className="flex items-center gap-1.5" style={{ 
+                padding: "3px 10px", 
+                borderRadius: 999, 
+                background: hasVideo ? hexToRgba(hero, 0.12) : "var(--muted)", 
+                color: hasVideo ? hero : "var(--subtle)",
+                fontWeight: 600,
+                fontSize: "11.5px",
+                border: `1px solid ${hasVideo ? hexToRgba(hero, 0.25) : "transparent"}`,
+                boxShadow: "inset 1px 1px 2px rgba(255,255,255,.8)"
               }}>
                 <Icon name={hasVideo ? "video" : "book"} size={12} />
                 {hasVideo ? `มีวิดีโอ (${l.duration || "ไม่ระบุ"})` : "ไม่มีวิดีโอ"}
@@ -97,17 +135,19 @@ function LessonRow({ l, nav }) {
                 const colorMap = {
                   success: { bg: "var(--success-soft)", fg: "var(--success)" },
                   warning: { bg: "var(--warning-soft)", fg: "var(--warning)" },
-                  info: { bg: "var(--primary-soft)", fg: "var(--primary)" },
+                  info: { bg: hexToRgba(hero, 0.12), fg: hero },
                   muted: { bg: "var(--muted)", fg: "var(--subtle)" }
                 };
                 const colors = colorMap[tone] || colorMap.muted;
                 return (
-                  <span key={i} className="flex items-center gap-1" style={{ 
-                    padding: "3px 8px", 
-                    borderRadius: "6px", 
+                  <span key={i} className="flex items-center gap-1.5" style={{ 
+                    padding: "3px 10px", 
+                    borderRadius: 999, 
                     background: colors.bg, 
                     color: colors.fg,
-                    fontWeight: 600
+                    fontWeight: 600,
+                    fontSize: "11.5px",
+                    boxShadow: "inset 1px 1px 2px rgba(255,255,255,.8)"
                   }}>
                     <Icon name={ic} size={12} />
                     {txt}
@@ -116,12 +156,13 @@ function LessonRow({ l, nav }) {
               })}
             </div>
           </div>
-          <div style={{ width: 120 }} className="hide-m">
-            <div className="flex items-center justify-between t-xs mb-1"><span className="muted">{l.progress || 0}%</span></div>
-            <Progress value={l.progress || 0} h={6} />
-          </div>
-          <Icon name="chevR" size={18} style={{ color: "var(--subtle)" }} />
         </div>
+
+        <div style={{ width: 130 }} className="hide-m">
+          <div className="flex items-center justify-between t-xs mb-1.5"><span className="muted">ความคืบหน้า</span><span className="fw-6 tnum">{l.progress || 0}%</span></div>
+          <Progress value={l.progress || 0} h={6} />
+        </div>
+        <Icon name="chevR" size={18} style={{ color: "var(--subtle)" }} />
       </div>
     </div>
   );
@@ -257,26 +298,57 @@ export default function StudentCourse() {
     ? Math.round(lessons.reduce((acc, l) => acc + (l.progress || 0), 0) / totalLessons)
     : 0;
   const courseProgress = averageProgress;
+  const hero = course.hero && course.hero.startsWith("#") ? course.hero : "#0d6e8c";
 
   return (
     <div className="container">
       <Crumb nav={nav} items={[{ label: "รายวิชาของฉัน", to: "/s/courses" }, { label: course.code }]} />
       <div className="card mb-5">
         <div className="card-p flex items-start justify-between gap-4 wrap">
-          <div style={{ minWidth: 260 }}>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge tone="primary">{course.code}</Badge>
-              <span className="t-xs muted">{course.term}</span>
+          <div className="flex items-start gap-4 flex-1" style={{ minWidth: 280 }}>
+            <div
+              className="clay-pod"
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 16,
+                background: `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
+                border: `1.5px solid ${hexToRgba(hero, 0.28)}`,
+                color: hero,
+                boxShadow: `inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.95), inset -1.5px -1.5px 3px ${hexToRgba(hero, 0.18)}, 0 4px 12px -2px ${hexToRgba(hero, 0.2)}`,
+                marginTop: 2,
+              }}
+            >
+              <Icon name="book" size={24} />
             </div>
-            <div className="t-2xl fw-7 serif" style={{ letterSpacing: "-.01em" }}>{course.title}</div>
-            <div className="muted mt-1 pretty">{course.subtitle}</div>
-            <div className="flex items-center gap-3 mt-3 t-sm muted wrap">
-              <span className="flex items-center gap-1"><Icon name="user" size={15} />{course.instructor}</span>
-              <i className="dot-sep" />
-              <span className="flex items-center gap-1"><Icon name="book" size={15} />{lessons.length} บทเรียน</span>
+            <div className="flex-1" style={{ minWidth: 0 }}>
+              <div className="flex items-center gap-2.5 mb-2.5">
+                <span
+                  style={{
+                    padding: "3px 10px",
+                    borderRadius: 999,
+                    fontSize: "11.5px",
+                    fontWeight: 700,
+                    background: hexToRgba(hero, 0.12),
+                    color: hero,
+                    border: `1px solid ${hexToRgba(hero, 0.25)}`,
+                    boxShadow: "inset 1px 1px 2px rgba(255,255,255,.9)",
+                  }}
+                >
+                  {course.code}
+                </span>
+                <span className="t-xs muted">{course.term}</span>
+              </div>
+              <div className="t-2xl fw-7 serif" style={{ letterSpacing: "-.01em", lineHeight: 1.3, marginBottom: 6 }}>{course.title}</div>
+              <div className="muted t-sm pretty">{course.subtitle}</div>
+              <div className="flex items-center gap-3 mt-3.5 t-sm muted wrap">
+                <span className="flex items-center gap-1"><Icon name="user" size={15} />{course.instructor}</span>
+                <i className="dot-sep" />
+                <span className="flex items-center gap-1"><Icon name="book" size={15} />{lessons.length} บทเรียน</span>
+              </div>
             </div>
           </div>
-          <div className="clay-well" style={{ padding: 16, minWidth: 188 }}>
+          <div className="clay-well" style={{ padding: 18, minWidth: 200 }}>
             <div className="t-xs muted mb-1">ความคืบหน้ารวม</div>
             <div className="flex items-end gap-2"><span className="t-3xl fw-7 tnum" style={{ lineHeight: 1 }}>{courseProgress}</span><span className="muted mb-1">%</span></div>
             <div className="mt-2"><Progress value={courseProgress} /></div>
@@ -289,7 +361,7 @@ export default function StudentCourse() {
         <div className="t-xs muted">เรียงตามลำดับบทเรียน</div>
       </div>
       <div className="flex col gap-3">
-        {lessons.map((l) => <LessonRow key={l.id} l={l} nav={nav} />)}
+        {lessons.map((l) => <LessonRow key={l.id} l={l} nav={nav} heroColor={course.hero} />)}
       </div>
     </div>
   );

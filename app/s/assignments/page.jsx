@@ -136,8 +136,8 @@ export default function StudentAssignments() {
 
       {/* Stats Cards Section */}
       <div className="grid grid-4 gap-4 mb-5">
-        <div className="card card-p flex items-center gap-3">
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
+        <div className="card card-p flex items-center gap-3.5">
+          <div className="clay-pod clay-pod-primary" style={{ width: 44, height: 44, borderRadius: 13 }}>
             <Icon name="file" size={20} />
           </div>
           <div>
@@ -146,8 +146,8 @@ export default function StudentAssignments() {
           </div>
         </div>
 
-        <div className="card card-p flex items-center gap-3">
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--info-soft)", color: "var(--info)", display: "grid", placeItems: "center" }}>
+        <div className="card card-p flex items-center gap-3.5">
+          <div className="clay-pod clay-pod-info" style={{ width: 44, height: 44, borderRadius: 13 }}>
             <Icon name="clock" size={20} />
           </div>
           <div>
@@ -156,8 +156,8 @@ export default function StudentAssignments() {
           </div>
         </div>
 
-        <div className="card card-p flex items-center gap-3">
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--success-soft)", color: "var(--success)", display: "grid", placeItems: "center" }}>
+        <div className="card card-p flex items-center gap-3.5">
+          <div className="clay-pod clay-pod-success" style={{ width: 44, height: 44, borderRadius: 13 }}>
             <Icon name="award" size={20} />
           </div>
           <div>
@@ -166,8 +166,8 @@ export default function StudentAssignments() {
           </div>
         </div>
 
-        <div className="card card-p flex items-center gap-3">
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--warning-soft)", color: "var(--warning)", display: "grid", placeItems: "center" }}>
+        <div className="card card-p flex items-center gap-3.5">
+          <div className="clay-pod clay-pod-warning" style={{ width: 44, height: 44, borderRadius: 13 }}>
             <Icon name="alert" size={20} />
           </div>
           <div>

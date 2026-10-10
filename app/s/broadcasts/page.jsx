@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useSession } from "next-auth/react";
 import { PageHead } from "@/components/ui/Shared";
 import { Badge } from "@/components/ui/Primitives";
+import Icon from "@/components/ui/Icon";
 
 export default function StudentBroadcastsPage() {
   const { data: session, status: authStatus } = useSession();
@@ -81,26 +82,47 @@ export default function StudentBroadcastsPage() {
         </div>
       ) : broadcasts.length === 0 ? (
         <div className="card card-p flex col items-center" style={{ gap: 12, padding: "48px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 48 }}>😸</div>
-          <div className="fw-6">ยังไม่มีประกาศ</div>
+          <div className="clay-pod clay-pod-muted" style={{ width: 60, height: 60, borderRadius: 18, marginBottom: 4 }}>
+            <Icon name="bell" size={26} />
+          </div>
+          <div className="fw-6 t-md fg">ยังไม่มีประกาศ</div>
           <div className="t-sm muted">เมื่อมีประกาศจากระบบ จะแสดงที่นี่</div>
         </div>
       ) : (
         <div className="flex col gap-3">
           {broadcasts.map(b => (
-            <div key={b.id} className="card card-p">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div className="flex items-center gap-2">
-                  {b.pinned && <span>📌</span>}
-                  <span className="fw-7">{b.title}</span>
-                  {b.pinned && <Badge tone="primary">ปักหมุด</Badge>}
+            <div
+              key={b.id}
+              className="card card-p"
+              style={{
+                padding: "20px 24px",
+                ...(b.pinned ? { border: "1.5px solid rgba(13, 110, 140, 0.25)" } : {})
+              }}
+            >
+              <div className="flex items-start gap-3.5">
+                <div
+                  className={`clay-pod ${b.pinned ? "clay-pod-primary" : "clay-pod-muted"}`}
+                  style={{ width: 44, height: 44, borderRadius: 13, flex: "0 0 44px" }}
+                >
+                  <Icon name={b.pinned ? "pin" : "bell"} size={20} />
                 </div>
-                <span className="t-xs muted" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{formatDate(b.created_at)}</span>
+                <div className="flex-1" style={{ minWidth: 0 }}>
+                  <div className="flex items-center justify-between gap-3 mb-1.5 wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="fw-7 t-md fg">{b.title}</span>
+                      {b.pinned && <span className="clay-pill clay-pill-primary">ปักหมุด</span>}
+                    </div>
+                    <span className="t-xs muted" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{formatDate(b.created_at)}</span>
+                  </div>
+                  <div className="t-sm pretty" style={{ lineHeight: 1.75, whiteSpace: "pre-wrap", color: "var(--fg)" }}>{b.body}</div>
+                  {b.expires_at && (
+                    <div className="t-xs muted mt-3 flex items-center gap-1.5">
+                      <Icon name="clock" size={13} />
+                      <span>หมดอายุ: {formatDate(b.expires_at)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="t-sm pretty" style={{ lineHeight: 1.75, whiteSpace: "pre-wrap", color: "var(--fg)" }}>{b.body}</div>
-              {b.expires_at && (
-                <div className="t-xs muted mt-3">หมดอายุ: {formatDate(b.expires_at)}</div>
-              )}
             </div>
           ))}
         </div>

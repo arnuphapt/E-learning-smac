@@ -16,12 +16,11 @@ async function check() {
       return { status: "offline", reason: "Missing GEMINI_API_KEY" };
     }
 
-    // 2. Check Gemini Connectivity (fast lightweight ping)
+    // 2. Check Gemini Connectivity (fast metadata check, zero token consumption)
     const ai = new GoogleGenAI({ apiKey });
-    await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: "healthcheck",
-      config: { maxOutputTokens: 2 }
+    await ai.models.get({
+      model: "gemini-3.8-flash",
+      config: { abortSignal: AbortSignal.timeout(5000) }
     });
 
     // 3. Check Supabase Connectivity

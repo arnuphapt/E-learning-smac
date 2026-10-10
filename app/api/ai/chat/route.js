@@ -76,11 +76,13 @@ export async function POST(req) {
 
     // A. Fetch all config from DB
     const CONFIG_DEFAULTS = {
+      model: "gemini-3.8-flash",
       daily_chat_limit: 15,
-      session_token_limit: 20000,
-      max_output_tokens: 2048,
-      max_output_tokens_with_files: 4096,
+      session_token_limit: 50000,
+      max_output_tokens: 4096,
+      max_output_tokens_with_files: 8192,
     };
+    let aiModel = CONFIG_DEFAULTS.model;
     let customPersona = "";
     let dailyLimit = CONFIG_DEFAULTS.daily_chat_limit;
     let SESSION_TOKEN_LIMIT = CONFIG_DEFAULTS.session_token_limit;
@@ -93,6 +95,7 @@ export async function POST(req) {
         .select("key, value");
       if (settingsData) {
         const get = (k) => settingsData.find((r) => r.key === k)?.value;
+        if (get("model")) aiModel = get("model");
         if (get("persona")) customPersona = get("persona");
         if (get("daily_chat_limit")) dailyLimit = parseInt(get("daily_chat_limit"), 10) || CONFIG_DEFAULTS.daily_chat_limit;
         if (get("session_token_limit")) SESSION_TOKEN_LIMIT = parseInt(get("session_token_limit"), 10) || CONFIG_DEFAULTS.session_token_limit;
@@ -106,13 +109,11 @@ export async function POST(req) {
     const estimateTokens = (text) => Math.ceil((text || "").length / 2.5);
     const totalHistoryTokens = messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
 
-    if (!isBypassed) {
-      if (totalHistoryTokens > SESSION_TOKEN_LIMIT) {
-        return NextResponse.json(
-          { error: "session_token_limit", used: totalHistoryTokens, limit: SESSION_TOKEN_LIMIT },
-          { status: 400 }
-        );
-      }
+    if (totalHistoryTokens > SESSION_TOKEN_LIMIT) {
+      return NextResponse.json(
+        { error: "session_token_limit", used: totalHistoryTokens, limit: SESSION_TOKEN_LIMIT },
+        { status: 400 }
+      );
     }
 
     let todayCount = 0;
@@ -121,8 +122,8 @@ export async function POST(req) {
     // summarize and chat are the only two prompts below: the logged mode cannot be a client-made string that dodges the counter
     const logMode = mode === "summarize" ? "summarize" : "chat";
 
-    if (currentUserId && !isBypassed) {
-      // Atomic: count today's calls and insert a claim row under a per-student lock (migration 20261006040000), so N
+    if (currentUserId) {
+      // Atomic: count calls and insert a claim row under a per-user lock (migration 20261006040000), so N
       // parallel requests cannot all pass the check. The claim is filled with the reply below, or deleted if the call fails.
       const claim = await claimAiQuotaFailOpen(supabaseAdmin(), {
         studentId: currentUserId,
@@ -175,42 +176,63 @@ export async function POST(req) {
       lessonInfo += `\n- เอกสารอ้างอิงของบทเรียนนี้สำหรับระบบ AI (นักศึกษาจะไม่เห็นเนื้อหาหรือไฟล์โดยตรง): ${aiDocs.map((d) => d.name).join(", ")}`;
     }
 
+    const userRoleContext = isBypassed
+      ? `[ข้อกำหนดตัวตนและการเรียกขาน]
+- ให้แทนตัวเองว่า "ยูริ" เสมอ
+- ผู้ใช้งานที่กำลังสนทนาอยู่ด้วยในขณะนี้คือ: อาจารย์ / ผู้สอน
+- ให้เรียกหรือแทนตัวผู้ใช้งานว่า "คุณ" ปกติ`
+      : `[ข้อกำหนดตัวตนและการเรียกขาน]
+- ให้แทนตัวเองว่า "ยูริ" เสมอ
+- ผู้ใช้งานที่กำลังสนทนาอยู่ด้วยในขณะนี้คือ: นักศึกษา
+- ให้เรียกหรือแทนตัวผู้ใช้งานว่า "นักศึกษา" เสมอ`;
+
     const baseSystemPrompt = mode === "summarize"
-      ? `คุณเป็น AI ผู้ช่วยสรุปเนื้อหาบทเรียนสำหรับระบบ E-learning
+      ? `คุณคือ "ยูริ" AI ผู้ช่วยสรุปเนื้อหาบทเรียนสำหรับระบบ E-learning
 กรุณาสรุปเนื้อหาและจุดสำคัญของบทเรียนนี้ให้กระชับและเข้าใจง่าย โดยอ้างอิงจากคำอธิบายและเอกสารอ้างอิงที่ให้มา
 ตอบเป็นภาษาไทย จัดระเบียบด้วย bullet points และ headings ให้สวยงาม
 หากไม่มีข้อมูลเพียงพอ ให้บอกว่าต้องการข้อมูลเพิ่มเติมอะไรบ้าง`
-      : `${customPersona || `คุณเป็น AI ผู้ช่วยสอน (Tutor) สำหรับระบบ E-learning ที่คอยให้คำตอบและความรู้แก่นักศึกษา
+      : `${customPersona || `คุณคือ "ยูริ" AI ผู้ช่วยสอน (Tutor) สำหรับระบบ E-learning ที่คอยให้คำตอบและความรู้
 หน้าที่ของคุณ:
 1. ตอบคำถามที่เกี่ยวข้องกับเนื้อหาบทเรียน รวมถึงเอกสารของระบบ AI ที่แนบมาเป็นบริบทอ้างอิง และเอกสารที่นักศึกษาแนบมาเพิ่มเติม (หากมี)
 2. อธิบายแนวคิดที่ยากให้เข้าใจง่ายขึ้น
 3. ยกตัวอย่างประกอบการอธิบาย
 4. ส่งเสริมการเรียนรู้เชิงรุก
 
-กฎ:
-- ตอบเป็นภาษาไทยเป็นหลัก (ยกเว้นคำศัพท์เทคนิค)
-- หากถามนอกเรื่องบทเรียนหรือเอกสารแนบมาก ให้แนะนำให้กลับมาโฟกัสที่บทเรียน
-- ตอบกระชับชัดเจน ไม่ยาวเกินไป
-- ใช้ markdown เพื่อจัดรูปแบบเมื่อเหมาะสม`}`;
+## แนวทางการตอบและการสื่อสาร:
+1. การปรับความยาวคำตอบให้ตรงกับความต้องการ:
+   - หากผู้ใช้ขอ "สรุปสั้นๆ", "ขอคีย์เวิร์ด", "จำไปสอบ", "เอาสั้นๆ" หรือถามคำถามสั้น ให้สรุปอย่างกระชับ เน้นหัวข้อย่อยและประเด็นสำคัญ ไม่เขียนยาวเยิ่นเย้อเป็นตำรา
+   - เรียบเรียงคำตอบให้จบสมบูรณ์เสมอ ไม่เขียนเนื้อหายาวจนเกินขนาดที่จะถูกตัดขาดกลางประโยค
+2. การจัดการคำขอที่เกินขอบเขตของระบบ:
+   - หากผู้ใช้ขอให้สร้างหรือดาวน์โหลดไฟล์ (เช่น PDF, รูปภาพ) หรือขอให้สรุปคลิปวิดีโอโดยตรง ให้ชี้แจงอย่างสุภาพตั้งแต่ต้นว่ายูริไม่สามารถสร้างไฟล์สำหรับดาวน์โหลดหรือเปิดดูคลิปวิดีโอได้โดยตรง แต่จะสรุปและจัดระเบียบเนื้อหาเป็นข้อความ ตาราง หรือ Markdown ให้อ่านและคัดลอกไปใช้งานได้ง่าย
+3. การถามปัญหาทางเทคนิคหรือการใช้งานระบบ:
+   - หากผู้ใช้ถามเรื่องระบบทั่วไป เช่น ส่งงานไม่ได้ เปิดไฟล์ไม่ได้ หรือระบบขัดข้อง ให้ตอบด้วยความเห็นอกเห็นใจ ให้กำลังใจ และแนะนำให้ติดต่อผู้ดูแลระบบหรืออาจารย์ผู้สอนอย่างสุภาพ
+4. การคุมประเด็น:
+   - หากถามนอกเรื่องบทเรียนหรือเอกสารแนบมาก ให้แนะนำให้กลับมาโฟกัสที่บทเรียน
+5. ภาษาและการจัดรูปแบบ:
+   - ตอบเป็นภาษาไทยเป็นหลัก (ยกเว้นคำศัพท์เทคนิค)
+   - ใช้ markdown เพื่อจัดรูปแบบเมื่อเหมาะสม`}`;
 
     const emotionInstruction = `
 [CRITICAL INSTRUCTION FOR EMOTION CLASSIFICATION]
 You must classify the nature of the student's input and append exactly one of the following tags to the very end of your response:
-- If the student has answered your question/quiz/exercise correctly: Append "[emotion: impressive]"
-- If the student asked something off-topic (ถามนอกเรื่อง), inappropriate, or completely unrelated to the lesson/course content: Append "[emotion: mad]"
-- If you are providing a normal helpful answer, explanation, or summary of the lesson: Append "[emotion: smile]"
-- For other neutral states: Append "[emotion: idle]"
+- If the student has answered your question/quiz/exercise correctly or demonstrated great learning progress: Append "[emotion: impressive]"
+- If the student is rude, abusive, insulting, or uses profane language: Append "[emotion: mad]"
+- If the student expresses distress, sadness, confusion, or reports technical/system difficulties (เช่น เปิดไฟล์ไม่ได้ ทำงานไม่ได้ ส่งงานไม่ได้): Append "[emotion: sad]"
+- If you are providing a normal helpful answer, explanation, summary, or friendly learning advice: Append "[emotion: smile]"
+- For other neutral queries, short transitions, or factual exchanges: Append "[emotion: idle]"
 
 Only append the tag at the end of the text. Do not output anything else about emotion.`;
 
     const systemPrompt = `${baseSystemPrompt}
 
+${userRoleContext}
+
 ${lessonInfo}
 
 ${emotionInstruction}`;
 
-    // Build chat history for multi-turn (last 5 messages before the current one)
-    const history = messages.slice(-6, -1).map((m) => {
+    // Build chat history for multi-turn (last 20 messages before the current one)
+    const history = messages.slice(-21, -1).map((m) => {
       let textContent = m.content;
       if (m.attachments && m.attachments.length > 0) {
         textContent += `\n\n[ไฟล์แนบ: ${m.attachments.map((f) => f.name).join(", ")}]`;
@@ -277,16 +299,21 @@ ${emotionInstruction}`;
     const hasFiles = (attachments && attachments.length > 0) || (aiDocs && aiDocs.length > 0);
     const maxOutputTokens = mode === "summarize" ? fileMaxOutputTokens : hasFiles ? fileMaxOutputTokens : baseMaxOutputTokens;
 
+    // Clean history ensuring first turn is from user (Gemini multi-turn rule)
+    const sanitizedHistory = [...history];
+    while (sanitizedHistory.length > 0 && sanitizedHistory[0].role !== "user") {
+      sanitizedHistory.shift();
+    }
+
     const chat = ai.chats.create({
-      model: "gemini-2.5-flash",
-      history: [
-        { role: "user", parts: [{ text: "สวัสดี คุณทำอะไรได้บ้าง?" }] },
-        { role: "model", parts: [{ text: systemPrompt }] },
-        ...history,
-      ],
+      model: aiModel,
+      history: sanitizedHistory,
       config: {
+        systemInstruction: systemPrompt,
         maxOutputTokens,
+        thinkingConfig: { thinkingBudget: 0 },
         temperature: 0.7,
+        abortSignal: AbortSignal.timeout(45000),
       },
     });
 
@@ -331,7 +358,7 @@ ${emotionInstruction}`;
 
     return NextResponse.json({
       reply: text,
-      rateLimitInfo: isBypassed ? null : {
+      rateLimitInfo: {
         used: todayCount + 1,
         limit: dailyLimit
       }

@@ -13,15 +13,97 @@ const parseEmotionAndReply = (text) => {
   if (!text) return { emotion: "smile", cleanText: "" };
   let emotion = "smile";
   let cleanText = text;
-  const match = text.match(/\[emotion:\s*(impressive|mad|smile|idle)\]/i);
+  const match = text.match(/\[emotion:\s*(impressive|mad|smile|idle|sad)\]/i);
   if (match) {
     emotion = match[1].toLowerCase();
-    cleanText = text.replace(/\[emotion:\s*(impressive|mad|smile|idle)\]/gi, "").trim();
+    cleanText = text.replace(/\[emotion:\s*(impressive|mad|smile|idle|sad)\]/gi, "").trim();
   }
   return { emotion, cleanText };
 };
 
-// ---- Simple markdown renderer (bold, bullets, code) ----
+function GeminiSparkleIcon({ size = 20, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, ...style }}>
+      <defs>
+        <linearGradient id="geminiSparkleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1a73e8" />
+          <stop offset="50%" stopColor="#8b5cf6" />
+          <stop offset="100%" stopColor="#ec4899" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 2C12 7.52285 7.52285 12 2 12C7.52285 12 12 16.4772 12 22C12 16.4772 16.4772 12 22 12C16.4772 12 12 7.52285 12 2Z"
+        fill="url(#geminiSparkleGrad)"
+      />
+    </svg>
+  );
+}
+
+function GeminiCodeBlock({ code, language }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+  return (
+    <div style={{
+      margin: "10px 0",
+      borderRadius: 12,
+      overflow: "hidden",
+      border: "1px solid #1e293b",
+      background: "#0b1220",
+      color: "#e2e8f0",
+      fontSize: 12.5,
+      fontFamily: "var(--mono), ui-monospace, monospace",
+    }}>
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "6px 12px",
+        background: "#111b2e",
+        borderBottom: "1px solid #1e293b",
+        fontSize: 11,
+        color: "#94a3b8",
+        fontWeight: 500
+      }}>
+        <span style={{ textTransform: "lowercase" }}>{language || "code"}</span>
+        <button
+          onClick={handleCopy}
+          type="button"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            background: "transparent",
+            border: 0,
+            color: copied ? "#34d399" : "#cbd5e1",
+            cursor: "pointer",
+            fontSize: 11,
+            padding: "2px 6px",
+            borderRadius: 4,
+          }}
+        >
+          <Icon name={copied ? "check" : "clipboard"} size={12} />
+          {copied ? "คัดลอกแล้ว" : "คัดลอกโค้ด"}
+        </button>
+      </div>
+      <pre style={{
+        padding: "12px 14px",
+        margin: 0,
+        overflowX: "auto",
+        lineHeight: 1.55,
+      }}>
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+// ---- Gemini Markdown Renderer ----
 function MarkdownText({ text }) {
   if (!text) return null;
 
@@ -33,27 +115,46 @@ function MarkdownText({ text }) {
     const line = lines[i];
 
     // Heading ##
-    if (line.startsWith("## ")) {
+    if (line.startsWith("### ")) {
       elements.push(
-        <div key={i} style={{ fontWeight: 700, fontSize: 14, marginTop: 10, marginBottom: 4, color: "var(--primary)" }}>
+        <div key={i} style={{ fontWeight: 700, fontSize: 13.5, marginTop: 12, marginBottom: 4, color: "var(--fg)" }}>
+          {renderInline(line.slice(4))}
+        </div>
+      );
+    } else if (line.startsWith("## ")) {
+      elements.push(
+        <div key={i} style={{ fontWeight: 700, fontSize: 14.5, marginTop: 14, marginBottom: 4, color: "var(--fg)" }}>
           {renderInline(line.slice(3))}
         </div>
       );
     } else if (line.startsWith("# ")) {
       elements.push(
-        <div key={i} style={{ fontWeight: 700, fontSize: 15, marginTop: 10, marginBottom: 4 }}>
+        <div key={i} style={{ fontWeight: 700, fontSize: 16, marginTop: 16, marginBottom: 6, color: "var(--fg)" }}>
           {renderInline(line.slice(2))}
         </div>
       );
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
       elements.push(
-        <div key={i} style={{ display: "flex", gap: 6, marginTop: 2 }}>
-          <span style={{ color: "var(--primary)", marginTop: 2, flexShrink: 0 }}>•</span>
-          <span>{renderInline(line.slice(2))}</span>
+        <div key={i} style={{ display: "flex", gap: 8, marginTop: 4, alignItems: "flex-start", paddingLeft: 2 }}>
+          <span style={{
+            display: "inline-block", width: 5, height: 5, borderRadius: "50%",
+            background: "#8b5cf6", marginTop: 7, flexShrink: 0
+          }} />
+          <span style={{ lineHeight: 1.6 }}>{renderInline(line.slice(2))}</span>
+        </div>
+      );
+    } else if (/^\d+\.\s/.test(line)) {
+      const match = line.match(/^(\d+)\.\s(.*)/);
+      elements.push(
+        <div key={i} style={{ display: "flex", gap: 8, marginTop: 4, alignItems: "flex-start", paddingLeft: 2 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 1, minWidth: 16, flexShrink: 0 }}>
+            {match[1]}.
+          </span>
+          <span style={{ lineHeight: 1.6 }}>{renderInline(match[2])}</span>
         </div>
       );
     } else if (line.startsWith("```")) {
-      // code block
+      const language = line.slice(3).trim();
       let codeLines = [];
       i++;
       while (i < lines.length && !lines[i].startsWith("```")) {
@@ -61,18 +162,13 @@ function MarkdownText({ text }) {
         i++;
       }
       elements.push(
-        <pre key={i} style={{
-          background: "var(--muted)", borderRadius: 8, padding: "8px 12px",
-          fontSize: 12, overflowX: "auto", margin: "6px 0", fontFamily: "monospace"
-        }}>
-          {codeLines.join("\n")}
-        </pre>
+        <GeminiCodeBlock key={i} code={codeLines.join("\n")} language={language} />
       );
     } else if (line.trim() === "") {
-      elements.push(<div key={i} style={{ height: 4 }} />);
+      elements.push(<div key={i} style={{ height: 6 }} />);
     } else {
       elements.push(
-        <div key={i} style={{ marginTop: 2, lineHeight: 1.6 }}>
+        <div key={i} style={{ marginTop: 3, lineHeight: 1.65, color: "var(--fg)" }}>
           {renderInline(line)}
         </div>
       );
@@ -80,21 +176,21 @@ function MarkdownText({ text }) {
     i++;
   }
 
-  return <div style={{ fontSize: 13.5 }}>{elements}</div>;
+  return <div style={{ fontSize: 13.5, letterSpacing: "0.01em" }}>{elements}</div>;
 }
 
 function renderInline(text) {
-  // bold **text**
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
+      return <strong key={i} style={{ fontWeight: 700, color: "var(--fg)" }}>{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith("`") && part.endsWith("`")) {
       return (
         <code key={i} style={{
-          background: "var(--muted)", borderRadius: 4, padding: "1px 5px",
-          fontFamily: "monospace", fontSize: 12
+          background: "var(--muted)", borderRadius: 5, padding: "1.5px 6px",
+          fontFamily: "var(--mono), monospace", fontSize: 12, color: "var(--primary)",
+          border: "1px solid var(--border)"
         }}>
           {part.slice(1, -1)}
         </code>
@@ -104,17 +200,69 @@ function renderInline(text) {
   });
 }
 
-// ---- Typing animation dots ----
-function TypingDots() {
+function MessageActionBar({ text }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
   return (
-    <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "6px 2px" }}>
-      {[0, 1, 2].map((i) => (
-        <div key={i} style={{
-          width: 6, height: 6, borderRadius: "50%",
-          background: "var(--primary)", opacity: 0.7,
-          animation: `aiTypingDot 1.2s ${i * 0.2}s infinite ease-in-out`
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+      <button
+        onClick={handleCopy}
+        type="button"
+        title="คัดลอกคำตอบ"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          padding: "3px 8px",
+          borderRadius: 6,
+          border: 0,
+          background: "transparent",
+          color: copied ? "var(--success)" : "var(--muted-fg)",
+          cursor: "pointer",
+          fontSize: 11,
+          transition: "all 0.15s",
+        }}
+        onMouseOver={(e) => { e.currentTarget.style.background = "var(--muted)"; e.currentTarget.style.color = "var(--fg)"; }}
+        onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = copied ? "var(--success)" : "var(--muted-fg)"; }}
+      >
+        <Icon name={copied ? "check" : "clipboard"} size={12} />
+        <span>{copied ? "คัดลอกแล้ว" : "คัดลอก"}</span>
+      </button>
+    </div>
+  );
+}
+
+// ---- Gemini Shimmer Thinking Animation ----
+function GeminiThinking() {
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "6px 2px" }}>
+      <div className="gemini-sparkle-pulse" style={{ marginTop: 1 }}>
+        <GeminiSparkleIcon size={18} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, flex: 1, maxWidth: 260 }}>
+        <div style={{
+          height: 10,
+          borderRadius: 5,
+          background: "linear-gradient(90deg, var(--muted) 20%, var(--primary-soft) 50%, var(--muted) 80%)",
+          backgroundSize: "200% 100%",
+          animation: "geminiShimmer 1.8s infinite ease-in-out",
+          width: "88%",
         }} />
-      ))}
+        <div style={{
+          height: 10,
+          borderRadius: 5,
+          background: "linear-gradient(90deg, var(--muted) 20%, var(--primary-soft) 50%, var(--muted) 80%)",
+          backgroundSize: "200% 100%",
+          animation: "geminiShimmer 1.8s infinite ease-in-out",
+          width: "60%",
+        }} />
+      </div>
     </div>
   );
 }
@@ -155,7 +303,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
 
     try {
       // 1. Fetch custom greeting template
-      let greeting = `สวัสดีครับ! ยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${currLessonTitle || "บทเรียนนี้"}"** 🎓\n\nผมพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนให้คุณแล้ว ถามคำถามมาด้านล่างได้เลยครับ!`;
+      let greeting = `สวัสดีค่ะ! ยูริยินดีต้อนรับสู่ห้องสนทนา AI สำหรับบทเรียน **"${currLessonTitle || "บทเรียนนี้"}"** 🎓\n\nยูริพร้อมตอบคำถามเกี่ยวกับเนื้อหา อธิบายหัวข้อที่ยาก หรือสรุปบทเรียนแล้ว ถามคำถามมาด้านล่างได้เลยค่ะ!`;
       try {
         const pRes = await fetch("/api/ai/persona");
         if (pRes.ok) {
@@ -244,7 +392,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
 
   const fetchDailyUsage = async (studId) => {
     try {
-      // 1. Fetch daily limit from settings (or fallback to 15)
+      // 1. Fetch quota limit from settings (or fallback to 15)
       let limit = 15;
       const { data: settingsData } = await supabase
         .from("ai_settings")
@@ -254,22 +402,16 @@ export default function AiChat({ lesson, course, open, onClose }) {
         if (limitRow) limit = parseInt(limitRow.value, 10) || 15;
       }
 
-      // 2. Get Bangkok local time start and end of today
-      const bangkokTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-      const year = bangkokTime.getFullYear();
-      const month = bangkokTime.getMonth();
-      const date = bangkokTime.getDate();
-      
-      const startOfDay = new Date(Date.UTC(year, month, date, 0 - 7, 0, 0, 0));
-      const endOfDay = new Date(Date.UTC(year, month, date, 24 - 7, 0, 0, 0));
+      // 2. Rolling window 5 hours (matching backend ai_quota_claim)
+      const windowStart = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
 
       const { count, error } = await supabase
         .from("ai_chat_logs")
         .select("*", { count: "exact", head: true })
         .eq("student_id", studId)
-        .eq("mode", "chat")
-        .gte("created_at", startOfDay.toISOString())
-        .lt("created_at", endOfDay.toISOString());
+        .in("mode", ["chat", "summarize", "explain"])
+        .neq("reply", "")
+        .gte("created_at", windowStart);
 
       if (!error) {
         const used = count || 0;
@@ -288,18 +430,13 @@ export default function AiChat({ lesson, course, open, onClose }) {
   useEffect(() => {
     if (open && lesson && studentId) {
       loadHistoryAndSession(lesson.id, lesson.title);
-      if (!isBypassed) {
-        fetchDailyUsage(studentId);
-      } else {
-        setRateLimitInfo(null);
-        setRateLimitError(false);
-      }
+      fetchDailyUsage(studentId);
       setSessionTokenError(false);
     } else if (!open) {
       setMessages([]);
     }
     setInput("");
-  }, [open, lesson?.id, studentId, isBypassed]);
+  }, [open, lesson?.id, studentId]);
 
   useEffect(() => {
     if (open) {
@@ -482,7 +619,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
       let errMsg = "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ AI กรุณาลองใหม่อีกครั้ง";
       const errStr = String(err.message || "");
       if (err.message === "rate_limit_exceeded") {
-        errMsg = "ขออภัย คุณถามคำถามเกินขีดจำกัด 15 คำถามต่อวันแล้ว สามารถถามได้อีกครั้งในวันพรุ่งนี้";
+        errMsg = "ขออภัย คุณถามคำถามเกินขีดจำกัด 15 คำถามในรอบ 5 ชั่วโมงแล้ว สามารถถามได้อีกครั้งในรอบถัดไป";
       } else if (err.message === "session_token_limit") {
         errMsg = "เซสชันนี้มีขนาดประวัติการสนทนาเกินขีดจำกัดแล้ว กรุณาเริ่มการสนทนาใหม่เพื่อคุยต่อ";
       } else if (err.message === "Cannot answer the question") {
@@ -529,112 +666,130 @@ export default function AiChat({ lesson, course, open, onClose }) {
 
       <div className="ai-chat-widget" style={{
         position: "fixed",
-        bottom: 88,
+        bottom: 84,
         right: 24,
-        width: 400,
+        width: 420,
         maxWidth: "calc(100vw - 32px)",
-        height: 560,
-        maxHeight: "calc(100vh - 120px)",
+        height: 610,
+        maxHeight: "calc(100vh - 110px)",
         background: "var(--card)",
         border: "1px solid var(--border)",
-        borderRadius: 20,
-        boxShadow: "0 24px 80px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.1)",
+        borderRadius: 28,
+        boxShadow: "0 20px 60px -10px rgba(15, 23, 42, 0.2), 0 8px 24px -4px rgba(15, 23, 42, 0.08)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
         zIndex: 999,
-        animation: "aiChatSlideIn 0.25s cubic-bezier(0.34,1.56,0.64,1)",
+        animation: "aiChatSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
       }}>
-        {/* Header */}
+        {/* Gemini Minimal Header */}
         <div style={{
-          padding: "14px 16px",
+          padding: "12px 18px",
           borderBottom: "1px solid var(--border)",
-          background: "linear-gradient(135deg, var(--primary) 0%, #0891b2 100%)",
-          color: "#fff",
+          background: "var(--card)",
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          justifyContent: "space-between",
+          gap: 12,
           flexShrink: 0,
         }}>
-          <div style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: "rgba(255,255,255,0.15)",
-            color: "#fff",
-            display: "grid",
-            placeItems: "center",
-            flexShrink: 0,
-          }}>
-            <Icon name="sparkle" size={18} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>AI ผู้ช่วยสอน</div>
-            <div style={{ fontSize: 11.5, opacity: 0.85 }} className="truncate">
-              {lesson?.title ? `บทที่ ${lesson.index} · ${lesson.title}` : "Powered by Gemini"}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <GeminiSparkleIcon size={22} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "var(--fg)" }}>ยูริ</span>
+                <span style={{
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  color: "#2563eb",
+                  background: "#eff6ff",
+                  padding: "1px 7px",
+                  borderRadius: 12,
+                  border: "1px solid #dbeafe"
+                }}>
+                  Gemini 3.8 Flash
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--muted-fg)" }} className="truncate">
+                {lesson?.title ? `บทที่ ${lesson.index} · ${lesson.title}` : "ผู้ช่วยสอนประจำรายวิชา"}
+              </div>
             </div>
           </div>
-          <button
-            onClick={handleStartNewSession}
-            style={{
-              width: 30, height: 30, borderRadius: 8, border: 0,
-              background: "rgba(255,255,255,0.15)", color: "#fff",
-              cursor: "pointer", display: "grid", placeItems: "center",
-              flexShrink: 0, marginRight: 4
-            }}
-            title="เริ่มการสนทนาใหม่"
-          >
-            <Icon name="plus" size={14} />
-          </button>
-          <button
-            onClick={() => setShowHistoryDialog(true)}
-            style={{
-              width: 30, height: 30, borderRadius: 8, border: 0,
-              background: "rgba(255,255,255,0.15)", color: "#fff",
-              cursor: "pointer", display: "grid", placeItems: "center",
-              flexShrink: 0, marginRight: 4
-            }}
-            title="ประวัติการสนทนา"
-          >
-            <Icon name="clock" size={14} />
-          </button>
-          <button
-            onClick={onClose}
-            style={{
-              width: 30, height: 30, borderRadius: 8, border: 0,
-              background: "rgba(255,255,255,0.15)", color: "#fff",
-              cursor: "pointer", display: "grid", placeItems: "center",
-              flexShrink: 0,
-            }}
-            title="ปิด"
-          >
-            <Icon name="x" size={16} />
-          </button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button
+              onClick={handleStartNewSession}
+              style={{
+                width: 32, height: 32, borderRadius: "50%", border: 0,
+                background: "transparent", color: "var(--muted-fg)",
+                cursor: "pointer", display: "grid", placeItems: "center",
+                transition: "all 0.15s",
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "var(--muted)"; e.currentTarget.style.color = "var(--fg)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-fg)"; }}
+              title="เริ่มการสนทนาใหม่"
+            >
+              <Icon name="plus" size={15} />
+            </button>
+            <button
+              onClick={() => setShowHistoryDialog(true)}
+              style={{
+                width: 32, height: 32, borderRadius: "50%", border: 0,
+                background: "transparent", color: "var(--muted-fg)",
+                cursor: "pointer", display: "grid", placeItems: "center",
+                transition: "all 0.15s",
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "var(--muted)"; e.currentTarget.style.color = "var(--fg)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-fg)"; }}
+              title="ประวัติการสนทนา"
+            >
+              <Icon name="clock" size={15} />
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                width: 32, height: 32, borderRadius: "50%", border: 0,
+                background: "transparent", color: "var(--muted-fg)",
+                cursor: "pointer", display: "grid", placeItems: "center",
+                transition: "all 0.15s",
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "var(--muted)"; e.currentTarget.style.color = "var(--fg)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-fg)"; }}
+              title="ปิด"
+            >
+              <Icon name="x" size={16} />
+            </button>
+          </div>
         </div>
 
-        {/* Quick actions */}
+        {/* Gemini Prompt Suggestion Pills */}
         <div style={{
-          padding: "8px 12px",
+          padding: "8px 14px",
           borderBottom: "1px solid var(--border)",
           display: "flex",
           gap: 6,
           flexShrink: 0,
           overflowX: "auto",
+          background: "var(--bg)",
         }}>
           <button
             onClick={() => sendMessage("", "summarize")}
             disabled={loading || summarizing}
             style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "5px 12px", borderRadius: 20, border: "1px solid var(--primary)",
-              background: "var(--primary-soft)", color: "var(--primary)",
+              display: "inline-flex", alignItems: "center", gap: 5,
+              padding: "5px 12px", borderRadius: 9999,
+              border: "1px solid #bfdbfe",
+              background: "#eff6ff", color: "#1d4ed8",
               fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
               opacity: (loading || summarizing) ? 0.6 : 1,
               flexShrink: 0,
+              transition: "all 0.15s",
             }}
+            onMouseOver={(e) => { if (!loading && !summarizing) e.currentTarget.style.background = "#dbeafe"; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = "#eff6ff"; }}
           >
-            <Icon name="sparkle" size={13} />
-            {summarizing ? "กำลังสรุป..." : "สรุปบทเรียน"}
+            <GeminiSparkleIcon size={12} />
+            {summarizing ? "กำลังสรุป..." : "สรุปบทเรียนนี้"}
           </button>
           {messages.length <= 1 && SUGGESTIONS.slice(1).map((s, i) => (
             <button
@@ -642,50 +797,76 @@ export default function AiChat({ lesson, course, open, onClose }) {
               onClick={() => sendMessage(s)}
               disabled={loading || rateLimitError || sessionTokenError}
               style={{
-                padding: "5px 12px", borderRadius: 20, border: "1px solid var(--border)",
-                background: "var(--bg)", color: "var(--fg)",
-                fontSize: 12, cursor: (loading || rateLimitError || sessionTokenError) ? "not-allowed" : "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                padding: "5px 12px", borderRadius: 9999, border: "1px solid var(--border)",
+                background: "var(--card)", color: "var(--fg)",
+                fontSize: 12, cursor: (loading || rateLimitError || sessionTokenError) ? "not-allowed" : "pointer",
+                whiteSpace: "nowrap", flexShrink: 0,
                 opacity: (loading || rateLimitError || sessionTokenError) ? 0.6 : 1,
+                transition: "all 0.15s",
               }}
+              onMouseOver={(e) => { if (!loading && !rateLimitError && !sessionTokenError) { e.currentTarget.style.borderColor = "var(--ring)"; e.currentTarget.style.background = "var(--muted)"; } }}
+              onMouseOut={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--card)"; }}
             >
               {s}
             </button>
           ))}
         </div>
 
-        {/* Messages */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {/* Messages Feed */}
+        <div style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "16px 18px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          background: "var(--card)",
+        }}>
           {messages.map((msg, i) => (
             <div
               key={i}
               style={{
                 display: "flex",
                 justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                gap: 8,
-                alignItems: "flex-end",
+                gap: 10,
+                alignItems: "flex-start",
               }}
             >
               {msg.role === "assistant" && (
-                <AiAvatar size={28} style={{ marginBottom: 2 }} />
+                <div style={{ marginTop: 2, flexShrink: 0 }}>
+                  <GeminiSparkleIcon size={18} />
+                </div>
               )}
+
               <div style={{
-                maxWidth: "80%",
-                padding: "9px 13px",
-                borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                background: msg.role === "user"
-                  ? "linear-gradient(135deg, var(--primary), #0891b2)"
-                  : "var(--muted)",
-                color: msg.role === "user" ? "#fff" : "var(--fg)",
-                fontSize: 13.5,
-                lineHeight: 1.5,
+                maxWidth: msg.role === "user" ? "82%" : "92%",
+                ...(msg.role === "user" ? {
+                  padding: "10px 16px",
+                  borderRadius: "20px 20px 4px 20px",
+                  background: "#f0f4f9",
+                  color: "var(--fg)",
+                  fontSize: 13.5,
+                  lineHeight: 1.55,
+                  border: "1px solid #e2e8f0",
+                } : {
+                  /* Gemini Open Canvas: No heavy bubble, flowing clean typography */
+                  padding: "0 4px",
+                  color: "var(--fg)",
+                  fontSize: 13.5,
+                  lineHeight: 1.65,
+                  width: "100%",
+                })
               }}>
                 {msg.role === "assistant" ? (
-                  <MarkdownText text={msg.content} />
+                  <div>
+                    <MarkdownText text={msg.content} />
+                    <MessageActionBar text={msg.content} />
+                  </div>
                 ) : (
                   <div>
-                    <div>{msg.content}</div>
+                    <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
                     {msg.attachments && msg.attachments.length > 0 && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, borderTop: "1px dashed rgba(255,255,255,0.3)", paddingTop: 6 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, borderTop: "1px dashed var(--border)", paddingTop: 6 }}>
                         {msg.attachments.map((f, idx) => (
                           <a
                             key={idx}
@@ -697,13 +878,12 @@ export default function AiChat({ lesson, course, open, onClose }) {
                               alignItems: "center",
                               gap: 6,
                               fontSize: 11.5,
-                              color: "#fff",
-                              opacity: 0.95,
+                              color: "var(--primary)",
                               textDecoration: "underline"
                             }}
                           >
-                            <Icon name="file" size={11} />
-                            <span className="truncate" style={{ maxWidth: 160 }}>{f.name}</span>
+                            <Icon name="file" size={12} />
+                            <span className="truncate" style={{ maxWidth: 180 }}>{f.name}</span>
                           </a>
                         ))}
                       </div>
@@ -715,62 +895,56 @@ export default function AiChat({ lesson, course, open, onClose }) {
           ))}
 
           {loading && !summarizing && (
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-              <AiAvatar size={28} />
-              <div style={{
-                padding: "9px 13px",
-                borderRadius: "16px 16px 16px 4px",
-                background: "var(--muted)",
-              }}>
-                <TypingDots />
-              </div>
-            </div>
+            <GeminiThinking />
           )}
 
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
+        {/* Gemini Floating Capsule Input Area */}
         <div className="ai-chat-input-area" style={{
-          borderTop: "1px solid var(--border)",
+          padding: "10px 14px 12px",
           background: "var(--card)",
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
-          position: "relative"
+          position: "relative",
+          borderTop: "1px solid var(--border)",
         }}>
           {/* Rate Limit Banner */}
-          {rateLimitError && !isBypassed && (
+          {rateLimitError && (
             <div style={{
               background: "var(--danger-soft)",
               color: "var(--danger)",
-              padding: "10px 14px",
-              fontSize: 12.5,
+              padding: "8px 12px",
+              borderRadius: 12,
+              fontSize: 12,
               fontWeight: 500,
               display: "flex",
               alignItems: "center",
               gap: 8,
-              borderBottom: "1px solid var(--border)"
+              marginBottom: 8,
             }}>
               <Icon name="x" size={14} />
               <div style={{ flex: 1 }}>
-                โควต้าการถามวันนี้เต็มแล้ว ({rateLimitInfo?.used}/{rateLimitInfo?.limit} คำถาม) สามารถถามใหม่ได้ในวันพรุ่งนี้
+                โควต้าการถามรอบนี้เต็มแล้ว ({rateLimitInfo?.used}/{rateLimitInfo?.limit} คำถาม) ระบบจะทยอยรีเซ็ตตามรอบเวลา 5 ชั่วโมง
               </div>
             </div>
           )}
 
           {/* Session Token Limit Banner */}
-          {sessionTokenError && !isBypassed && (
+          {sessionTokenError && (
             <div style={{
               background: "var(--warning-soft)",
               color: "var(--warning)",
-              padding: "10px 14px",
-              fontSize: 12.5,
+              padding: "8px 12px",
+              borderRadius: 12,
+              fontSize: 12,
               fontWeight: 500,
               display: "flex",
               alignItems: "center",
               gap: 8,
-              borderBottom: "1px solid var(--border)"
+              marginBottom: 8,
             }}>
               <Icon name="sparkle" size={14} />
               <div style={{ flex: 1 }}>
@@ -786,27 +960,14 @@ export default function AiChat({ lesson, course, open, onClose }) {
                   color: "#fff",
                   border: 0,
                   borderRadius: 6,
-                  padding: "4px 8px",
-                  fontSize: 11.5,
+                  padding: "3px 8px",
+                  fontSize: 11,
                   fontWeight: 600,
                   cursor: "pointer"
                 }}
               >
-                เริ่มสนทนาใหม่
+                เริ่มใหม่
               </button>
-            </div>
-          )}
-
-          {/* Quota Indicator */}
-          {rateLimitInfo && !isBypassed && !rateLimitError && !sessionTokenError && (
-            <div style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              padding: "6px 12px 0 12px",
-              fontSize: 11,
-              color: "var(--subtle)",
-            }}>
-              โควต้าวันนี้: {rateLimitInfo.used}/{rateLimitInfo.limit} คำถาม
             </div>
           )}
 
@@ -814,20 +975,20 @@ export default function AiChat({ lesson, course, open, onClose }) {
           {showAttachmentDropdown && (
             <div ref={attachmentRef} className="card shadow-lg" style={{
               position: "absolute",
-              bottom: "100%",
-              left: 12,
+              bottom: "calc(100% + 4px)",
+              left: 14,
               zIndex: 1000,
-              width: 280,
+              width: 290,
               maxHeight: 200,
               overflowY: "auto",
               background: "var(--card)",
               border: "1px solid var(--border)",
-              borderRadius: 12,
+              borderRadius: 16,
               padding: 8,
               display: "flex",
               flexDirection: "column",
               gap: 4,
-              marginBottom: 6,
+              boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
               animation: "selectFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)"
             }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--subtle)", textTransform: "uppercase", padding: "4px 8px" }}>
@@ -848,9 +1009,9 @@ export default function AiChat({ lesson, course, open, onClose }) {
                       border: 0,
                       background: "transparent",
                       color: "var(--fg)",
-                      padding: "8px 10px",
-                      borderRadius: 8,
-                      fontSize: 12.5,
+                      padding: "7px 10px",
+                      borderRadius: 10,
+                      fontSize: 12,
                       cursor: isAttached ? "not-allowed" : "pointer",
                       display: "flex",
                       alignItems: "center",
@@ -862,7 +1023,7 @@ export default function AiChat({ lesson, course, open, onClose }) {
                     onMouseOver={(e) => { if (!isAttached) e.currentTarget.style.background = "var(--muted)"; }}
                     onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
                   >
-                    <Icon name="file" size={14} className="muted" />
+                    <Icon name="file" size={13} className="muted" />
                     <span className="truncate flex-1">{doc.name}</span>
                     {isAttached && <Icon name="check" size={12} className="success" />}
                   </button>
@@ -871,119 +1032,170 @@ export default function AiChat({ lesson, course, open, onClose }) {
             </div>
           )}
 
-          {/* Render chips for attached files */}
-          {attachedFiles.length > 0 && (
-            <div style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 6,
-              padding: "10px 12px 6px 12px",
-              borderBottom: "1px dashed var(--border)"
-            }}>
-              {attachedFiles.map((file, idx) => (
-                <div key={idx} style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  background: "var(--primary-soft)",
-                  color: "var(--primary)",
-                  padding: "4px 8px",
-                  borderRadius: 8,
-                  fontSize: 11.5,
-                  fontWeight: 500,
-                  maxWidth: "100%"
-                }}>
-                  <Icon name="file" size={11} />
-                  <span className="truncate" style={{ maxWidth: 180 }}>{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setAttachedFiles(attachedFiles.filter((_, i) => i !== idx))}
-                    style={{
-                      border: 0,
-                      background: "transparent",
-                      color: "var(--primary)",
-                      cursor: "pointer",
-                      padding: 0,
-                      display: "grid",
-                      placeItems: "center"
-                    }}
-                  >
-                    <Icon name="x" size={11} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Actual input controls */}
+          {/* Gemini Pill Capsule Input Container */}
           <div style={{
-            padding: "10px 12px",
+            background: "#f0f4f9",
+            border: "1px solid #e2e8f0",
+            borderRadius: 24,
+            padding: "8px 12px 8px 14px",
             display: "flex",
-            gap: 8,
-            alignItems: "flex-end"
+            flexDirection: "column",
+            gap: 6,
+            transition: "all 0.18s ease-in-out",
           }}>
-            {/* Attachment Button */}
-            {(lesson?.documents || []).length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowAttachmentDropdown(!showAttachmentDropdown)}
-                disabled={loading || rateLimitError || sessionTokenError}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  border: "1px solid var(--border)",
-                  background: showAttachmentDropdown ? "var(--primary-soft)" : "var(--card)",
-                  color: showAttachmentDropdown ? "var(--primary)" : "var(--subtle)",
-                  cursor: (loading || rateLimitError || sessionTokenError) ? "not-allowed" : "pointer",
-                  display: "grid",
-                  placeItems: "center",
-                  flexShrink: 0,
-                  transition: "all 0.15s"
-                }}
-                onMouseOver={(e) => { if (!showAttachmentDropdown && !rateLimitError && !sessionTokenError) { e.currentTarget.style.borderColor = "var(--primary)"; e.currentTarget.style.color = "var(--primary)"; } }}
-                onMouseOut={(e) => { if (!showAttachmentDropdown) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--subtle)"; } }}
-                title="แนบเอกสารบทเรียน"
-              >
-                <Icon name="clip" size={16} />
-              </button>
+            {/* Chips for attached files */}
+            {attachedFiles.length > 0 && (
+              <div style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                paddingBottom: 4,
+                borderBottom: "1px dashed #cbd5e1"
+              }}>
+                {attachedFiles.map((file, idx) => (
+                  <div key={idx} style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "#ffffff",
+                    color: "var(--fg)",
+                    border: "1px solid #cbd5e1",
+                    padding: "3px 8px",
+                    borderRadius: 16,
+                    fontSize: 11,
+                    fontWeight: 500,
+                    maxWidth: "100%"
+                  }}>
+                    <Icon name="file" size={11} style={{ color: "var(--primary)" }} />
+                    <span className="truncate" style={{ maxWidth: 170 }}>{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedFiles(attachedFiles.filter((_, i) => i !== idx))}
+                      style={{
+                        border: 0,
+                        background: "transparent",
+                        color: "var(--muted-fg)",
+                        cursor: "pointer",
+                        padding: 0,
+                        display: "grid",
+                        placeItems: "center"
+                      }}
+                    >
+                      <Icon name="x" size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
 
+            {/* Input textarea */}
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="ถามคำถามเกี่ยวกับบทเรียน..."
+              placeholder="ถามคำถามเกี่ยวกับบทเรียนกับยูริ..."
               rows={1}
               disabled={loading || rateLimitError || sessionTokenError}
               style={{
-                flex: 1, resize: "none", border: "1px solid var(--border)",
-                borderRadius: 12, padding: "8px 12px", fontSize: 13.5,
-                background: "var(--bg)", color: "var(--fg)", outline: "none",
-                fontFamily: "inherit", lineHeight: 1.5,
-                maxHeight: 80, overflowY: "auto",
+                width: "100%",
+                resize: "none",
+                border: 0,
+                outline: "none",
+                background: "transparent",
+                color: "var(--fg)",
+                fontSize: 13.5,
+                fontFamily: "inherit",
+                lineHeight: 1.5,
+                maxHeight: 90,
+                overflowY: "auto",
+                padding: "2px 0",
               }}
               onInput={(e) => {
                 e.target.style.height = "auto";
-                e.target.style.height = Math.min(e.target.scrollHeight, 80) + "px";
+                e.target.style.height = Math.min(e.target.scrollHeight, 90) + "px";
               }}
             />
-            <button
-              onClick={() => sendMessage(input)}
-              disabled={(!input.trim() && attachedFiles.length === 0) || loading || rateLimitError || sessionTokenError}
-              style={{
-                width: 36, height: 36, borderRadius: 10, border: 0,
-                background: (input.trim() || attachedFiles.length > 0) && !loading && !rateLimitError && !sessionTokenError ? "var(--primary)" : "var(--muted)",
-                color: (input.trim() || attachedFiles.length > 0) && !loading && !rateLimitError && !sessionTokenError ? "#fff" : "var(--subtle)",
-                cursor: (input.trim() || attachedFiles.length > 0) && !loading && !rateLimitError && !sessionTokenError ? "pointer" : "not-allowed",
-                display: "grid", placeItems: "center",
-                transition: "all 0.15s",
-                flexShrink: 0,
-              }}
-            >
-              <Icon name="send" size={16} />
-            </button>
+
+            {/* Bottom toolbar inside capsule */}
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 2,
+            }}>
+              {/* Attachment Button */}
+              {(lesson?.documents || []).length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAttachmentDropdown(!showAttachmentDropdown)}
+                  disabled={loading || rateLimitError || sessionTokenError}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: "50%",
+                    border: 0,
+                    background: showAttachmentDropdown ? "#dbeafe" : "transparent",
+                    color: showAttachmentDropdown ? "#1d4ed8" : "var(--muted-fg)",
+                    cursor: (loading || rateLimitError || sessionTokenError) ? "not-allowed" : "pointer",
+                    display: "grid",
+                    placeItems: "center",
+                    flexShrink: 0,
+                    transition: "all 0.15s",
+                  }}
+                  onMouseOver={(e) => { if (!showAttachmentDropdown && !rateLimitError && !sessionTokenError) { e.currentTarget.style.background = "#e2e8f0"; e.currentTarget.style.color = "var(--fg)"; } }}
+                  onMouseOut={(e) => { if (!showAttachmentDropdown) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--muted-fg)"; } }}
+                  title="แนบเอกสารบทเรียน"
+                >
+                  <Icon name="clip" size={15} />
+                </button>
+              ) : <div />}
+
+              {/* Gemini Circular Send Button */}
+              <button
+                onClick={() => sendMessage(input)}
+                disabled={(!input.trim() && attachedFiles.length === 0) || loading || rateLimitError || sessionTokenError}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  border: 0,
+                  background: (input.trim() || attachedFiles.length > 0) && !loading && !rateLimitError && !sessionTokenError
+                    ? "linear-gradient(135deg, #1a73e8 0%, #8b5cf6 100%)"
+                    : "#cbd5e1",
+                  color: "#ffffff",
+                  cursor: (input.trim() || attachedFiles.length > 0) && !loading && !rateLimitError && !sessionTokenError
+                    ? "pointer"
+                    : "not-allowed",
+                  display: "grid",
+                  placeItems: "center",
+                  transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
+                  transform: (input.trim() || attachedFiles.length > 0) && !loading ? "scale(1)" : "scale(0.92)",
+                  boxShadow: (input.trim() || attachedFiles.length > 0) && !loading
+                    ? "0 4px 12px rgba(37, 99, 235, 0.3)"
+                    : "none",
+                  flexShrink: 0,
+                }}
+                title="ส่งข้อความ"
+              >
+                <Icon name="send" size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Gemini Disclaimer & Quota Indicator */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "5px 6px 0 6px",
+            fontSize: 10.5,
+            color: "var(--subtle)",
+          }}>
+            <span>ยูริอาจให้ข้อมูลคลาดเคลื่อนได้</span>
+            {rateLimitInfo && (
+              <span>โควต้า (รอบ 5 ชม.): {rateLimitInfo.used}/{rateLimitInfo.limit} คำถาม</span>
+            )}
           </div>
         </div>
       </div>
@@ -1069,12 +1281,19 @@ export default function AiChat({ lesson, course, open, onClose }) {
 
       <style>{`
         @keyframes aiChatSlideIn {
-          from { opacity: 0; transform: translateY(20px) scale(0.95); }
+          from { opacity: 0; transform: translateY(20px) scale(0.96); }
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        @keyframes aiTypingDot {
-          0%, 80%, 100% { transform: scale(1); opacity: 0.5; }
-          40% { transform: scale(1.3); opacity: 1; }
+        @keyframes geminiShimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        @keyframes geminiSparklePulse {
+          0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+          50% { transform: scale(1.15) rotate(15deg); opacity: 1; }
+        }
+        .gemini-sparkle-pulse {
+          animation: geminiSparklePulse 2.4s ease-in-out infinite;
         }
         @media (max-width: 1024px) {
           .ai-chat-overlay {
@@ -1085,14 +1304,14 @@ export default function AiChat({ lesson, course, open, onClose }) {
             right: 0 !important;
             width: 100vw !important;
             maxWidth: 100vw !important;
-            height: 85% !important;
-            maxHeight: 85% !important;
-            borderRadius: 20px 20px 0 0 !important;
-            box-shadow: 0 -8px 30px rgba(0,0,0,0.15) !important;
-            animation: aiChatSlideUp 0.3s cubic-bezier(0.32, 0.94, 0.6, 1) !important;
+            height: 90% !important;
+            maxHeight: 90% !important;
+            borderRadius: 24px 24px 0 0 !important;
+            box-shadow: 0 -12px 40px rgba(0,0,0,0.18) !important;
+            animation: aiChatSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
           }
           .ai-chat-input-area {
-            padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
           }
         }
         @keyframes aiChatSlideUp {

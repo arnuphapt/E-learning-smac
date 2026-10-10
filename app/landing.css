@@ -162,8 +162,8 @@
 .cta-box .in{position:relative;z-index:1;}
 .cta-box h2{font-family:var(--serif);font-weight:600;font-size:clamp(30px,3.6vw,46px);color:#fff;line-height:1.2;letter-spacing:-.01em;}
 .cta-box p{color:#cfe7ed;font-size:18px;margin-top:18px;max-width:560px;margin-left:auto;margin-right:auto;}
-.cta-box .btn-primary{background:#fff;color:var(--teal-deep);margin-top:34px;}
-.cta-box .btn-primary:hover{background:var(--paper);}
+.cta-box .btn-primary{background:#fff;color:var(--teal-deep) !important;margin-top:34px;}
+.cta-box .btn-primary:hover{background:var(--mint);color:var(--teal-ink) !important;}
 
 .footer{background:var(--teal-ink);color:#9fbcc4;padding:54px 0 40px;}
 .footer-grid{display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;align-items:flex-start;}

@@ -9,7 +9,7 @@ import Icon from "@/components/ui/Icon";
 // keeps a log row per answer for the shared daily quota).
 const STARTER = "ช่วยอธิบายข้อนี้ให้หน่อย";
 const ERRORS = {
-  rate_limit_exceeded: "ใช้โควตา AI ของวันนี้ครบแล้ว ลองใหม่พรุ่งนี้",
+  rate_limit_exceeded: "ใช้โควตา AI ครบกำหนดแล้ว (15 ครั้ง ในรอบ 5 ชม.) กรุณาลองใหม่ในรอบถัดไป",
   session_token_limit: "บทสนทนายาวเกินไป ปิดแล้วเปิดถาม AI ใหม่อีกครั้ง",
 };
 
