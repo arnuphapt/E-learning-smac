@@ -9,6 +9,10 @@ import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 import { toast } from "@/components/ui/Toast";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
+
+const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+const NEW_DOMAIN = "__new__";
 
 function RowActions({ onEdit, onDelete }) {
   return (
@@ -23,7 +27,11 @@ function RowActions({ onEdit, onDelete }) {
   );
 }
 
-function GradeDialog({ mode, row, onClose, onSave, existingPrefixes }) {
+function GradeDialog({ mode, row, onClose, onSave, grades, domains }) {
+  const [domainSel, setDomainSel] = useState(row ? row.domain || DEFAULT_DOMAIN : DEFAULT_DOMAIN);
+  const [newDomain, setNewDomain] = useState("");
+  const domain = domainSel === NEW_DOMAIN ? newDomain.trim().toLowerCase() : domainSel;
+  const external = domain !== DEFAULT_DOMAIN; // external domains: tutor mode only (see lib/registration.js)
   const [prefix, setPrefix] = useState(row ? row.prefix : "");
   const [yearLabel, setYearLabel] = useState(row ? row.year_label : "ชั้นปีที่ 1");
   const [customLabel, setCustomLabel] = useState("");
@@ -46,8 +54,13 @@ function GradeDialog({ mode, row, onClose, onSave, existingPrefixes }) {
       return;
     }
 
-    if (mode === "add" && existingPrefixes.includes(cleanPrefix)) {
-      toast(`รหัสประจำตัวขึ้นต้นด้วย "${cleanPrefix}" ได้ถูกกำหนดไว้แล้ว`);
+    if (!DOMAIN_RE.test(domain)) {
+      toast("กรุณาระบุโดเมนให้ถูกต้อง (เช่น partner.ac.th)");
+      return;
+    }
+
+    if (mode === "add" && grades.some((g) => (g.domain || DEFAULT_DOMAIN) === domain && g.prefix === cleanPrefix)) {
+      toast(`รหัสประจำตัวขึ้นต้นด้วย "${cleanPrefix}" ของโดเมน ${domain} ได้ถูกกำหนดไว้แล้ว`);
       return;
     }
 
@@ -56,17 +69,18 @@ function GradeDialog({ mode, row, onClose, onSave, existingPrefixes }) {
       toast("กรุณาระบุชั้นปี");
       return;
     }
-
     onSave({
       prefix: cleanPrefix,
       year_label: finalLabel,
+      domain,
+      newDomain: !domains.includes(domain),
     });
   };
 
   return (
     <Dialog
       title={mode === "add" ? "เพิ่มการกำหนดชั้นปี" : "แก้ไขการกำหนดชั้นปี"}
-      desc="กำหนดความสัมพันธ์ระหว่างเลขรหัสนักศึกษา 2 ตัวหน้าและระดับชั้นปี"
+      desc="กำหนดความสัมพันธ์ระหว่างเลขรหัสนักศึกษา 2 ตัวหน้าและระดับชั้นปี ของแต่ละโดเมนอีเมล"
       onClose={onClose}
       footer={
         <>
@@ -79,6 +93,33 @@ function GradeDialog({ mode, row, onClose, onSave, existingPrefixes }) {
         </>
       }
     >
+      <div className="field">
+        <label className="label">
+          โดเมนอีเมล <span className="c-danger">*</span>
+        </label>
+        <Select
+          className="input"
+          value={domainSel}
+          onChange={(e) => setDomainSel(e.target.value)}
+          disabled={mode === "edit"}
+          style={{ width: "100%", height: 38 }}
+        >
+          {[...new Set([DEFAULT_DOMAIN, ...domains])].map((d) => (
+            <option key={d} value={d}>{d}{d === DEFAULT_DOMAIN ? " (ค่าเริ่มต้น)" : ""}</option>
+          ))}
+          <option value={NEW_DOMAIN}>เพิ่มโดเมนใหม่…</option>
+        </Select>
+        {domainSel === NEW_DOMAIN && (
+          <input className="input mt-2" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder="เช่น partner.ac.th" style={{ width: "100%" }} />
+        )}
+        {external && (
+          <p className="t-xs muted mt-1">
+            โดเมนอื่นนอกจาก {DEFAULT_DOMAIN} เป็นโดเมนภายนอก: ผู้ล็อกอินด้วยอีเมลโดเมนนี้จะเข้าได้เฉพาะชุดติว (Tutor) เท่านั้น
+            โดยชั้นปีคำนวณจากเลขรหัสในอีเมล (ตัวเลขล้วนก่อน @) ตามตารางของโดเมนนี้ และเลือกล็อกชุดติวได้ในหน้าตั้งค่าชุดติว
+          </p>
+        )}
+      </div>
+
       <div className="field">
         <label className="label">
           รหัสนักศึกษา 2 ตัวหน้า <span className="c-danger">*</span>
@@ -192,19 +233,22 @@ function ConfirmDialog({ title, desc, onConfirm, onClose }) {
 
 export default function MasterStudentGradePage() {
   const [gradesList, setGradesList] = useState([]);
+  const [domains, setDomains] = useState([]); // allowed_domains
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState(null); // {mode, row}
   const [confirmDlg, setConfirmDlg] = useState(null); // {title, desc, onConfirm}
   
   // Filters state
   const [filterYearLabel, setFilterYearLabel] = useState("all");
+  const [filterDomain, setFilterDomain] = useState("all");
 
   const loadData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("student_grades")
-      .select("*")
-      .order("prefix", { ascending: false });
+    const [{ data, error }, { data: ad }] = await Promise.all([
+      supabase.from("student_grades").select("*").order("prefix", { ascending: false }),
+      supabase.from("allowed_domains").select("domain"),
+    ]);
+    setDomains((ad || []).map((d) => d.domain));
 
     if (!error) {
       setGradesList(data || []);
@@ -221,10 +265,20 @@ export default function MasterStudentGradePage() {
   const handleSaveGrade = async (gradeData) => {
     setDlg(null);
     if (dlg.mode === "add") {
+      const { newDomain, ...fields } = gradeData;
       const newGrade = {
         id: "sg_" + Date.now(),
-        ...gradeData,
+        ...fields,
       };
+      if (newDomain) {
+        // a new external domain is allowed to sign in (tutor mode only) the moment its first year level is saved
+        const { error: dErr } = await supabase.from("allowed_domains").insert([{ domain: newGrade.domain }]);
+        if (dErr) {
+          toast("เพิ่มโดเมนไม่สำเร็จ: " + dErr.message);
+          return;
+        }
+        setDomains((prev) => [...prev, newGrade.domain]);
+      }
       const { error } = await supabase.from("student_grades").insert([newGrade]);
       if (error) {
         toast("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
@@ -261,7 +315,7 @@ export default function MasterStudentGradePage() {
 
   // Filter logic
   const filteredGrades = gradesList.filter((g) => {
-    return filterYearLabel === "all" || g.year_label === filterYearLabel;
+    return (filterYearLabel === "all" || g.year_label === filterYearLabel) && (filterDomain === "all" || (g.domain || DEFAULT_DOMAIN) === filterDomain);
   });
 
   // Get unique year labels for filter dropdown
@@ -286,12 +340,24 @@ export default function MasterStudentGradePage() {
         loading={loading}
         className="table"
             enableSearch={true}
-            searchKeys={["prefix", "year_label"]}
+            searchKeys={["prefix", "year_label", "domain"]}
             searchPlaceholder="ค้นหาเลขรหัส หรือ ชั้นปี..."
-            headers={["เลขรหัส 2 ตัวหน้า", "ชั้นปีการศึกษา", "วันที่สร้าง", ""]}
+            headers={["เลขรหัส 2 ตัวหน้า", "โดเมนอีเมล", "ชั้นปีการศึกษา", "วันที่สร้าง", ""]}
             data={filteredGrades}
-            colSpan={4}
+            colSpan={5}
             filter={
+              <>
+              <Select
+                className="input"
+                value={filterDomain}
+                onChange={(e) => setFilterDomain(e.target.value)}
+                style={{ width: 180, height: 38 }}
+              >
+                <option value="all">โดเมน: ทั้งหมด</option>
+                {[...new Set([DEFAULT_DOMAIN, ...domains])].map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </Select>
               <Select
                 className="input"
                 value={filterYearLabel}
@@ -305,6 +371,7 @@ export default function MasterStudentGradePage() {
                   </option>
                 ))}
               </Select>
+              </>
             }
             renderRow={(g) => (
               <tr key={g.id}>
@@ -327,6 +394,10 @@ export default function MasterStudentGradePage() {
                     </div>
                     <span className="fw-6">รหัสประจำตัวขึ้นต้นด้วย {g.prefix}</span>
                   </div>
+                </td>
+                <td>
+                  {g.domain || DEFAULT_DOMAIN}
+                  {(g.domain || DEFAULT_DOMAIN) !== DEFAULT_DOMAIN && <span style={{ marginLeft: 8 }}><Badge tone="warning">ภายนอก · ชุดติวเท่านั้น</Badge></span>}
                 </td>
                 <td>
                   <Badge tone="info">{g.year_label}</Badge>
@@ -360,7 +431,8 @@ export default function MasterStudentGradePage() {
           row={dlg.row}
           onClose={() => setDlg(null)}
           onSave={handleSaveGrade}
-          existingPrefixes={gradesList.map((g) => g.prefix)}
+          grades={gradesList}
+          domains={domains}
         />
       )}
       {confirmDlg && (

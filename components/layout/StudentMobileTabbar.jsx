@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
+import { isTutorOnlyRole } from "@/lib/roles";
 import Icon from "../ui/Icon";
 
 const TabItem = ({ href, icon, label, active, showDot, shake }) => (
@@ -32,12 +34,13 @@ const TabItem = ({ href, icon, label, active, showDot, shake }) => (
 export default function StudentMobileTabbar() {
   const pathname = usePathname() || "";
   const { data: session } = useSession();
+  const tutorOnly = isTutorOnlyRole(session?.user?.role); // external-domain user: tutor mode only
   
   const [hasNew, setHasNew] = useState(false);
   const [shouldShake, setShouldShake] = useState(false);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || tutorOnly) return;
 
     let gradesList = [];
     let studentProfile = null;
@@ -55,7 +58,7 @@ export default function StudentMobileTabbar() {
           .order("pinned", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(50),
-        gradesList.length === 0 ? supabase.from("student_grades").select("prefix, year_label") : Promise.resolve({ data: gradesList }),
+        gradesList.length === 0 ? supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN) : Promise.resolve({ data: gradesList }),
         (studentId && !studentProfile) ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: studentProfile })
       ]);
         
@@ -125,7 +128,7 @@ export default function StudentMobileTabbar() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [pathname, session]);
+  }, [pathname, session, tutorOnly]);
 
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
   const onTutor = pathname.startsWith("/s/tutor");
@@ -169,12 +172,14 @@ export default function StudentMobileTabbar() {
           display: inline-block;
         }
       `}</style>
-      <TabItem href="/s/courses"     icon="book"      label="รายวิชา"   active={onCourses} />
+      {!tutorOnly && <TabItem href="/s/courses"     icon="book"      label="รายวิชา"   active={onCourses} />}
       <TabItem href="/s/tutor"       icon="award"     label="ชุดติว"    active={onTutor} />
-      <TabItem href="/s/assignments" icon="clipboard" label="ใบงาน"     active={onAssignments} />
-      <TabItem href="/s/broadcasts"  icon="bell"      label="ประกาศ"    active={onBroadcasts} showDot={hasNew} shake={shouldShake} />
-      <TabItem href="/s/calendar"    icon="cal"       label="ปฏิทิน"    active={onCal} />
-      <TabItem href="/s/profile"     icon="user"      label="โปรไฟล์"   active={onProfile} />
+      {!tutorOnly && <>
+        <TabItem href="/s/assignments" icon="clipboard" label="ใบงาน"     active={onAssignments} />
+        <TabItem href="/s/broadcasts"  icon="bell"      label="ประกาศ"    active={onBroadcasts} showDot={hasNew} shake={shouldShake} />
+        <TabItem href="/s/calendar"    icon="cal"       label="ปฏิทิน"    active={onCal} />
+        <TabItem href="/s/profile"     icon="user"      label="โปรไฟล์"   active={onProfile} />
+      </>}
     </div>
   );
 }

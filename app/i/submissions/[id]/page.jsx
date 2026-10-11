@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import Icon from "@/components/ui/Icon";
 import { Avatar, statusBadge, Badge, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -67,7 +68,7 @@ export default function SubmissionList() {
         supabase.from("courses_all").select("*").eq("id", currentAsg.course_id).single(),
         supabase.from("submissions").select("*").eq("assignment_id", currentAsg.id),
         supabase.from("users").select("*").eq("role", "student"),
-        supabase.from("student_grades").select("*")
+        supabase.from("student_grades").select("*").eq("domain", DEFAULT_DOMAIN)
       ]);
       
       setA(currentAsg);

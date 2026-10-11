@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
+import { isTutorOnlyRole } from "@/lib/roles";
 import Icon from "../ui/Icon";
 import { Avatar } from "../ui/Primitives";
 
@@ -16,9 +18,11 @@ export default function StudentTopNav() {
     instructor: "อาจารย์ผู้สอน",
     course_manager: "อาจารย์ผู้รับผิดชอบรายวิชา",
     student: "นักศึกษา",
+    tutor_guest: "ผู้ใช้ภายนอก (ชุดติว)",
   };
   const roles = session?.user?.role ? session.user.role.split(",").map(r => r.trim()) : [];
   const displayRole = roles.map(r => roleLabels[r] || r).join(", ") || "นักศึกษา";
+  const tutorOnly = isTutorOnlyRole(session?.user?.role); // external-domain user: tutor mode only
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
   const onTutor = pathname.startsWith("/s/tutor");
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
@@ -35,7 +39,7 @@ export default function StudentTopNav() {
   const [shouldShake, setShouldShake] = useState(false);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || tutorOnly) return;
 
     let gradesList = [];
     let studentProfile = null;
@@ -53,7 +57,7 @@ export default function StudentTopNav() {
           .order("pinned", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(50),
-        gradesList.length === 0 ? supabase.from("student_grades").select("prefix, year_label") : Promise.resolve({ data: gradesList }),
+        gradesList.length === 0 ? supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN) : Promise.resolve({ data: gradesList }),
         (studentId && !studentProfile) ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: studentProfile })
       ]);
         
@@ -118,7 +122,7 @@ export default function StudentTopNav() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session]);
+  }, [session, tutorOnly]);
 
   useEffect(() => {
     if (pathname === "/s/broadcasts" && broadcasts.length > 0) {
@@ -189,24 +193,26 @@ export default function StudentTopNav() {
           display: inline-block;
         }
       `}</style>
-      <Link href="/s/courses" className="logo pointer" style={{ textDecoration: 'none' }}>
+      <Link href={tutorOnly ? "/s/tutor" : "/s/courses"} className="logo pointer" style={{ textDecoration: 'none' }}>
         <span className="mark"><Icon name="grad" size={17} /></span>
         <div>E-learning<small className="hide-m">การพยาบาลผู้ใหญ่และผู้สูงอายุ</small></div>
       </Link>
       <nav className="hide-m">
-        <Link href="/s/courses" className={onCourses ? "on" : ""} style={{ textDecoration: 'none' }}>รายวิชา</Link>
+        {!tutorOnly && <Link href="/s/courses" className={onCourses ? "on" : ""} style={{ textDecoration: 'none' }}>รายวิชา</Link>}
         <Link href="/s/tutor" className={onTutor ? "on" : ""} style={{ textDecoration: 'none' }}>ชุดติว</Link>
-        <Link href="/s/assignments" className={onAssignments ? "on" : ""} style={{ textDecoration: 'none' }}>ใบงาน</Link>
-        <Link href="/s/calendar" className={onCal ? "on" : ""} style={{ textDecoration: 'none' }}>ปฏิทิน</Link>
-        <Link href="/s/broadcasts" className={onBroadcasts ? "on" : ""} style={{ textDecoration: 'none' }}>ประกาศ</Link>
-        <Link href="/s/ai" className={onAi ? "on" : ""} style={{ textDecoration: 'none' }}>AI ผู้ช่วย</Link>
+        {!tutorOnly && <>
+          <Link href="/s/assignments" className={onAssignments ? "on" : ""} style={{ textDecoration: 'none' }}>ใบงาน</Link>
+          <Link href="/s/calendar" className={onCal ? "on" : ""} style={{ textDecoration: 'none' }}>ปฏิทิน</Link>
+          <Link href="/s/broadcasts" className={onBroadcasts ? "on" : ""} style={{ textDecoration: 'none' }}>ประกาศ</Link>
+          <Link href="/s/ai" className={onAi ? "on" : ""} style={{ textDecoration: 'none' }}>AI ผู้ช่วย</Link>
+        </>}
       </nav>
       <div className="proto-spacer" />
-      <div className="rel hide-m">
+      {!tutorOnly && <div className="rel hide-m">
         <Icon name="search" size={16} style={{ position: "absolute", left: 11, top: 10, color: "var(--subtle)" }} />
         <input className="input" style={{ width: 220, paddingLeft: 34, height: 38 }} placeholder="ค้นหารายวิชา บทเรียน…" />
-      </div>
-      <div className="rel" ref={bellRef}>
+      </div>}
+      {!tutorOnly && <div className="rel" ref={bellRef}>
         <button className="iconbtn ghost rel" onClick={toggleBell} style={{ position: "relative" }}>
           <div className={shouldShake ? "ring-shake" : ""}>
             <Icon name="bell" size={18} />
@@ -236,7 +242,7 @@ export default function StudentTopNav() {
             )}
           </div>
         )}
-      </div>
+      </div>}
       
       <div className="rel" ref={menuRef}>
         <div className="flex items-center gap-2 pointer" onClick={() => setMenuOpen(!menuOpen)} style={{ padding: "4px 8px", borderRadius: 8, transition: ".15s", background: menuOpen ? "var(--muted)" : "transparent" }}>
@@ -250,10 +256,10 @@ export default function StudentTopNav() {
 
         {menuOpen && (
           <div className="card shadow" style={{ position: "absolute", top: "100%", right: 0, marginTop: 8, width: 220, zIndex: 100, padding: 8 }}>
-            <Link href="/s/profile" className="flex items-center gap-3 p-2 pointer" style={{ borderRadius: 8, textDecoration: 'none', color: "var(--fg)" }} onClick={() => setMenuOpen(false)}>
+            {!tutorOnly && <Link href="/s/profile" className="flex items-center gap-3 p-2 pointer" style={{ borderRadius: 8, textDecoration: 'none', color: "var(--fg)" }} onClick={() => setMenuOpen(false)}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="user" size={16} /></div>
               <div><div className="t-sm fw-6">โปรไฟล์ส่วนตัว</div><div className="t-xs muted">ข้อมูลและการตั้งค่า</div></div>
-            </Link>
+            </Link>}
             {(roles.includes("admin") || roles.includes("instructor") || roles.includes("course_manager")) && (
               <Link href="/i/courses" className="flex items-center gap-3 p-2 pointer mt-1" style={{ borderRadius: 8, textDecoration: 'none', color: "var(--fg)" }} onClick={() => setMenuOpen(false)}>
                 <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}><Icon name="settings" size={16} /></div>

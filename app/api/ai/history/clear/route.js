@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { isTutorOnlyRole } from "@/lib/roles";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { hideSession } from "@/lib/chat-history";
 
 export async function POST(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (isTutorOnlyRole(token.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 }); // tutor mode only
 
   const { sessionId } = await req.json().catch(() => ({}));
   if (typeof sessionId !== "string" || !sessionId) {

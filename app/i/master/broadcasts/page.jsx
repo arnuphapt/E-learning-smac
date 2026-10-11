@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import { useSession } from "next-auth/react";
 import Icon from "@/components/ui/Icon";
 import { Badge, Dialog } from "@/components/ui/Primitives";
@@ -145,7 +146,7 @@ export default function BroadcastsPage() {
         .select("*")
         .order("pinned", { ascending: false })
         .order("created_at", { ascending: false }),
-      supabase.from("student_grades").select("prefix, year_label")
+      supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN)
     ]);
     
     setData(bRes.data || []);

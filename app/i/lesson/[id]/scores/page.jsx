@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import Icon from "@/components/ui/Icon";
 import { Badge, Avatar, Select, statusBadge, Dialog } from "@/components/ui/Primitives";
 import Table from "@/components/ui/Table";
@@ -78,7 +79,7 @@ function ScoresContent() {
         supabase.from("submissions").select("*"),
         supabase.from("test_scores").select("*").eq("lesson_id", lessonId),
         supabase.from("users").select("*").eq("role", "student"),
-        supabase.from("student_grades").select("prefix, year_label"),
+        supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
         supabase.from("sections").select("*")
       ]);
 

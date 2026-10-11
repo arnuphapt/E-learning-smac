@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { isTutorOnlyRole } from "@/lib/roles";
+
+// What an external-domain (tutor-only) user may reach besides the public routes: tutor pages, the tutor API and the
+// lesson-file redirect (tutor lesson video). Everything else is refused here AND re-checked in the routes themselves.
+const inside = (pathname, base) => pathname === base || pathname.startsWith(base + "/");
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
@@ -27,6 +32,14 @@ export async function middleware(request) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Tutor-only users (external domains): tutor mode and nothing else. A page sends them to /s/tutor (this is also where
+  // the login callback /s/courses lands them), an API answers 403.
+  if (token && isTutorOnlyRole(token.role)) {
+    if (inside(pathname, "/s/tutor") || inside(pathname, "/api/tutor") || pathname === "/api/files") return NextResponse.next();
+    if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.redirect(new URL("/s/tutor", request.url));
   }
 
   // If authenticated, check roles

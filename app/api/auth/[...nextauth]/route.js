@@ -6,6 +6,8 @@ import { getToken } from "next-auth/jwt";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { switchKind } from "@/lib/impersonation";
 import { PERMISSIONS } from "@/lib/rbac";
+import { registrationPlan } from "@/lib/registration";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 
 export const authOptions = {
   providers: [
@@ -89,7 +91,7 @@ export const authOptions = {
       if (account.provider === "google") {
         const supabase = supabaseAdmin();
         const email = user.email;
-        const domain = email.split("@")[1];
+        const domain = email.split("@")[1]?.toLowerCase();
 
         // 1. Check if the user already exists in public.users table (allows pre-registered admins, instructors, and students)
         const { data: dbUser } = await supabase
@@ -144,21 +146,11 @@ export const authOptions = {
           return "/login?error=AccessDenied";
         }
 
-        // 3. Since the domain is allowed, auto-create the user based on email format
-        // e.g. digits only before the '@' (e.g. 66010001@smnc.ac.th) is a student
-        const match = email.match(/^(\d+)@/);
-        const role = match ? "student" : "instructor";
-        const studentNo = match ? match[1] : null;
-
-        let studyYear = null;
-        if (studentNo) {
-          const prefix = studentNo.substring(0, 2);
-          if (prefix === "69") studyYear = 1;
-          else if (prefix === "68") studyYear = 2;
-          else if (prefix === "67") studyYear = 3;
-          else if (prefix === "66") studyYear = 4;
-          else if (prefix === "65") studyYear = 5;
-        }
+        // 3. Since the domain is allowed, auto-create the user (lib/registration.js): the school domain keeps its old
+        // rule (digits-only email = student, anything else = instructor); EVERY other allowed domain is external and
+        // becomes a tutor-only user, never staff. Their year is derived at request time from student_grades.
+        if (domain !== DEFAULT_DOMAIN && profile?.email_verified === false) return "/login?error=AccessDenied";
+        const { role, studentNo, studyYear } = registrationPlan(email);
 
         const newId = "u_" + Date.now();
         const { error: insertError } = await supabase.from("users").insert({

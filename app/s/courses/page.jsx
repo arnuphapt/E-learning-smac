@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, Select } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
@@ -170,7 +171,7 @@ export default function StudentCourses() {
         supabase.from("courses").select("*"),
         supabase.from("academic_years").select("*").order("year", { ascending: false }),
         supabase.from("lessons").select("id, course_id, status"),
-        supabase.from("student_grades").select("prefix, year_label"),
+        supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
         studentId ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: null }),
         supabase.from("sections").select("*")
       ]);

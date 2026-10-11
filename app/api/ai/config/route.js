@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getToken } from "next-auth/jwt";
 import { supabaseAuthHeaders } from "@/lib/supabase-token";
-import { isStaffRole } from "@/lib/roles";
+import { isStaffRole, isTutorOnlyRole } from "@/lib/roles";
 
 const CONFIG_KEYS = [
   "model",
@@ -33,6 +33,7 @@ export async function GET(req) {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isTutorOnlyRole(token.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 }); // tutor mode only
     const supabaseClient = await getSupabaseServerClient(req);
     const { data, error } = await supabaseClient
       .from("ai_settings")

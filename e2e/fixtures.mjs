@@ -15,17 +15,36 @@ export const FX_PREFIX = "fx_e2e_";
 // and by the fixture instructor's course_instructors link).
 export const UI_CODE_PREFIX = "FXE2E-";
 export const AUTH_DIR = path.resolve("e2e/.auth"); // gitignored: holds minted session cookies
-export const STATE = { student: path.join(AUTH_DIR, "student.json"), instructor: path.join(AUTH_DIR, "instructor.json") };
+export const STATE = {
+  student: path.join(AUTH_DIR, "student.json"),
+  instructor: path.join(AUTH_DIR, "instructor.json"),
+  guest: path.join(AUTH_DIR, "guest.json"),
+};
 
 export const FX = {
   student: { id: "fx_e2e_student", name: "E2E Student", email: "fx_e2e_student@e2e.invalid" },
   instructor: { id: "fx_e2e_instructor", name: "E2E Instructor", email: "fx_e2e_instructor@e2e.invalid" },
+  // External-domain (tutor-only) user. Domain and year levels exist only for the external-domain spec (seedExternal).
+  guest: { id: "fx_e2e_guest", name: "E2E Guest", email: "69999991@fx-e2e-ext.invalid", studentNo: "69999991" },
   course: { id: "fx_e2e_course", code: "FXE2E-FIXTURE", title: "[E2E] ชุดติว fixture" },
   lesson: { id: "fx_e2e_lesson", title: "[E2E] บทที่ 1" },
   topics: [
     { id: "fx_e2e_topic_a", name: "E2E หัวใจ" },
     { id: "fx_e2e_topic_b", name: "E2E ไต" },
   ],
+};
+export const EXT = {
+  domain: "fx-e2e-ext.invalid",
+  // year levels of the external domain; their lock key (year_no) is assigned by the database
+  grades: [
+    { id: "fx_e2e_sg_y1", prefix: "69", year_label: "E2E ปี 1" },
+    { id: "fx_e2e_sg_y2", prefix: "68", year_label: "E2E ปี 2" },
+  ],
+  // three tutor sets, all with one active lesson: only `own` is locked to the guest's year level
+  // (own / otherYear get year_level from the year_no of `grade` once the year levels exist)
+  own: { id: "fx_e2e_set_ext1", code: "FXE2E-EXT1", title: "[E2E] ชุดติวของปี 1 โดเมนภายนอก", grade: "fx_e2e_sg_y1" },
+  otherYear: { id: "fx_e2e_set_ext2", code: "FXE2E-EXT2", title: "[E2E] ชุดติวของปี 2 โดเมนภายนอก", grade: "fx_e2e_sg_y2" },
+  school: { id: "fx_e2e_set_school", code: "FXE2E-SCH", title: "[E2E] ชุดติวของนักศึกษาปี 1 ของโรงเรียน", year_level: [1] },
 };
 // n = 1..4; questions 1-2 are topic A, 3-4 topic B. Every right answer is choice "a" ("E2E-n ถูก"), the wrong one "b".
 export const questionText = (n) => `E2E-${n} โจทย์ทดสอบ`;
@@ -91,6 +110,7 @@ export async function mintSessions(db, origin) {
   if (error) throw new Error("e2e: cannot read roles: " + error.message);
   await writeState(STATE.student, FX.student, "student", [], origin);
   await writeState(STATE.instructor, FX.instructor, "admin", data.permissions || [], origin);
+  await writeState(STATE.guest, FX.guest, "tutor_guest", [], origin);
 }
 
 // GET a PostgREST path (e.g. "courses?select=id") as the signed-in user of `page`: the same short-lived Supabase JWT the
@@ -167,6 +187,44 @@ export async function seedFixtures(db) {
   );
 }
 
+// External-domain fixtures. The guest user and the tutor sets need nothing new in the database; the domain and its year
+// levels need the migration 20261011040000_tutor_external_domains.sql (student_grades.domain). Returns false (and seeds only
+// the part that works) while it is not applied, so the spec can skip the year-lock tests.
+export async function externalMigrationApplied(db) {
+  const { error } = await db.from("student_grades").select("domain").limit(1);
+  return !error;
+}
+
+export async function seedExternal(db) {
+  must(
+    await db.from("users").upsert({ id: FX.guest.id, name: FX.guest.name, email: FX.guest.email, role: "tutor_guest", student_no: FX.guest.studentNo }),
+    "seed guest user",
+  );
+  for (const set of [EXT.own, EXT.otherYear, EXT.school]) {
+    must(
+      await db.from("courses_all").upsert({
+        id: set.id, code: set.code, title: set.title, subtitle: "E2E fixture, safe to delete", term: "E2E", year: "2999",
+        instructor: FX.instructor.name, hero: "#0d6e8c", access: { allowedYears: [], allowedEmails: [] },
+        year_level: set.year_level || [], section: null, kind: "tutor", // the external sets are locked below, once their year levels exist
+      }),
+      "seed external set " + set.id,
+    );
+    must(
+      await db.from("lessons").upsert({ id: set.id + "_lesson", course_id: set.id, index: 1, title: "[E2E] บทของ " + set.code, description: "E2E fixture lesson", status: "active", tutor_draw_count: null }),
+      "seed external lesson " + set.id,
+    );
+  }
+  if (!(await externalMigrationApplied(db))) return false;
+  must(await db.from("allowed_domains").upsert({ domain: EXT.domain }), "seed external domain");
+  must(await db.from("student_grades").upsert(EXT.grades.map((g) => ({ ...g, domain: EXT.domain }))), "seed external year levels");
+  for (const set of [EXT.own, EXT.otherYear]) {
+    const { data, error } = await db.from("student_grades").select("year_no").eq("id", set.grade).single();
+    if (error || !data?.year_no) throw new Error("e2e: year level without year_no (trigger missing?): " + (error?.message || set.grade));
+    must(await db.from("courses_all").update({ year_level: [data.year_no] }).eq("id", set.id), "lock external set " + set.id);
+  }
+  return true;
+}
+
 // ---- cleanup ----
 const ids = (rows, col) => [...new Set((rows || []).map((r) => r[col]).filter(Boolean))];
 async function del(db, table, col, values) {
@@ -176,7 +234,7 @@ async function del(db, table, col, values) {
 
 // Deletes every row created by the fixture (seed) or by the fixture users through the app. Idempotent.
 export async function cleanFixtures(db) {
-  const userIds = [FX.student.id, FX.instructor.id];
+  const userIds = [FX.student.id, FX.instructor.id, FX.guest.id];
   const [links, byCode, byId] = await Promise.all([
     db.from("course_instructors").select("course_id").in("user_id", userIds),
     db.from("courses_all").select("id").like("code", `${UI_CODE_PREFIX}%`),
@@ -205,6 +263,8 @@ export async function cleanFixtures(db) {
   await del(db, "course_instructors", "course_id", courseIds);
   await del(db, "courses_all", "id", courseIds);
   await del(db, "users", "id", userIds);
+  must(await db.from("student_grades").delete().like("id", `${FX_PREFIX}%`), "delete fixture year levels"); // before the domain (FK)
+  must(await db.from("allowed_domains").delete().like("domain", "fx-e2e-%"), "delete fixture domains");
   must(await db.from("users").delete().like("id", `${FX_PREFIX}%`), "delete fixture users by prefix"); // extra students seeded by a spec
 }
 
@@ -220,6 +280,8 @@ export async function assertNoFixtures(db) {
     ["tutor_attempts", "student_id", FX_PREFIX],
     ["ai_chat_logs", "student_id", FX_PREFIX],
     ["course_instructors", "user_id", FX_PREFIX],
+    ["student_grades", "id", FX_PREFIX],
+    ["allowed_domains", "domain", "fx-e2e-"],
   ];
   const left = [];
   for (const [table, col, prefix] of checks) {

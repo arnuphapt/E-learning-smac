@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import { fileHref, STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import Loading from "@/components/ui/Loading";
@@ -399,7 +400,7 @@ export default function StudentSeparateAiPage() {
       const [cRes, lRes, sgRes, uRes, secRes] = await Promise.all([
         supabase.from("courses").select("*"),
         supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).order("index", { ascending: true }),
-        supabase.from("student_grades").select("prefix, year_label"),
+        supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
         studentId ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: null }),
         supabase.from("sections").select("*")
       ]);

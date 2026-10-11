@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { canStudentAccessTutorSet } from "@/lib/course-access";
+import { canStudentAccessTutorSet, DEFAULT_DOMAIN } from "@/lib/course-access";
 import { lockSummary } from "@/lib/tutor-bank";
 import Icon from "@/components/ui/Icon";
 import { Select } from "@/components/ui/Primitives";
@@ -13,7 +13,20 @@ import PickerDialog from "./PickerDialog";
 
 const COLORS = ["#4338a8", "#0d6e8c", "#1e5fa8", "#2f7d5b", "#b4530b", "#0b1220"];
 const yearNo = (label) => parseInt(String(label).replace(/\D/g, ""), 10);
+const normYears = (list) => (list || []).map(Number).filter(Boolean);
 const sameList = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+
+// Checkable year levels. courses.year_level is integer[]: a school level locks by its number (read from the label), a
+// level of an external domain by student_grades.year_no (the same key for every prefix of one label in that domain).
+const yearOptionsOf = (grades) => {
+  const seen = new Map();
+  for (const g of grades) {
+    const domain = g.domain || DEFAULT_DOMAIN;
+    const value = domain === DEFAULT_DOMAIN ? yearNo(g.year_label) : g.year_no;
+    if (value && !seen.has(value)) seen.set(value, { label: g.year_label, value, domain });
+  }
+  return [...seen.values()].sort((a, b) => (a.domain === b.domain ? a.label.localeCompare(b.label, "th") : a.domain === DEFAULT_DOMAIN ? -1 : b.domain === DEFAULT_DOMAIN ? 1 : a.domain.localeCompare(b.domain)));
+};
 
 // Set details and the lock (who can enter). Tutor sets fail closed: with no year / section / email the set is open to
 // nobody, and the live count below is computed with the same rule the API enforces (canStudentAccessTutorSet).
@@ -21,11 +34,11 @@ const sameList = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...
 export default function TutorSettings({ course, canManage, onSaved }) {
   const router = useRouter();
   const confirm = useConfirm();
-  const [lookup, setLookup] = useState(null); // { students, staff, sections, yearLabels, grades, assigned }
+  const [lookup, setLookup] = useState(null); // { students, staff, sections, yearOptions, grades, assigned }
   const [title, setTitle] = useState(course.title || "");
   const [subtitle, setSubtitle] = useState(course.subtitle || "");
   const [hero, setHero] = useState(course.hero || COLORS[0]);
-  const [years, setYears] = useState((course.year_level || []).map(Number).filter(Boolean));
+  const [years, setYears] = useState(normYears(course.year_level));
   const [section, setSection] = useState(course.section || "");
   const [emails, setEmails] = useState(course.access?.allowedEmails || []);
   const [mains, setMains] = useState([]);
@@ -36,10 +49,10 @@ export default function TutorSettings({ course, canManage, onSaved }) {
     let cancelled = false;
     (async () => {
       const [stRes, staffRes, secRes, gRes, ciRes] = await Promise.all([
-        supabase.from("users").select("id, name, email, student_no, section, study_year").eq("role", "student"),
+        supabase.from("users").select("id, name, email, student_no, section, study_year, role").in("role", ["student", "tutor_guest"]),
         supabase.from("users").select("id, name, email").or("role.like.%instructor%,role.like.%course_manager%,role.like.%admin%"),
         supabase.from("sections").select("*").eq("status", "active"),
-        supabase.from("student_grades").select("prefix, year_label"),
+        supabase.from("student_grades").select("prefix, year_label, domain, year_no"),
         supabase.from("course_instructors").select("user_id").eq("course_id", course.id),
       ]);
       if (cancelled) return;
@@ -53,7 +66,7 @@ export default function TutorSettings({ course, canManage, onSaved }) {
         staff,
         sections: secRes.data || [],
         grades: gRes.data || [],
-        yearLabels: Array.from(new Set((gRes.data || []).map((g) => g.year_label).filter(Boolean))).sort(),
+        yearOptions: yearOptionsOf(gRes.data || []),
         assigned: (ciRes.data || []).map((r) => r.user_id),
       });
     })();
@@ -65,13 +78,13 @@ export default function TutorSettings({ course, canManage, onSaved }) {
   const reach = useMemo(() => {
     if (!lookup) return null;
     return lookup.students.filter((s) =>
-      canStudentAccessTutorSet(draft, { email: s.email, studentNo: s.student_no, section: s.section, studyYear: s.study_year }, lookup.sections, lookup.grades)
+      canStudentAccessTutorSet(draft, { email: s.email, studentNo: s.student_no, section: s.section, studyYear: s.study_year, tutorOnly: s.role === "tutor_guest" }, lookup.sections, lookup.grades)
     ).length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookup, section, years, emails]);
 
   const dirty = title !== (course.title || "") || subtitle !== (course.subtitle || "") || hero !== (course.hero || COLORS[0]) ||
-    section !== (course.section || "") || !sameList(years, (course.year_level || []).map(Number)) ||
+    section !== (course.section || "") || !sameList(years, normYears(course.year_level)) ||
     !sameList(emails, course.access?.allowedEmails || []) || (canManage && lookup && !sameList(mains, lookup.mainIds));
 
   const save = async () => {
@@ -188,14 +201,14 @@ export default function TutorSettings({ course, canManage, onSaved }) {
 
         <div className="label mt-4">ชั้นปี</div>
         <div className="flex gap-2 wrap mb-4">
-          {!lookup ? <span className="t-sm muted">กำลังโหลด…</span> : lookup.yearLabels.length === 0 ? <span className="t-sm muted">ยังไม่มีข้อมูลชั้นปีในระบบ</span> :
-            lookup.yearLabels.filter((l) => yearNo(l)).map((label) => {
-              const n = yearNo(label);
-              const on = years.includes(n);
+          {!lookup ? <span className="t-sm muted">กำลังโหลด…</span> : lookup.yearOptions.length === 0 ? <span className="t-sm muted">ยังไม่มีข้อมูลชั้นปีในระบบ</span> :
+            lookup.yearOptions.map(({ label, value, domain }) => {
+              const on = years.includes(value);
               return (
-                <label key={label} className="t-sm" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "7px 13px", borderRadius: 9, border: "1.5px solid " + (on ? "var(--primary)" : "var(--border-strong)"), background: on ? "var(--primary-soft)" : "var(--card)", fontWeight: on ? 700 : 500, color: on ? "var(--primary-soft-fg)" : "var(--fg)" }}>
-                  <input type="checkbox" checked={on} onChange={() => setYears((y) => (on ? y.filter((x) => x !== n) : [...y, n].sort((a, b) => a - b)))} />
+                <label key={value} className="t-sm" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "7px 13px", borderRadius: 9, border: "1.5px solid " + (on ? "var(--primary)" : "var(--border-strong)"), background: on ? "var(--primary-soft)" : "var(--card)", fontWeight: on ? 700 : 500, color: on ? "var(--primary-soft-fg)" : "var(--fg)" }}>
+                  <input type="checkbox" checked={on} onChange={() => setYears((y) => (on ? y.filter((x) => x !== value) : [...y, value].sort((a, b) => a - b)))} />
                   {label}
+                  {domain !== DEFAULT_DOMAIN && <span className="t-xs muted">({domain})</span>}
                 </label>
               );
             })}

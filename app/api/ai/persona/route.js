@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getToken } from "next-auth/jwt";
 import { supabaseAuthHeaders } from "@/lib/supabase-token";
-import { isStaffRole } from "@/lib/roles";
+import { isStaffRole, isTutorOnlyRole } from "@/lib/roles";
 import { DEFAULT_PERSONA_EXPLAIN } from "@/lib/tutor-prompt";
 
 // ?key=persona_explain edits the tutor-mode explain persona (ticket 06); no key = the lesson chat persona, as before.
@@ -57,6 +57,7 @@ export async function GET(req) {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isTutorOnlyRole(token.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 }); // tutor mode only
     const supabaseClient = await getSupabaseServerClient(req);
     if (new URL(req.url).searchParams.get("key") === "persona_explain") {
       const { data: row, error: rowErr } = await supabaseClient.from("ai_settings").select("value").eq("key", "persona_explain").maybeSingle();

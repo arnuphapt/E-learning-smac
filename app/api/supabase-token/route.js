@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { mintSupabaseToken } from "@/lib/supabase-token";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { isTutorOnlyRole } from "@/lib/roles";
 
 // Session-gated: exchanges the NextAuth session for a short-lived Supabase JWT.
 // The role in the minted JWT is re-read from the DB on every mint (not the possibly stale
@@ -17,6 +18,8 @@ export async function GET(req) {
       .maybeSingle();
     if (error) throw error;
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Tutor-only users (external domains) never get a database JWT: tutor mode reads through the service-role API only.
+    if (isTutorOnlyRole(user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     return NextResponse.json(mintSupabaseToken({ dbId: user.id, role: user.role }), {
       headers: { "Cache-Control": "no-store" },
     });

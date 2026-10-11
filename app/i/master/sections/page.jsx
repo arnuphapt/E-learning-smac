@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import Icon from "@/components/ui/Icon";
 import { Badge, Dialog, Select } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
@@ -146,7 +147,7 @@ export default function MasterSectionsPage() {
     const [secRes, uRes, yrRes] = await Promise.all([
       supabase.from("sections").select("*").order("name"),
       supabase.from("users").select("student_no, section").eq("role", "student"),
-      supabase.from("student_grades").select("year_label").order("year_label")
+      supabase.from("student_grades").select("year_label").eq("domain", DEFAULT_DOMAIN).order("year_label")
     ]);
     if (!secRes.error) setSectionList(secRes.data || []);
     if (!uRes.error) setStudents(uRes.data || []);

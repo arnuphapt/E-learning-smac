@@ -3,6 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, Avatar, Dialog, Ph, statusBadge, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -224,7 +225,7 @@ export default function CreateCourse() {
         supabase.from("subject_groups").select("*").eq("status", "active"),
         supabase.from("sections").select("*").eq("status", "active"),
         supabase.from("subject_group_managers").select("*"),
-        supabase.from("student_grades").select("year_label")
+        supabase.from("student_grades").select("year_label").eq("domain", DEFAULT_DOMAIN)
       ]);
 
       const fetchedTerms = tRes.data || [];

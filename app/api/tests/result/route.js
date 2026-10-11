@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { isStaffRole } from "@/lib/roles";
+import { isStaffRole, isTutorOnlyRole } from "@/lib/roles";
 
 // Answer key for a student's OWN completed attempt, and only when the lesson shows answers.
 // GET /api/tests/result?lessonId=..&kind=pre|post -> { answers: { [questionId]: choiceId } | null }
 export async function GET(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (isTutorOnlyRole(token.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 }); // tutor mode only
   const studentId = token.dbId || token.sub;
 
   const { searchParams } = new URL(req.url);

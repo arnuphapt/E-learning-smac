@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import Icon from "@/components/ui/Icon";
 import { Badge, Progress, Avatar, Dialog, Ph, statusBadge, Select } from "@/components/ui/Primitives";
 import { PageHead, Crumb } from "@/components/ui/Shared";
@@ -372,7 +373,7 @@ export default function InstructorCourse() {
       supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId),
       supabase.from("course_instructors").select("user_id").eq("course_id", courseId),
       supabase.from("users").select("id, name, email, role, group_id").or("role.like.%instructor%,role.like.%course_manager%,role.like.%admin%"),
-      supabase.from("student_grades").select("prefix, year_label"),
+      supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
       supabase.from("sections").select("*").eq("status", "active")
     ]);
     

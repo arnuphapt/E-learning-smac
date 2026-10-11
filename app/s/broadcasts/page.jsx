@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import { useSession } from "next-auth/react";
 import { PageHead } from "@/components/ui/Shared";
 import { Badge } from "@/components/ui/Primitives";
@@ -31,7 +32,7 @@ export default function StudentBroadcastsPage() {
           .or(`expires_at.is.null,expires_at.gt.${now}`)
           .order("pinned", { ascending: false })
           .order("created_at", { ascending: false }),
-        supabase.from("student_grades").select("prefix, year_label"),
+        supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
         studentId ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: null })
       ]);
 

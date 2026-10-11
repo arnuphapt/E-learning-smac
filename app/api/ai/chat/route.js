@@ -5,7 +5,7 @@ import { getToken } from "next-auth/jwt";
 import { supabaseAuthHeaders } from "@/lib/supabase-token";
 import { toKey, readObject } from "@/lib/r2";
 import { canViewKey } from "@/lib/file-access";
-import { isStaffRole } from "@/lib/roles";
+import { isStaffRole, isTutorOnlyRole } from "@/lib/roles";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { claimAiQuotaFailOpen, fillAiClaim, releaseAiClaim } from "@/lib/ai-quota";
 
@@ -51,6 +51,7 @@ export async function POST(req) {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isTutorOnlyRole(token.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 }); // tutor mode only
     const body = await req.json();
     const { messages, lessonContext, mode, attachments, sessionId } = body;
 

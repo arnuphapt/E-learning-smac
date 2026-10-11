@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import Icon from "@/components/ui/Icon";
 import { Badge, Dialog, Avatar, Select } from "@/components/ui/Primitives";
 import { PageHead } from "@/components/ui/Shared";
@@ -193,7 +194,7 @@ export default function MasterUsersPage() {
     setLoading(true);
     const [uRes, gRes, rRes, sgRes, sgmRes] = await Promise.all([
       supabase.from("users").select("*"),
-      supabase.from("student_grades").select("*"),
+      supabase.from("student_grades").select("*").eq("domain", DEFAULT_DOMAIN),
       supabase.from("roles").select("id, name"),
       supabase.from("subject_groups").select("*").eq("status", "active"),
       supabase.from("subject_group_managers").select("*")
