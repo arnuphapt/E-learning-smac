@@ -9,7 +9,8 @@ const inside = (pathname, base) => pathname === base || pathname.startsWith(base
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes
+  // Allow public routes. NOTE: `pathname.includes(".")` lets through anything with a dot (static files) before any auth
+  // check; it is only safe because no page or API route of this app has a dot in its path. Keep it that way.
   if (
     pathname === "/" ||
     pathname === "/login" ||

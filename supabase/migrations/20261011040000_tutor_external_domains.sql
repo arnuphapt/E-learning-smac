@@ -20,10 +20,16 @@
 --      year or another domain's level. A trigger gives every external level a number >= 1000 from a sequence (all prefixes
 --      of one label in one domain share it); school rows keep year_no NULL (unchanged: the app reads their number from
 --      the label). A tutor set of an external domain is locked with year_level = {<year_no>} by the tutor settings page.
+--      On a label edit: an existing level with the new label in that domain -> its key; the row was the LAST holder of
+--      the old label -> keeps its key (renamed level, locks survive); other prefixes still hold the old label -> new key.
 --   4. roles row 'tutor_guest' (no permissions): the role of an external-domain user. NOT staff: is_instructor() /
 --      is_admin() match exact role ids (instructor, admin, course_manager), so they stay false for it.
 --
--- RLS: NO policy change, on purpose. Every policy on the student-facing tables is either public, `authenticated`, or keyed
+-- WRITE ACCESS: allowed_domains and student_grades were writable by any staff (is_instructor(): instructor, course_manager,
+--   admin). allowed_domains decides who may sign in, and (with this change) which domains exist as tutor-only, so both
+--   *_all_instructor policies become is_admin() (USING and WITH CHECK). The *_select policies (public read) stay. The admin
+--   page "กำหนดชั้นปีนักศึกษา" is under master:manage (admin) anyway. Apply order is unchanged.
+-- RLS otherwise: NO policy change, on purpose. Every policy on the student-facing tables is either public, `authenticated`, or keyed
 -- on current_user_id() / is_instructor(); none names the role 'student'. A 'tutor_guest' therefore sees exactly what a
 -- student sees (courses_all kind='course', active lessons of kind='course', questions_student, own rows only), and
 -- tutor sets / lessons / questions stay behind the service-role tutor API. users_guard still forbids it to change its
@@ -83,9 +89,14 @@ BEGIN
   IF v_same IS NOT NULL THEN
     NEW.year_no := v_same;
   ELSIF TG_OP = 'UPDATE' THEN
-    IF OLD.domain = NEW.domain AND OLD.year_no IS NOT NULL THEN
-      NEW.year_no := OLD.year_no; -- a renamed level keeps its key, so the sets locked to it stay locked
+    IF OLD.domain = NEW.domain AND OLD.year_no IS NOT NULL
+       AND NOT (OLD.year_label <> NEW.year_label
+                AND EXISTS (SELECT 1 FROM public.student_grades g
+                             WHERE g.domain = OLD.domain AND g.year_label = OLD.year_label AND g.id <> NEW.id)) THEN
+      -- a renamed level keeps its key, so the sets locked to it stay locked ...
+      NEW.year_no := OLD.year_no;
     ELSE
+      -- ... unless the row LEAVES a level that other prefixes still hold: it becomes a level of its own
       NEW.year_no := nextval('public.student_grades_year_no_seq');
     END IF;
   ELSE
@@ -106,6 +117,12 @@ INSERT INTO public.roles (id, name, description, permissions)
 VALUES ('tutor_guest', 'ผู้ใช้ภายนอก (ชุดติว)', 'Signed in from an external email domain: tutor mode only, never staff', '[]'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
+-- 5. who may change the domains / year levels: admins only (was: any staff)
+ALTER POLICY allowed_domains_all_instructor ON public.allowed_domains
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+ALTER POLICY student_grades_all_instructor ON public.student_grades
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+
 NOTIFY pgrst, 'reload schema';
 
 COMMIT;
@@ -113,6 +130,8 @@ COMMIT;
 -- ROLLBACK (manual, in this order; step 2 fails while two domains still share a prefix, step 1 deletes external year levels):
 --
 -- BEGIN;
+-- ALTER POLICY allowed_domains_all_instructor ON public.allowed_domains USING (public.is_instructor()) WITH CHECK (public.is_instructor());
+-- ALTER POLICY student_grades_all_instructor ON public.student_grades USING (public.is_instructor()) WITH CHECK (public.is_instructor());
 -- DELETE FROM public.users WHERE role = 'tutor_guest';            -- their tutor_attempts / answers go with them? check FKs first;
 --                                                                    or re-role them: UPDATE public.users SET role = 'student' ...
 -- DELETE FROM public.roles WHERE id = 'tutor_guest';

@@ -20,11 +20,12 @@ const guest = (email, over = {}) => ({ email, tutorOnly: true, studyYear: 1, sec
 const set = (over = {}) => ({ section: null, year_level: [], access: { allowedEmails: [] }, ...over });
 const can = (c, s) => canStudentAccessTutorSet(c, s, [{ name: "A", range_start: "001", range_end: "999" }], grades);
 
-test("registration: smnc.ac.th is unchanged (digits = student with year, anything else = instructor)", () => {
+test("registration: smnc.ac.th is a student (with a year for digits), NEVER an instructor", () => {
   assert.deepEqual(registrationPlan("69010001@smnc.ac.th"), { role: "student", studentNo: "69010001", studyYear: 1 });
   assert.deepEqual(registrationPlan("65010001@smnc.ac.th"), { role: "student", studentNo: "65010001", studyYear: 5 });
   assert.deepEqual(registrationPlan("64010001@smnc.ac.th"), { role: "student", studentNo: "64010001", studyYear: null });
-  assert.equal(registrationPlan("somebody@smnc.ac.th").role, "instructor"); // existing behaviour, flagged in the report
+  assert.deepEqual(registrationPlan("somebody@smnc.ac.th"), { role: "student", studentNo: null, studyYear: null }); // was "instructor"
+  assert.equal(registrationPlan("Somebody@SMNC.AC.TH").role, "student");
 });
 
 test("registration: any other domain is tutor-only, NEVER staff, whatever the email looks like", () => {

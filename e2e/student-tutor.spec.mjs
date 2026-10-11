@@ -167,7 +167,7 @@ test("explain gate after submit: unknown question refused, ถาม AI answers 
   expect(res.status()).toBe(200);
   const body = await res.json();
   expect(body.reply.length).toBeGreaterThan(0);
-  expect(body.rateLimitInfo.used).toBe(1);
+  expect(body.rateLimitInfo.used).toBe(2); // the AI summary of the result page (previous test) and this explanation share the daily quota
   await expect(item.getByText("AI ตอบไม่สำเร็จ")).toHaveCount(0);
   await expect(item.getByText(body.reply.slice(0, 15))).toBeVisible();
 

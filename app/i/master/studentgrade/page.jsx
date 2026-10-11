@@ -9,10 +9,13 @@ import { PageHead } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 import { toast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { DEFAULT_DOMAIN } from "@/lib/course-access";
 
 const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 const NEW_DOMAIN = "__new__";
+// Public mail providers: anyone can open an account there, so allowing one would let the whole internet sign in.
+const PUBLIC_MAIL = ["gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "live.com", "yahoo.com", "icloud.com", "proton.me", "protonmail.com"];
 
 function RowActions({ onEdit, onDelete }) {
   return (
@@ -56,6 +59,11 @@ function GradeDialog({ mode, row, onClose, onSave, grades, domains }) {
 
     if (!DOMAIN_RE.test(domain)) {
       toast("กรุณาระบุโดเมนให้ถูกต้อง (เช่น partner.ac.th)");
+      return;
+    }
+
+    if (PUBLIC_MAIL.includes(domain)) {
+      toast(`ไม่อนุญาตโดเมนอีเมลสาธารณะ (${domain}): ใครก็สมัครได้ กรุณาใช้โดเมนขององค์กรเท่านั้น`);
       return;
     }
 
@@ -234,6 +242,7 @@ function ConfirmDialog({ title, desc, onConfirm, onClose }) {
 export default function MasterStudentGradePage() {
   const [gradesList, setGradesList] = useState([]);
   const [domains, setDomains] = useState([]); // allowed_domains
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState(null); // {mode, row}
   const [confirmDlg, setConfirmDlg] = useState(null); // {title, desc, onConfirm}
@@ -271,20 +280,36 @@ export default function MasterStudentGradePage() {
         ...fields,
       };
       if (newDomain) {
-        // a new external domain is allowed to sign in (tutor mode only) the moment its first year level is saved
+        // Saving the first year level of a new domain ALLOWS that domain to sign in (tutor mode only): ask first.
+        const ok = await confirm({
+          title: "เพิ่มโดเมนภายนอก",
+          message: `อนุญาตให้ผู้ใช้อีเมล @${newGrade.domain} ล็อกอินด้วย Google ได้ (เข้าได้เฉพาะชุดติว Tutor)\n\nยืนยันเพิ่มโดเมน ${newGrade.domain} ใช่หรือไม่?`,
+          confirmText: "ยืนยัน เพิ่มโดเมน", cancelText: "ยกเลิก",
+        });
+        if (!ok) return;
+        // The year level references allowed_domains (FK), so the domain goes in first; if the year level then fails the
+        // domain is taken out again, so a failed save never leaves a domain that may sign in with no year level behind.
         const { error: dErr } = await supabase.from("allowed_domains").insert([{ domain: newGrade.domain }]);
         if (dErr) {
           toast("เพิ่มโดเมนไม่สำเร็จ: " + dErr.message);
           return;
         }
-        setDomains((prev) => [...prev, newGrade.domain]);
+        const { error: gErr } = await supabase.from("student_grades").insert([newGrade]);
+        if (gErr) {
+          const { error: undoErr } = await supabase.from("allowed_domains").delete().eq("domain", newGrade.domain);
+          toast("เกิดข้อผิดพลาดในการบันทึก: " + gErr.message + (undoErr ? ` (ถอนโดเมน ${newGrade.domain} ไม่สำเร็จ กรุณาลบเอง: ${undoErr.message})` : ""));
+          return;
+        }
+        toast("เพิ่มโดเมนและการกำหนดชั้นปีเรียบร้อยแล้ว");
+        await loadData(); // year_no (the lock key) is assigned by the database
+        return;
       }
       const { error } = await supabase.from("student_grades").insert([newGrade]);
       if (error) {
         toast("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
       } else {
-        setGradesList((prev) => [newGrade, ...prev].sort((a, b) => b.prefix.localeCompare(a.prefix)));
         toast("บันทึกการกำหนดชั้นปีเรียบร้อยแล้ว");
+        await loadData();
       }
     } else {
       const { error } = await supabase
@@ -295,10 +320,8 @@ export default function MasterStudentGradePage() {
       if (error) {
         toast("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
       } else {
-        setGradesList((prev) =>
-          prev.map((g) => (g.id === dlg.row.id ? { ...g, year_label: gradeData.year_label } : g))
-        );
         toast("บันทึกการแก้ไขเรียบร้อยแล้ว");
+        await loadData(); // a rename may have changed year_no
       }
     }
   };

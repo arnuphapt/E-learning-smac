@@ -64,9 +64,14 @@ BEGIN
   IF v_same IS NOT NULL THEN
     NEW.year_no := v_same;
   ELSIF TG_OP = 'UPDATE' THEN
-    IF OLD.domain = NEW.domain AND OLD.year_no IS NOT NULL THEN
-      NEW.year_no := OLD.year_no; -- a renamed level keeps its key, so the sets locked to it stay locked
+    IF OLD.domain = NEW.domain AND OLD.year_no IS NOT NULL
+       AND NOT (OLD.year_label <> NEW.year_label
+                AND EXISTS (SELECT 1 FROM public.student_grades g
+                             WHERE g.domain = OLD.domain AND g.year_label = OLD.year_label AND g.id <> NEW.id)) THEN
+      -- a renamed level keeps its key, so the sets locked to it stay locked ...
+      NEW.year_no := OLD.year_no;
     ELSE
+      -- ... unless the row LEAVES a level that other prefixes still hold: it becomes a level of its own
       NEW.year_no := nextval('public.student_grades_year_no_seq');
     END IF;
   ELSE
@@ -87,6 +92,12 @@ INSERT INTO public.roles (id, name, description, permissions)
 VALUES ('tutor_guest', 'ผู้ใช้ภายนอก (ชุดติว)', 'Signed in from an external email domain: tutor mode only, never staff', '[]'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
+-- 5. who may change the domains / year levels: admins only (was: any staff)
+ALTER POLICY allowed_domains_all_instructor ON public.allowed_domains
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+ALTER POLICY student_grades_all_instructor ON public.student_grades
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+
 -- ===========================================================================
 -- Fixtures
 -- ===========================================================================
@@ -94,7 +105,8 @@ INSERT INTO public.allowed_domains(domain) VALUES ('fx-partner.test'), ('fx-othe
 INSERT INTO public.users(id, name, email, role, student_no) VALUES
   ('fx_student', 'fx student', '66010001@smnc.ac.th',        'student',     '66010001'),
   ('fx_guest',   'fx guest',   '69010001@fx-partner.test',   'tutor_guest', '69010001'),
-  ('fx_staff',   'fx staff',   'fx_staff@smnc.ac.th',        'instructor',  NULL);
+  ('fx_staff',   'fx staff',   'fx_staff@smnc.ac.th',        'instructor',  NULL),
+  ('fx_admin',   'fx admin',   'fx_admin@smnc.ac.th',        'admin',       NULL);
 INSERT INTO public.courses_all(id, code, title, kind) VALUES
   ('fx_course', 'FX1', 'fixture course', 'course'),
   ('fx_tutor',  'FX2', 'fixture tutor',  'tutor');
@@ -155,6 +167,19 @@ DO $$ DECLARE k integer; BEGIN
   INSERT INTO proof VALUES ('a6b renaming a level keeps its key (sets locked to it stay locked)',
     CASE WHEN k = (SELECT year_no FROM public.student_grades WHERE id = 'fx_sg_p3') THEN 'PASS' ELSE 'FAIL' END);
 EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('a6b renaming a level keeps its key', 'FAIL: ' || SQLERRM); END $$;
+
+DO $$ DECLARE k1 integer; k2 integer; BEGIN
+  -- p1 and p2 share a level in fx-partner.test: renaming p2 away must NOT drag its key along
+  SELECT year_no INTO k1 FROM public.student_grades WHERE id = 'fx_sg_p1';
+  UPDATE public.student_grades SET year_label = 'ชั้นปีที่ 5' WHERE id = 'fx_sg_p2';
+  SELECT year_no INTO k2 FROM public.student_grades WHERE id = 'fx_sg_p2';
+  INSERT INTO proof VALUES ('a6d renaming one of two prefixes of a level gives it a NEW key; the other keeps the old one',
+    CASE WHEN k2 <> k1 AND k2 >= 1000 AND (SELECT year_no FROM public.student_grades WHERE id = 'fx_sg_p1') = k1 THEN 'PASS' ELSE 'FAIL' END);
+  -- renaming it onto an existing label of the domain adopts that level's key
+  UPDATE public.student_grades SET year_label = 'ชั้นปีที่ 1' WHERE id = 'fx_sg_p2';
+  INSERT INTO proof VALUES ('a6e renaming onto an existing label adopts that level key',
+    CASE WHEN (SELECT year_no FROM public.student_grades WHERE id = 'fx_sg_p2') = k1 THEN 'PASS' ELSE 'FAIL' END);
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('a6d/e rename of a shared level', 'FAIL: ' || SQLERRM); END $$;
 
 DO $$ BEGIN
   UPDATE public.student_grades SET year_no = 1 WHERE id = 'fx_sg_p3';
@@ -252,16 +277,48 @@ INSERT INTO proof SELECT 'b2 guest: normal course + lesson only, no tutor rows, 
        THEN 'PASS' ELSE 'FAIL: ' || (SELECT string_agg(what || '=[' || ids || ']', '; ') FROM snap WHERE who = 'guest') END;
 
 -- ===========================================================================
--- c. staff are untouched (an instructor still sees everything)
+-- c. domains / year levels are writable by admins only (instructors and course managers can still READ them)
 -- ===========================================================================
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', '{"role":"authenticated","sub":"fx_staff","app_role":"instructor"}', true);
 INSERT INTO proof SELECT 'c1 instructor still sees tutor + normal fixture lessons and is_instructor()',
   CASE WHEN (SELECT count(*) FROM public.lessons WHERE id LIKE 'fx\_%') = 2 AND public.is_instructor() THEN 'PASS' ELSE 'FAIL' END;
+INSERT INTO proof SELECT 'c1b instructor can still READ allowed_domains and student_grades',
+  CASE WHEN (SELECT count(*) FROM public.allowed_domains) >= 3 AND (SELECT count(*) FROM public.student_grades) >= 4 THEN 'PASS' ELSE 'FAIL' END;
 DO $$ BEGIN
   INSERT INTO public.student_grades(id, prefix, year_label, domain) VALUES ('fx_sg_staff', '94', 'ชั้นปีที่ 7', 'fx-other.test');
-  INSERT INTO proof VALUES ('c2 instructor can still add a year level of another domain', 'PASS');
-EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('c2 instructor can still add a year level of another domain', 'FAIL: ' || SQLERRM); END $$;
+  INSERT INTO proof VALUES ('c2 instructor cannot insert a year level', 'FAIL: allowed');
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('c2 instructor cannot insert a year level', 'PASS: ' || SQLERRM); END $$;
+DO $$ DECLARE n int; BEGIN
+  UPDATE public.student_grades SET year_label = 'hacked' WHERE id = 'fx_sg_p1'; GET DIAGNOSTICS n = ROW_COUNT;
+  INSERT INTO proof VALUES ('c3 instructor cannot update a year level (0 rows)', CASE WHEN n = 0 THEN 'PASS' ELSE 'FAIL: ' || n END);
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('c3 instructor cannot update a year level', 'PASS (error): ' || SQLERRM); END $$;
+DO $$ DECLARE n int; BEGIN
+  DELETE FROM public.student_grades WHERE id = 'fx_sg_p1'; GET DIAGNOSTICS n = ROW_COUNT;
+  INSERT INTO proof VALUES ('c4 instructor cannot delete a year level (0 rows)', CASE WHEN n = 0 THEN 'PASS' ELSE 'FAIL: ' || n END);
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('c4 instructor cannot delete a year level', 'PASS (error): ' || SQLERRM); END $$;
+DO $$ BEGIN
+  INSERT INTO public.allowed_domains(domain) VALUES ('fx-staff-added.test');
+  INSERT INTO proof VALUES ('c5 instructor cannot allow a new domain', 'FAIL: allowed');
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('c5 instructor cannot allow a new domain', 'PASS: ' || SQLERRM); END $$;
+DO $$ DECLARE n int; BEGIN
+  DELETE FROM public.allowed_domains WHERE domain = 'fx-other.test'; GET DIAGNOSTICS n = ROW_COUNT;
+  INSERT INTO proof VALUES ('c6 instructor cannot remove a domain (0 rows)', CASE WHEN n = 0 THEN 'PASS' ELSE 'FAIL: ' || n END);
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('c6 instructor cannot remove a domain', 'PASS (error): ' || SQLERRM); END $$;
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', '{"role":"authenticated","sub":"fx_admin","app_role":"admin"}', true);
+DO $$ BEGIN
+  INSERT INTO public.allowed_domains(domain) VALUES ('fx-admin-added.test');
+  INSERT INTO public.student_grades(id, prefix, year_label, domain) VALUES ('fx_sg_admin', '93', 'ชั้นปีที่ 8', 'fx-admin-added.test');
+  UPDATE public.student_grades SET year_label = 'ชั้นปีที่ 8 (แก้)' WHERE id = 'fx_sg_admin';
+  INSERT INTO proof SELECT 'c7 admin can add a domain, add and edit a year level (key assigned)',
+    CASE WHEN (SELECT year_no FROM public.student_grades WHERE id = 'fx_sg_admin') >= 1000 THEN 'PASS' ELSE 'FAIL' END;
+  DELETE FROM public.student_grades WHERE id = 'fx_sg_admin';
+  DELETE FROM public.allowed_domains WHERE domain = 'fx-admin-added.test';
+  INSERT INTO proof VALUES ('c8 admin can delete them again', 'PASS');
+EXCEPTION WHEN OTHERS THEN INSERT INTO proof VALUES ('c7/c8 admin write access', 'FAIL: ' || SQLERRM); END $$;
 RESET ROLE;
 
 DO $$ BEGIN

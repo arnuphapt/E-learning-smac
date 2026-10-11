@@ -3,7 +3,7 @@
 // (page -> redirect, API -> 403) everywhere else.
 // Parts that need the migration 20261011040000_tutor_external_domains.sql (student_grades.domain) are skipped until it is applied.
 import { test, expect } from "@playwright/test";
-import { EXT, FX, STATE, adminDb, externalMigrationApplied, seedExternal } from "./fixtures.mjs";
+import { EXT, FX, STATE, adminDb, seedExternal } from "./fixtures.mjs";
 
 test.use({ storageState: STATE.guest });
 test.describe.configure({ mode: "serial" });
@@ -63,24 +63,45 @@ test("year lock by the guest's OWN domain: only the set locked to its year level
   expect((await page.request.get(`/api/tutor/lessons/${EXT.own.id}_lesson`)).status()).toBe(200);
 });
 
-test("the same prefix and label in another domain is another year level: its key does not open the set", async ({ page }) => {
+test("middleware matches whole path segments: /s/tutorial and /api/tutorial are not tutor mode", async ({ page }) => {
+  const res = await page.request.get("/s/tutorial", { maxRedirects: 0 });
+  expect(res.status()).toBe(307);
+  expect(new URL(res.headers().location, "http://x").pathname).toBe("/s/tutor");
+  expect((await page.request.get("/api/tutorial", { maxRedirects: 0 })).status()).toBe(403);
+  expect((await page.request.get("/api/tutors", { maxRedirects: 0 })).status()).toBe(403);
+  expect((await page.request.get("/api/filesystem", { maxRedirects: 0 })).status()).toBe(403);
+  // a trailing slash is still tutor mode (Next strips it with a redirect to /s/tutor, it is not bounced anywhere else)
+  await page.goto("/s/tutor/");
+  await expect(page).toHaveURL(/\/s\/tutor$/);
+  await expect(page.getByRole("link", { name: "ชุดติว" }).first()).toBeVisible();
+  // a nested tutor path is allowed through by the proxy (the route itself decides: 404 for an unknown set)
+  expect((await page.request.get("/api/tutor/sets/does-not-exist")).status()).toBe(404);
+});
+
+test("a set locked ONLY to another domain's level (same prefix, same label) is not shown to the guest", async ({ page }) => {
   test.skip(!migrated, "waits for the migration 20261011040000_tutor_external_domains.sql (student_grades.domain)");
   const db = adminDb();
-  await db.from("allowed_domains").upsert({ domain: "fx-e2e-ext2.invalid" });
-  // the other domain also has prefix 69 = "E2E ปี 1": a different level (different year_no), the guest's email decides
-  const { error } = await db.from("student_grades").upsert({ id: "fx_e2e_sg_other", prefix: "69", year_label: "E2E ปี 1", domain: "fx-e2e-ext2.invalid" });
-  expect(error).toBeNull();
-  const { data: other } = await db.from("student_grades").select("year_no").eq("id", "fx_e2e_sg_other").single();
-  const { data: mine } = await db.from("student_grades").select("year_no").eq("id", EXT.own.grade).single();
+  const setsOf = async () => (await (await page.request.get("/api/tutor/sets")).json()).sets.map((s) => s.id);
+  expect(await setsOf()).toEqual([EXT.own.id]); // control: the guest does see its own level's set
+
+  // the other domain also has prefix 69 = "E2E ปี 1": a different level (different year_no); the guest's email decides
+  const must = (r, what) => { expect(r.error, what).toBeNull(); return r; };
+  must(await db.from("allowed_domains").upsert({ domain: "fx-e2e-ext2.invalid" }), "other domain");
+  must(await db.from("student_grades").upsert({ id: "fx_e2e_sg_other", prefix: "69", year_label: "E2E ปี 1", domain: "fx-e2e-ext2.invalid" }), "other year level");
+  const { data: other } = must(await db.from("student_grades").select("year_no").eq("id", "fx_e2e_sg_other").single(), "other key");
+  const { data: mine } = must(await db.from("student_grades").select("year_no").eq("id", EXT.own.grade).single(), "own key");
   expect(other.year_no).not.toBe(mine.year_no);
-  const { data: before } = await db.from("courses_all").select("year_level").eq("id", EXT.otherYear.id).single();
+  const { data: before } = must(await db.from("courses_all").select("year_level").eq("id", EXT.own.id).single(), "read lock");
   try {
-    await db.from("courses_all").update({ year_level: [other.year_no] }).eq("id", EXT.otherYear.id);
-    const ids = (await (await page.request.get("/api/tutor/sets")).json()).sets.map((s) => s.id);
-    expect(ids).toEqual([EXT.own.id]); // not otherYear: its lock is the other domain's level
+    // lock the guest's own set ONLY to the other domain's key: the guest must lose it
+    must(await db.from("courses_all").update({ year_level: [other.year_no] }).eq("id", EXT.own.id), "lock to the other domain");
+    expect(await setsOf()).toEqual([]);
+    expect((await page.request.get(`/api/tutor/sets/${EXT.own.id}`)).status()).toBe(404);
+    expect((await page.request.get(`/api/tutor/lessons/${EXT.own.id}_lesson`)).status()).toBe(404);
   } finally {
-    await db.from("courses_all").update({ year_level: before.year_level }).eq("id", EXT.otherYear.id);
+    await db.from("courses_all").update({ year_level: before.year_level }).eq("id", EXT.own.id);
     await db.from("student_grades").delete().eq("id", "fx_e2e_sg_other");
     await db.from("allowed_domains").delete().eq("domain", "fx-e2e-ext2.invalid");
   }
+  expect(await setsOf()).toEqual([EXT.own.id]); // restored
 });

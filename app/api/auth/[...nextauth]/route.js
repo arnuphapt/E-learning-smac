@@ -8,6 +8,7 @@ import { switchKind } from "@/lib/impersonation";
 import { PERMISSIONS } from "@/lib/rbac";
 import { registrationPlan } from "@/lib/registration";
 import { DEFAULT_DOMAIN } from "@/lib/course-access";
+import { isTutorOnlyRole } from "@/lib/roles";
 
 export const authOptions = {
   providers: [
@@ -101,6 +102,11 @@ export const authOptions = {
           .single();
 
         if (dbUser) {
+          // An external-domain user whose domain was taken out of allowed_domains can no longer sign in.
+          if (isTutorOnlyRole(dbUser.role)) {
+            const { data: stillAllowed } = await supabase.from("allowed_domains").select("domain").eq("domain", domain).maybeSingle();
+            if (!stillAllowed) return "/login?error=AccessDenied";
+          }
           user.role = dbUser.role;
           user.dbId = dbUser.id;
           user.study_year = dbUser.study_year ?? null;

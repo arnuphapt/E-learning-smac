@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { canStudentAccessTutorSet, DEFAULT_DOMAIN } from "@/lib/course-access";
+import { canStudentAccessTutorSet, DEFAULT_DOMAIN, EXTERNAL_YEAR_BASE } from "@/lib/course-access";
+import { isTutorOnlyRole } from "@/lib/roles";
 import { lockSummary } from "@/lib/tutor-bank";
 import Icon from "@/components/ui/Icon";
 import { Select } from "@/components/ui/Primitives";
@@ -78,7 +79,7 @@ export default function TutorSettings({ course, canManage, onSaved }) {
   const reach = useMemo(() => {
     if (!lookup) return null;
     return lookup.students.filter((s) =>
-      canStudentAccessTutorSet(draft, { email: s.email, studentNo: s.student_no, section: s.section, studyYear: s.study_year, tutorOnly: s.role === "tutor_guest" }, lookup.sections, lookup.grades)
+      canStudentAccessTutorSet(draft, { email: s.email, studentNo: s.student_no, section: s.section, studyYear: s.study_year, tutorOnly: isTutorOnlyRole(s.role) }, lookup.sections, lookup.grades)
     ).length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookup, section, years, emails]);
@@ -212,6 +213,13 @@ export default function TutorSettings({ course, canManage, onSaved }) {
                 </label>
               );
             })}
+          {lookup && years.filter((y) => y >= EXTERNAL_YEAR_BASE && !lookup.yearOptions.some((o) => o.value === y)).map((y) => (
+            // a lock on an external year level that no longer exists matches nobody: show it so it can be unticked
+            <label key={y} className="t-sm" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "7px 13px", borderRadius: 9, border: "1.5px dashed var(--danger)", color: "var(--danger)" }}>
+              <input type="checkbox" checked onChange={() => setYears((l) => l.filter((x) => x !== y))} />
+              ชั้นปีที่ถูกลบ <span className="t-xs">(รหัส {y})</span>
+            </label>
+          ))}
         </div>
 
         <div className="field" style={{ maxWidth: 380 }}>
