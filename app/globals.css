@@ -565,7 +565,7 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .tw-bar-st{font-weight:500;font-size:12px;color:var(--muted-fg);margin-left:8px;}
 .tw-sec-flush{padding:0;}
 .tw-sec-pad{padding:20px 22px 12px;}
-.tw-res-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) 56px minmax(0,1.2fr) minmax(0,1.3fr) minmax(0,1.8fr);gap:14px;align-items:center;width:100%;padding:12px 22px;border:0;border-top:1px solid var(--border);background:var(--card);text-align:left;color:var(--fg);font-size:13px;font-variant-numeric:tabular-nums;}
+.tw-res-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 56px minmax(0,1.2fr) minmax(0,1.3fr) minmax(0,1.8fr);gap:14px;align-items:center;width:100%;padding:12px 22px;border:0;border-top:1px solid var(--border);background:var(--card);text-align:left;color:var(--fg);font-size:13px;font-variant-numeric:tabular-nums;}
 button.tw-res-row{cursor:pointer;transition:background .12s;}
 button.tw-res-row:hover{background:var(--primary-soft);}
 button.tw-res-row:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;}

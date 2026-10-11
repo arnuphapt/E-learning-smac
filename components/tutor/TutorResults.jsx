@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { summarizeLesson, exportRows } from "@/lib/tutor-results";
+import { summarizeLesson, exportRows, domainCounts, filterByDomain } from "@/lib/tutor-results";
+import { emailDomain } from "@/lib/course-access";
 import { PASS_PERCENT, STRONG_PERCENT, STATUS_LABEL } from "@/lib/tutor-analysis";
 import Icon from "@/components/ui/Icon";
 import Loading from "@/components/ui/Loading";
@@ -57,6 +58,7 @@ export default function TutorResults({ course, lessons }) {
   const [lessonId, setLessonId] = useState(lessons[0]?.id || "");
   const [open, setOpen] = useState(null); // student summary entry shown in the side panel
   const [exporting, setExporting] = useState(false);
+  const [domain, setDomain] = useState(""); // "" = ทุกโดเมน; kept across lesson switches
 
   const ids = lessons.map((l) => l.id).join("|");
   useEffect(() => {
@@ -72,9 +74,9 @@ export default function TutorResults({ course, lessons }) {
 
   const summaries = useMemo(() => {
     const m = new Map();
-    for (const l of lessons) m.set(l.id, summarizeLesson((data?.attempts || []).filter((a) => a.lesson_id === l.id)));
+    for (const l of lessons) m.set(l.id, summarizeLesson(filterByDomain((data?.attempts || []).filter((a) => a.lesson_id === l.id), data?.users, domain)));
     return m;
-  }, [data, lessons]);
+  }, [data, lessons, domain]);
 
   if (failed) return <div className="tw-panel"><div className="empty"><div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div><div className="fw-6 fg">โหลดผลการทำข้อสอบไม่สำเร็จ</div><div className="t-sm muted">ลองเปิดแท็บนี้อีกครั้ง</div></div></div>;
   if (lessons.length === 0) {
@@ -86,6 +88,7 @@ export default function TutorResults({ course, lessons }) {
   const s = summaries.get(lesson.id);
   const total = s.spread.weak + s.spread.fair + s.spread.strong;
   const lessonAttempts = data.attempts.filter((a) => a.lesson_id === lesson.id);
+  const domains = domainCounts(data.users);
   const anyResult = [...summaries.values()].some((x) => x.students.length > 0);
 
   const exportXlsx = async (only) => {
@@ -99,7 +102,7 @@ export default function TutorResults({ course, lessons }) {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportRows(sum, data.users)), "บทที่ " + l.index);
       }
       if (!wb.SheetNames.length) return toast("ยังไม่มีผลที่ส่งออกได้", "error");
-      XLSX.writeFile(wb, `ผลติว_${course.code}${only ? "_บทที่_" + only.index : ""}.xlsx`);
+      XLSX.writeFile(wb, `ผลติว_${course.code}${only ? "_บทที่_" + only.index : ""}${domain ? "_" + domain : ""}.xlsx`);
       toast("ส่งออกไฟล์ผลการทำข้อสอบสำเร็จ");
     } catch (e) {
       toast("ส่งออกไม่สำเร็จ: " + e.message, "error");
@@ -125,6 +128,14 @@ export default function TutorResults({ course, lessons }) {
           <button className="btn btn-outline btn-sm" disabled={exporting || !anyResult} onClick={() => exportXlsx(null)}><Icon name="excel" size={14} />ส่งออกทั้งชุด</button>
         </div>
       </div>
+
+      {domains.length > 1 && (
+        <div className="tabs pill mb-3" role="group" aria-label="กรองตามโดเมน">
+          {[["", "ทุกโดเมน", data.users.size], ...domains.map(([d, n]) => [d, d, n])].map(([d, label, n]) => (
+            <button key={d} className={domain === d ? "on" : ""} aria-pressed={domain === d} onClick={() => { setDomain(d); setOpen(null); }}>{label} ({n})</button>
+          ))}
+        </div>
+      )}
 
       <div className="tw-panel">
         <section className="tw-sec">
@@ -180,7 +191,7 @@ export default function TutorResults({ course, lessons }) {
                 <p className="tw-sec-d">เรียงจากคะแนนต่ำสุดขึ้นก่อน กดที่แถวเพื่อดูรอบที่ทำและเฉลยรายข้อ</p>
               </div>
               <div className="tw-res-row head" aria-hidden="true">
-                <span>ชื่อ</span><span>รหัสนักศึกษา</span><span>รอบ</span><span>คะแนนดีที่สุด</span><span>ทำล่าสุด</span><span>หัวข้อที่อ่อนที่สุด</span>
+                <span>ชื่อ</span><span>รหัสนักศึกษา</span><span>โดเมน</span><span>รอบ</span><span>คะแนนดีที่สุด</span><span>ทำล่าสุด</span><span>หัวข้อที่อ่อนที่สุด</span>
               </div>
               {s.students.map((st) => {
                 const u = data.users.get(st.student_id);
@@ -188,6 +199,7 @@ export default function TutorResults({ course, lessons }) {
                   <button key={st.student_id} className="tw-res-row" onClick={() => setOpen(st)} aria-label={"ดูผลของ " + (u?.name || "นักศึกษา")}>
                     <span className="tw-res-name truncate">{u?.name || "(ไม่พบผู้ใช้)"}</span>
                     <span className="mono" data-l="รหัสนักศึกษา">{u?.student_no || "—"}</span>
+                    <span className="mono" data-l="โดเมน">{emailDomain(u?.email) || "—"}</span>
                     <span data-l="รอบ">{st.rounds}</span>
                     <span data-l="คะแนนดีที่สุด"><span className={"badge badge-" + TONE[st.best.status]}>{st.best.score}/{st.best.total} · {st.best.percent}%</span></span>
                     <span data-l="ทำล่าสุด">{fmtDate(st.latestAt, true)}</span>

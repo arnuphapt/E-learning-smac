@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { summarizeLesson, roundsOf, exportRows, weakestGroup } from "../lib/tutor-results.js";
+import { summarizeLesson, roundsOf, exportRows, weakestGroup, domainCounts, filterByDomain } from "../lib/tutor-results.js";
 
 const g = (topic_id, name, correct, total) => ({ topic_id, name, correct, total, percent: Math.floor((correct * 100) / total), status: "x" });
 const att = (id, student_id, score, total, startedAt, groups, extra = {}) => ({
@@ -87,6 +87,13 @@ test("roundsOf numbers one student's ended rounds oldest first", () => {
   assert.deepEqual(roundsOf(all, "s1").map((r) => [r.id, r.number, r.percent]), [["a1", 1, 50], ["a2", 2, 75]]);
 });
 
+test("exportRows domain: lower-cased part after @, dash when email is missing", () => {
+  const s = summarizeLesson([att("a1", "s1", 2, 4, "2026-10-01T05:00:00Z", A), att("b1", "s2", 1, 2, "2026-10-01T05:00:00Z", A)]);
+  const rows = exportRows(s, new Map([["s1", { name: "ก", email: "69010001@SMNC.ac.th" }], ["s2", { name: "ข", email: null }]]));
+  assert.equal(rows.find((r) => r["ชื่อ-นามสกุล"] === "ก")["โดเมน"], "smnc.ac.th");
+  assert.equal(rows.find((r) => r["ชื่อ-นามสกุล"] === "ข")["โดเมน"], "-");
+});
+
 test("exportRows: one row per student with best score, rounds and a % column per class topic", () => {
   const s = summarizeLesson([
     att("a1", "s1", 2, 4, "2026-10-01T05:00:00Z", A),
@@ -96,10 +103,23 @@ test("exportRows: one row per student with best score, rounds and a % column per
   assert.equal(rows.length, 2);
   const r1 = rows.find((r) => r["ชื่อ-นามสกุล"] === "ก");
   assert.deepEqual(r1, {
-    "รหัสนักศึกษา": "650001", "ชื่อ-นามสกุล": "ก", "อีเมล": "a@x", "จำนวนรอบ": 1, "คะแนนดีที่สุด": 2, "เต็ม": 4, "ร้อยละ": 50,
+    "รหัสนักศึกษา": "650001", "โดเมน": "x", "ชื่อ-นามสกุล": "ก", "อีเมล": "a@x", "จำนวนรอบ": 1, "คะแนนดีที่สุด": 2, "เต็ม": 4, "ร้อยละ": 50,
     "ทำล่าสุด": "2026-10-01", "หัวข้อ: ไต": 0, "หัวข้อ: หัวใจ": 100,
   });
   const r2 = rows.find((r) => r["ชื่อ-นามสกุล"] === "-"); // unknown user
+  assert.equal(r2["โดเมน"], "-"); // unknown user -> no email -> "-"
   assert.equal(r2["หัวข้อ: ไต"], "");
   assert.equal(r2["หัวข้อ: หัวใจ"], 50);
+});
+
+test("domain filter: counts per domain (smnc.ac.th first, no-email ignored); filterByDomain keeps only that domain, empty = all", () => {
+  const users = new Map([
+    ["s1", { email: "a@Z.example" }], ["s2", { email: "b@smnc.ac.th" }], ["s3", { email: "c@z.example" }], ["s4", { email: null }],
+  ]);
+  assert.deepEqual(domainCounts(users), [["smnc.ac.th", 1], ["z.example", 2]]);
+  const rows = ["s1", "s2", "s3", "s4"].map((id) => att("a" + id, id, 1, 2, "2026-10-01T00:00:00Z", A));
+  assert.deepEqual(filterByDomain(rows, users, "z.example").map((r) => r.student_id), ["s1", "s3"]);
+  assert.deepEqual(filterByDomain(rows, users, "smnc.ac.th").map((r) => r.student_id), ["s2"]);
+  assert.equal(filterByDomain(rows, users, ""), rows);
+  assert.equal(summarizeLesson(filterByDomain(rows, users, "z.example")).students.length, 2);
 });
