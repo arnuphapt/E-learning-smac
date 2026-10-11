@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeTopic, findTopic, bankWarning, parseDrawCount, lockSummary } from "../lib/tutor-bank.js";
+import { normalizeTopic, findTopic, bankWarning, parseDrawCount, lockSummary, visibleTutorSets, filterBank, topicNames } from "../lib/tutor-bank.js";
 
 test("topics are reused by trimmed, case-insensitive name", () => {
   const topics = [{ id: "t1", name: "Heart failure" }];
@@ -36,4 +36,31 @@ test("lock summary: no lock means nobody (tutor sets fail closed), any lock open
   assert.match(lockSummary({ year_level: [], access: {} }).text, /ไม่มีนักศึกษา/);
   assert.deepEqual(lockSummary({ year_level: [3, 2], section: "A", access: { allowedEmails: ["a@x"] } }), { open: true, text: "ชั้นปี 2, 3 · A · 1 อีเมลพิเศษ" });
   assert.equal(lockSummary({ access: { allowedEmails: ["a@x"] } }).text, "1 อีเมลพิเศษ");
+});
+
+test("visibleTutorSets: admin all, manager by group, instructor by assignment, others none", () => {
+  const sets = [{ id: "a", group_id: "g1" }, { id: "b", group_id: "g2" }, { id: "c", group_id: null }];
+  const ids = (u, mine) => visibleTutorSets(sets, u, mine).map((s) => s.id);
+  assert.deepEqual(ids({ role: "admin" }, []), ["a", "b", "c"]);
+  assert.deepEqual(ids({ role: "course_manager", group_id: "g1" }, []), ["a"]);
+  assert.deepEqual(ids({ role: "course_manager", group_ids: ["g2"] }, []), ["b"]);
+  assert.deepEqual(ids({ role: "instructor" }, ["c"]), ["c"]);
+  assert.deepEqual(ids({ role: "student" }, ["a"]), []);
+  assert.deepEqual(ids({ role: "tutor_guest" }, ["a"]), []);
+});
+
+test("filterBank / topicNames: set, lesson, topic (normalized), text search", () => {
+  const rows = [
+    { id: "1", setId: "s1", lessonId: "l1", topic: "Heart", text: "ภาวะหัวใจล้มเหลว" },
+    { id: "2", setId: "s1", lessonId: "l2", topic: " heart ", text: "Arrhythmia" },
+    { id: "3", setId: "s2", lessonId: "l3", topic: "", text: "ไต" },
+  ];
+  const ids = (f) => filterBank(rows, f).map((r) => r.id);
+  assert.deepEqual(ids({}), ["1", "2", "3"]);
+  assert.deepEqual(ids({ setId: "s1" }), ["1", "2"]);
+  assert.deepEqual(ids({ setId: "s1", lessonId: "l2" }), ["2"]);
+  assert.deepEqual(ids({ topic: "HEART" }), ["1", "2"]);
+  assert.deepEqual(ids({ q: " ARRHY " }), ["2"]);
+  assert.deepEqual(ids({ setId: "s2", topic: "Heart" }), []);
+  assert.deepEqual(topicNames(rows), ["Heart"]);
 });

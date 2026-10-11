@@ -30,7 +30,9 @@ function InstructorSidebarContent({ open, onClose }) {
   }
 
   if (hasPermission(user, PERMISSIONS.COURSES_VIEW)) {
-    items1.push(["/i/tutor", "award", "ชุดติว", pathname.startsWith("/i/tutor") || pathname.endsWith("/bank")]);
+    const onBankList = pathname === "/i/tutor/bank";
+    items1.push(["/i/tutor", "award", "ชุดติว", !onBankList && (pathname.startsWith("/i/tutor") || pathname.endsWith("/bank"))]);
+    items1.push(["/i/tutor/bank", "clipboard", "คลังข้อสอบ", onBankList]);
   }
 
   let items2 = [];

@@ -120,6 +120,11 @@ export default function TutorBank() {
     return () => { cancelled = true; };
   }, [lessonId, fetchAll]);
 
+  // Deep link from /i/tutor/bank (#q-<id>): the rows render after the async load, so the browser's own hash scroll misses them.
+  useEffect(() => {
+    if (!state.loading) document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "center" });
+  }, [state.loading]);
+
   // Reload the bank, drop topics no question uses any more, so "lesson has topics" stays true only for real topics.
   const refresh = async () => {
     let rest = await fetchAll();
@@ -293,7 +298,7 @@ export default function TutorBank() {
             ) : (
               <div className="tw-rail">
                 {questions.map((q, i) => (
-                  <div key={q.id} className="tw-q">
+                  <div key={q.id} id={"q-" + q.id} className="tw-q">
                     <div className="tw-q-no">{String(i + 1).padStart(2, "0")}</div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 wrap">

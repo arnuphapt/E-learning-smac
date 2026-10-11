@@ -4,7 +4,7 @@
 // course_instructors link, and removed by global teardown.
 import { test, expect } from "@playwright/test";
 import XLSX from "xlsx";
-import { FX, FX_PREFIX, STATE, UI_CODE_PREFIX, adminDb } from "./fixtures.mjs";
+import { FX, FX_PREFIX, STATE, UI_CODE_PREFIX, adminDb, questionText } from "./fixtures.mjs";
 import { TEMPLATE_HEADERS } from "../lib/tutor-import.js";
 
 test.use({ storageState: STATE.instructor });
@@ -181,4 +181,28 @@ test("import bank questions from an Excel file: preview, errors, untick, topics 
     await db.from("lessons").delete().eq("id", lessonId);
     await db.from("courses_all").delete().eq("id", courseId);
   }
+});
+
+// Standalone bank list: shows the fixture bank, filters narrow it, a row opens the lesson's bank editor at that question.
+test("question bank list: fixture questions, lesson filter and search narrow it, row deep-links to the lesson bank", async ({ page }) => {
+  await page.goto("/i/tutor/bank");
+  await expect(page.getByRole("heading", { name: "คลังข้อสอบ" })).toBeVisible();
+  const rows = page.locator("a.tw-q");
+  await expect(rows.first()).toBeVisible();
+  await expect(page.getByText(/^แสดง \d+ จาก \d+ ข้อ$/)).toBeVisible(); // the count; a long bank is capped at 200 rows
+
+  // lesson filter (custom Select): only the fixture lesson's questions
+  await page.locator(".field", { hasText: "บทเรียน" }).getByRole("button").click();
+  await page.getByRole("button", { name: FX.lesson.title }).click();
+  await expect(rows).toHaveCount(4);
+  await expect(page.getByText("แสดง 4 จาก 4 ข้อ")).toBeVisible();
+
+  // text search narrows to one question
+  await page.getByLabel("ค้นหาในโจทย์").fill(questionText(3));
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(FX.topics[1].name);
+
+  await rows.first().click();
+  await page.waitForURL(`**/i/lesson/${FX.lesson.id}/bank#q-fx_e2e_q3`);
+  await expect(page.locator("#q-fx_e2e_q3")).toBeVisible();
 });

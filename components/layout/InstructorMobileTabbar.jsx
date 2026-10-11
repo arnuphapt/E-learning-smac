@@ -120,6 +120,29 @@ function MoreSheet({ onClose }) {
                 ประวัติการใช้งาน AI
               </span>
             </Link>
+            {hasPermission(user, PERMISSIONS.COURSES_VIEW) && (
+              <Link
+                href="/i/tutor/bank"
+                onClick={onClose}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: pathname === "/i/tutor/bank" ? "var(--primary-soft)" : "var(--muted)",
+                  color: pathname === "/i/tutor/bank" ? "var(--primary)" : "var(--fg)",
+                  fontWeight: 500,
+                  fontSize: 13,
+                  textDecoration: "none",
+                }}
+              >
+                <Icon name="clipboard" size={16} />
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  คลังข้อสอบ
+                </span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -195,9 +218,9 @@ export default function InstructorMobileTabbar() {
   const { data: session } = useSession();
   const user = session?.user;
  
-  const onBank = pathname.endsWith("/bank"); // the tutor question bank lives under /i/lesson
+  const onBank = pathname.endsWith("/bank") && pathname !== "/i/tutor/bank"; // the tutor question bank lives under /i/lesson
   const onHome = !onBank && (pathname === "/i/courses" || pathname.startsWith("/i/course") || pathname.startsWith("/i/lesson"));
-  const onTutor = pathname.startsWith("/i/tutor") || onBank;
+  const onTutor = (pathname.startsWith("/i/tutor") && pathname !== "/i/tutor/bank") || onBank;
   const onSubmissions = pathname.startsWith("/i/submissions") || pathname.startsWith("/i/grade");
   const onReports = pathname.startsWith("/i/reports");
   const onMaster = pathname.startsWith("/i/master");

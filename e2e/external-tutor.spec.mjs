@@ -16,7 +16,7 @@ test.beforeAll(async () => {
 const landedOnTutor = (page) => expect(page).toHaveURL(/\/s\/tutor$/);
 
 test("sign-in landing (/s/courses) and every other student / instructor page send the guest to /s/tutor", async ({ page }) => {
-  for (const url of ["/s/courses", "/s/ai", "/s/assignments", "/s/calendar", "/s/broadcasts", "/s/profile", `/s/course/${FX.course.id}`, "/i/courses", "/i/master/studentgrade"]) {
+  for (const url of ["/s/courses", "/s/ai", "/s/assignments", "/s/calendar", "/s/broadcasts", "/s/profile", `/s/course/${FX.course.id}`, "/i/courses", "/i/tutor/bank", "/i/master/studentgrade"]) {
     await page.goto(url);
     await landedOnTutor(page);
   }
