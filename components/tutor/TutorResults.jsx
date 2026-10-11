@@ -6,6 +6,7 @@ import { summarizeLesson, exportRows, domainCounts, filterByDomain } from "@/lib
 import { emailDomain } from "@/lib/course-access";
 import { PASS_PERCENT, STRONG_PERCENT, STATUS_LABEL } from "@/lib/tutor-analysis";
 import Icon from "@/components/ui/Icon";
+import { Select } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
 import StudentRounds, { fmtDate } from "@/components/tutor/StudentRounds";
@@ -114,15 +115,15 @@ export default function TutorResults({ course, lessons }) {
   return (
     <div className="tw-res">
       <div className="tw-res-bar">
-        <label className="tw-res-pick">
+        <div className="tw-res-pick">
           <span className="t-sm fw-6">บทเรียน</span>
-          <select className="input" value={lesson.id} onChange={(e) => { setLessonId(e.target.value); setOpen(null); }} aria-label="เลือกบทเรียน">
+          <Select className="input" value={lesson.id} onChange={(e) => { setLessonId(e.target.value); setOpen(null); }}>
             {lessons.map((l) => {
               const n = summaries.get(l.id).students.length;
               return <option key={l.id} value={l.id}>{String(l.index ?? "").padStart(2, "0")} · {l.title || "(ไม่มีชื่อบทเรียน)"} ({n} คน)</option>;
             })}
-          </select>
-        </label>
+          </Select>
+        </div>
         <div className="flex gap-2 wrap">
           <button className="btn btn-outline btn-sm" disabled={exporting || !s.students.length} onClick={() => exportXlsx(lesson)}><Icon name="download" size={14} />ส่งออกบทนี้</button>
           <button className="btn btn-outline btn-sm" disabled={exporting || !anyResult} onClick={() => exportXlsx(null)}><Icon name="excel" size={14} />ส่งออกทั้งชุด</button>
