@@ -25,6 +25,7 @@ function hexToRgba(hex, alpha = 1) {
 }
 
 function LessonRow({ l, nav, heroColor }) {
+  const hero = heroColor && heroColor.startsWith("#") ? heroColor : "#0d6e8c";
   const locked = l.status === "locked-pretest";
   
   // Check if lesson actually has a video

@@ -2,7 +2,7 @@
 // (the tutor page DOES show the fixture set) so an empty page cannot pass by accident, and a database-level check as the
 // signed-in user, because the list pages are paginated / filtered and a UI scan alone could miss a row.
 import { test, expect } from "@playwright/test";
-import { FX, STATE, restAs } from "./fixtures.mjs";
+import { FX, STATE, restAs, adminDb } from "./fixtures.mjs";
 
 const loaded = (page) => expect(page.getByText("กำลังโหลดข้อมูล")).toHaveCount(0);
 
@@ -47,5 +47,39 @@ test.describe("instructor", () => {
     expect((await restAs(page, `courses?select=id&kind=eq.tutor`)).body).toEqual([]); // not one tutor set, any owner
     expect((await restAs(page, `courses?select=id&id=eq.${FX.course.id}`)).body).toEqual([]);
     expect((await restAs(page, `courses_all?select=id&id=eq.${FX.course.id}`)).body).toEqual([{ id: FX.course.id }]);
+  });
+});
+
+// Regression: LessonRow used an undeclared `hero`, so every /s/course/<id> with at least one lesson crashed
+// ("ReferenceError: hero is not defined" -> "This page couldn't load"). Needs a kind:'course' course WITH a lesson.
+const NORMAL = { course: "fx_e2e_normal_course", lesson: "fx_e2e_normal_lesson", title: "[E2E] บทเรียนปกติ" };
+
+test.describe("student normal course page", () => {
+  test.use({ storageState: STATE.student });
+
+  test.beforeAll(async () => {
+    const db = adminDb(); // fx_e2e_ ids only: global teardown sweeps them too
+    const ok = ({ error }) => { if (error) throw new Error("e2e seed normal course: " + error.message); };
+    ok(await db.from("courses_all").upsert({
+      id: NORMAL.course, code: "FXE2E-NORMAL", title: "[E2E] รายวิชาปกติ", subtitle: "E2E fixture, safe to delete", term: "E2E", year: "2999",
+      instructor: FX.instructor.name, hero: "#0d6e8c", access: { allowedYears: [], allowedEmails: [FX.student.email] },
+      year_level: [], section: null, kind: "course",
+    }));
+    ok(await db.from("lessons").upsert({ id: NORMAL.lesson, course_id: NORMAL.course, index: 1, title: NORMAL.title, description: "E2E fixture lesson", status: "active" }));
+  });
+
+  test.afterAll(async () => {
+    const db = adminDb();
+    await db.from("lessons").delete().eq("id", NORMAL.lesson);
+    await db.from("courses_all").delete().eq("id", NORMAL.course);
+  });
+
+  test("/s/course/<id> renders its lesson without a page error", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto(`/s/course/${NORMAL.course}`);
+    await expect(page.getByText(NORMAL.title)).toBeVisible();
+    await expect(page.getByText("This page couldn’t load")).toHaveCount(0);
+    expect(errors).toEqual([]);
   });
 });
