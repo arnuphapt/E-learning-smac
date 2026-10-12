@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { tutorCaller, loadTutorCourse, publicSet, tutorNotFound } from "@/lib/tutor-server";
+import { tutorCaller, loadTutorCourse, publicSet, tutorNotFound, loadAttemptAccess } from "@/lib/tutor-server";
 
 // GET /api/tutor/lessons/<lessonId> -> lesson (video key, description) of an active lesson in a tutor set the caller
 // may open. The video itself is served by /api/files (presigned R2 URL), same as course lessons.
-// Never returns questions, answers or explanations.
+// Also { limit, canStart } of the attempt limit (limit NULL = unlimited). Never returns questions, answers or explanations.
 export async function GET(req, { params }) {
   const caller = await tutorCaller(req);
   if (caller.error) return caller.error;
@@ -13,7 +13,7 @@ export async function GET(req, { params }) {
   try {
     const { data: lesson, error } = await db
       .from("lessons")
-      .select("id, course_id, index, title, duration, description, video_url, status")
+      .select("id, course_id, index, title, duration, description, video_url, status, tutor_max_attempts, tutor_time_limit_minutes")
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
@@ -24,8 +24,9 @@ export async function GET(req, { params }) {
     if (!course || !(await caller.canOpen(course))) return tutorNotFound();
 
     const { id: lessonId, index, title, duration, description, video_url } = lesson;
+    const { limit, canStart } = await loadAttemptAccess(db, caller.studentId, lesson);
     return NextResponse.json(
-      { set: publicSet(course), lesson: { id: lessonId, index, title, duration, description, video_url } },
+      { set: publicSet(course), lesson: { id: lessonId, index, title, duration, description, video_url, attemptLimit: limit, canStart, timeLimit: lesson.tutor_time_limit_minutes } },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (e) {

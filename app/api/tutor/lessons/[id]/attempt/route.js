@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
-import { tutorLessonGate as gate, settleAttempt } from "@/lib/tutor-server";
+import { tutorLessonGate as gate, settleAttempt, loadAttemptAccess } from "@/lib/tutor-server";
 import { drawQuestions, roundSize } from "@/lib/tutor-draw";
-import { deadlineFor, isPastDeadline, minutesFor } from "@/lib/tutor-attempt";
+import { deadlineFor, isPastDeadline, roundMinutes, ATTEMPT_LIMIT_CODE, ATTEMPT_LIMIT_MESSAGE } from "@/lib/tutor-attempt";
 
 // Tutor attempt of ONE lesson. Identity is the session (never a user id from the client); the lock on the lesson's
 // tutor set is checked with canOpen(); every DB access is the service role.
-//   GET  /api/tutor/lessons/<lessonId>/attempt  -> preview (question count + minutes) and whether a round is open. No questions.
+//   GET  /api/tutor/lessons/<lessonId>/attempt  -> preview (question count + minutes), whether a round is open, and the attempt
+//        limit ({ limit, canStart }: limit NULL = unlimited). No questions.
 //   POST /api/tutor/lessons/<lessonId>/attempt  -> start a round, or resume the open one. Body { resume: true } = resume
 //        only (never draws). Returns the exam payload: ONLY the locked questions of the caller's round, in the locked
 //        order, without answer / explanation / topic, plus the student's saved answers.
+//        409 { state: "limit" } = the lesson is once-only (lessons.tutor_max_attempts) and the limit is used up. The check is
+//        the database trigger tutor_attempt_limit_guard (atomic per student + lesson): it fires on the insert below.
 // A round past its deadline is never extended: any access ends it as 'expired' and scores it (settleAttempt, shared with
 // the answer / submit routes under /api/tutor/attempts/<id>/).
 
@@ -69,7 +72,7 @@ async function examPayload(db, attempt, resumed) {
       startedAt: attempt.started_at,
       deadlineAt: attempt.deadline_at,
       count: attempt.total,
-      minutes: minutesFor(attempt.total),
+      minutes: Math.round((Date.parse(attempt.deadline_at) - Date.parse(attempt.started_at)) / 60000), // the round's own stored clock, not today's setting
       resumed,
     },
     questions,
@@ -82,14 +85,16 @@ export async function GET(req, { params }) {
     const g = await gate(req, params);
     if (g.error) return g.error;
     const { db, studentId, lesson } = g;
-    const [bank, found] = await Promise.all([loadBank(db, lesson.id), loadOpenAttempt(db, studentId, lesson.id)]);
-    const count = roundSize(bank.length, lesson.tutor_draw_count);
     const now = Date.now();
+    const [bank, found, access] = await Promise.all([loadBank(db, lesson.id), loadOpenAttempt(db, studentId, lesson.id), loadAttemptAccess(db, studentId, lesson, now)]);
+    const count = roundSize(bank.length, lesson.tutor_draw_count);
     const open = found && (await settleAttempt(db, found, now)); // any access past the deadline ends and scores the round
     return json({
       serverNow: new Date(now).toISOString(),
       count,
-      minutes: minutesFor(count),
+      minutes: roundMinutes(count, lesson.tutor_time_limit_minutes),
+      limit: access.limit,
+      canStart: access.canStart,
       attempt: open && { id: open.id, count: open.total, deadlineAt: open.deadline_at, expired: open.status !== "in_progress" },
     });
   } catch (e) {
@@ -129,15 +134,19 @@ export async function POST(req, { params }) {
           question_ids: ids,
           total: ids.length,
           started_at: new Date(nowMs).toISOString(),
-          deadline_at: deadlineFor(nowMs, ids.length), // server clock, 1 minute per question
+          deadline_at: deadlineFor(nowMs, ids.length, lesson.tutor_time_limit_minutes), // server clock: the lesson's round time, else 1 minute per question
         })
         .select(ATTEMPT_COLUMNS)
         .single();
-      if (error?.code === "23505") {
-        // two starts raced (one open round per student+lesson): hand back the winner's round
+      if (error?.code === "23505" || error?.code === ATTEMPT_LIMIT_CODE) {
+        // two starts raced (one open round per student+lesson; for a once-only lesson the loser hits the limit instead):
+        // hand back the winner's round. No open round = the limit really is used up.
         attempt = await loadOpenAttempt(db, studentId, lesson.id);
         resumed = true;
-        if (!attempt) throw error;
+        if (!attempt) {
+          if (error.code === ATTEMPT_LIMIT_CODE) return json({ error: ATTEMPT_LIMIT_MESSAGE, state: "limit" }, 409);
+          throw error;
+        }
       } else if (error) {
         throw error;
       } else {

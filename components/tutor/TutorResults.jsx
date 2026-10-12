@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { summarizeLesson, exportRows, domainCounts, filterByDomain } from "@/lib/tutor-results";
+import { summarizeLesson, exportRows, domainCounts, filterByDomain, formatClock } from "@/lib/tutor-results";
 import { emailDomain } from "@/lib/course-access";
 import { PASS_PERCENT, STRONG_PERCENT, STATUS_LABEL } from "@/lib/tutor-analysis";
 import Icon from "@/components/ui/Icon";
@@ -22,7 +22,7 @@ async function loadAttempts(lessonIds) {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("tutor_attempts")
-      .select("id, student_id, lesson_id, score, total, status, started_at, submitted_at, groups:result->analysis->groups")
+      .select("id, student_id, lesson_id, score, total, status, started_at, submitted_at, deadline_at, groups:result->analysis->groups")
       .in("lesson_id", lessonIds)
       .order("started_at", { ascending: true })
       .order("id", { ascending: true })
@@ -192,7 +192,7 @@ export default function TutorResults({ course, lessons }) {
                 <p className="tw-sec-d">เรียงจากคะแนนต่ำสุดขึ้นก่อน กดที่แถวเพื่อดูรอบที่ทำและเฉลยรายข้อ</p>
               </div>
               <div className="tw-res-row head" aria-hidden="true">
-                <span>ชื่อ</span><span>รหัสนักศึกษา</span><span>โดเมน</span><span>รอบ</span><span>คะแนนดีที่สุด</span><span>ทำล่าสุด</span><span>หัวข้อที่อ่อนที่สุด</span>
+                <span>ชื่อ</span><span>รหัสนักศึกษา</span><span>โดเมน</span><span>รอบ</span><span>คะแนนดีที่สุด</span><span>เวลาที่ใช้</span><span>ทำล่าสุด</span><span>หัวข้อที่อ่อนที่สุด</span>
               </div>
               {s.students.map((st) => {
                 const u = data.users.get(st.student_id);
@@ -203,6 +203,7 @@ export default function TutorResults({ course, lessons }) {
                     <span className="mono" data-l="โดเมน">{emailDomain(u?.email) || "—"}</span>
                     <span data-l="รอบ">{st.rounds}</span>
                     <span data-l="คะแนนดีที่สุด"><span className={"badge badge-" + TONE[st.best.status]}>{st.best.score}/{st.best.total} · {st.best.percent}%</span></span>
+                    <span data-l="เวลาที่ใช้ (รอบที่ดีที่สุด)">{formatClock(st.best.seconds)}</span>
                     <span data-l="ทำล่าสุด">{fmtDate(st.latestAt, true)}</span>
                     <span className="truncate" data-l="หัวข้อที่อ่อนที่สุด" title={st.weakest?.name}>
                       {st.weakest ? <><span className="tw-weak" data-s={st.weakest.status}>{st.weakest.percent}%</span> {st.weakest.name}</> : "—"}

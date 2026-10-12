@@ -75,15 +75,24 @@ export default function StudentTutorLesson() {
       <div className="clay-card mb-4 flex items-center justify-between gap-4 wrap" style={{ padding: "24px 26px" }}>
         <div>
           <div className="t-base fw-7" style={{ fontSize: 17 }}>ทำข้อสอบบทนี้</div>
-          <div className="t-sm muted mt-1" style={{ color: "#475569" }}>สุ่มชุดข้อใหม่ทุกรอบ ทำซ้ำได้ไม่จำกัด</div>
+          <div className="t-sm muted mt-1" style={{ color: "#475569" }}>
+            {lesson.attemptLimit === 1
+              ? (lesson.canStart ? "ทำได้ครั้งเดียว เมื่อกดเริ่มแล้วนับเป็น 1 ครั้งแม้ยังไม่ส่ง" : "ทำได้ครั้งเดียว และคุณทำไปแล้ว")
+              : "สุ่มชุดข้อใหม่ทุกรอบ ทำซ้ำได้ไม่จำกัด"}
+            {lesson.timeLimit != null && ` · เวลา ${lesson.timeLimit} นาทีต่อรอบ`}
+          </div>
         </div>
         <div className="flex gap-2.5 wrap">
           <button className="clay-btn clay-btn-soft" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/result")}>
             ดูผลของฉัน
           </button>
-          <button className="clay-btn clay-btn-primary" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/exam")}>
-            <Icon name="play" size={15} />ทำข้อสอบ
-          </button>
+          {lesson.canStart ? (
+            <button className="clay-btn clay-btn-primary" onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/exam")}>
+              <Icon name="play" size={15} />ทำข้อสอบ
+            </button>
+          ) : (
+            <button className="clay-btn clay-btn-primary" disabled>ทำไปแล้ว</button>
+          )}
         </div>
       </div>
 

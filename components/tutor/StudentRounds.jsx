@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { roundsOf } from "@/lib/tutor-results";
+import { roundsOf, formatDuration } from "@/lib/tutor-results";
 import { STATUS_LABEL } from "@/lib/tutor-analysis";
 import Icon from "@/components/ui/Icon";
 import Loading from "@/components/ui/Loading";
@@ -117,13 +117,14 @@ export default function StudentRounds({ student, user, lesson, attempts, onClose
               <button key={r.id} className={r.id === picked ? "on" : ""} onClick={() => setPicked(r.id)} aria-pressed={r.id === picked}>
                 <b>รอบที่ {r.number}</b>
                 <span>{r.score}/{r.total} · {r.percent}%</span>
+                <span className="muted">{formatDuration(r.seconds)}</span>
                 {r.id === student.best.id && <em>ดีที่สุด</em>}
               </button>
             ))}
           </div>
           {round && (
             <div className="t-sm muted mt-2">
-              {fmtDate(round.submittedAt || round.startedAt, true)}{round.status === "expired" ? " · หมดเวลา ระบบส่งให้" : ""}
+              {fmtDate(round.submittedAt || round.startedAt, true)} · ใช้เวลา {formatDuration(round.seconds)}{round.status === "expired" ? " · หมดเวลา ระบบส่งให้" : ""}
             </div>
           )}
 

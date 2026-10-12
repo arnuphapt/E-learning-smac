@@ -14,7 +14,7 @@ export async function GET(req, { params }) {
 
     const { data: lessons, error } = await db
       .from("lessons")
-      .select("id, index, title, duration, description, video, video_url")
+      .select("id, index, title, duration, description, video, video_url, tutor_max_attempts")
       .eq("course_id", course.id)
       .eq("status", "active")
       .order("index", { ascending: true });

@@ -117,6 +117,7 @@ export default function StudentTutorSet() {
                     <Icon name={l.hasVideo ? "video" : "book"} size={13} style={{ color: l.hasVideo ? "var(--primary)" : "var(--muted-fg)" }} />
                     {l.hasVideo ? `มีวิดีโอ (${l.duration || "ไม่ระบุ"})` : "ไม่มีวิดีโอ"}
                   </span>
+                  {l.tutor_max_attempts === 1 && <span className="clay-badge">ทำได้ครั้งเดียว</span>}
                 </div>
               </div>
               <div

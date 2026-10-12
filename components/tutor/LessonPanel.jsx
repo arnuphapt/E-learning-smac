@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { fileHref } from "@/lib/files";
 import { bankWarning, parseDrawCount } from "@/lib/tutor-bank";
+import { parseTimeLimit, roundMinutes, TIME_LIMIT_MAX } from "@/lib/tutor-attempt";
+import { roundSize } from "@/lib/tutor-draw";
 import Icon from "@/components/ui/Icon";
 import { toast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -98,6 +100,7 @@ export default function LessonPanel({ lesson, bank, save, onMove, onDelete, canU
   const [saving, setSaving] = useState(false);
   const [whole, setWhole] = useState(lesson.tutor_draw_count == null);
   const [drawInput, setDrawInput] = useState(lesson.tutor_draw_count == null ? "" : String(lesson.tutor_draw_count));
+  const [timeInput, setTimeInput] = useState(lesson.tutor_time_limit_minutes == null ? "" : String(lesson.tutor_time_limit_minutes));
 
   const pickFile = (f) => {
     if (preview) URL.revokeObjectURL(preview);
@@ -108,7 +111,9 @@ export default function LessonPanel({ lesson, bank, save, onMove, onDelete, canU
   const published = lesson.status === "active";
   const draft = whole ? null : parseDrawCount(drawInput);
   const warning = bankWarning(bank.count, draft ?? null);
+  const defaultMinutes = roundMinutes(roundSize(bank.count, whole ? null : draft ?? lesson.tutor_draw_count ?? null)); // today's rule: 1 minute per drawn question
   const hasVideo = !!(file || lesson.video_url);
+  const once = lesson.tutor_max_attempts === 1; // NULL = unlimited; stored as an integer so "N times" needs no schema change
 
   const saveDetails = async () => {
     if (!title.trim()) return toast("กรุณากรอกชื่อบทเรียน", "warning");
@@ -134,6 +139,16 @@ export default function LessonPanel({ lesson, bank, save, onMove, onDelete, canU
     // unchecking "ใช้ทั้งคลัง" needs a real number: blank/invalid must not silently save NULL (= whole bank)
     if (!whole && !value) return toast("กรุณากรอกจำนวนข้อต่อรอบเป็นเลขจำนวนเต็มมากกว่า 0 หรือเลือก “ใช้ทั้งคลัง”", "error");
     if (await save({ tutor_draw_count: value })) toast("บันทึกจำนวนข้อต่อรอบแล้ว");
+  };
+
+  const saveTime = async () => {
+    const value = parseTimeLimit(timeInput);
+    if (value === undefined) return toast(`เวลาต่อรอบต้องเป็นเลขจำนวนเต็ม 1 ถึง ${TIME_LIMIT_MAX} นาที หรือเว้นว่างเพื่อใช้ค่าเริ่มต้น`, "error");
+    if (await save({ tutor_time_limit_minutes: value })) toast(value == null ? "ใช้เวลาค่าเริ่มต้นแล้ว" : "บันทึกเวลาต่อรอบแล้ว");
+  };
+
+  const saveAttempts = async (value) => {
+    if (await save({ tutor_max_attempts: value })) toast(value === 1 ? "ตั้งเป็นทำได้ครั้งเดียวแล้ว" : "ตั้งเป็นทำซ้ำได้แล้ว");
   };
 
   return (
@@ -194,6 +209,19 @@ export default function LessonPanel({ lesson, bank, save, onMove, onDelete, canU
           <button className="btn btn-outline btn-sm" onClick={saveDraw}><Icon name="check" size={14} />บันทึกจำนวนข้อ</button>
         </div>
         {warning && <div className="tw-warn"><Icon name="alert" size={15} style={{ flex: "0 0 15px", marginTop: 2 }} /><span className="pretty">คลังไม่พอ: {warning}</span></div>}
+        <div className="label">เวลาต่อรอบ (นาที)</div>
+        <div className="flex items-center gap-3 wrap mb-3">
+          <input className="input" aria-label="เวลาต่อรอบ (นาที)" style={{ width: 110 }} inputMode="numeric" value={timeInput}
+            onChange={(e) => setTimeInput(e.target.value.replace(/[^0-9]/g, ""))} placeholder={`ค่าเริ่มต้น: ${defaultMinutes} นาที`} />
+          <button className="btn btn-outline btn-sm" onClick={saveTime}><Icon name="check" size={14} />บันทึกเวลา</button>
+          <span className="t-xs muted">เว้นว่าง = 1 นาทีต่อข้อ ({defaultMinutes} นาที) · นับรวมทั้งรอบ ไม่เกิน {TIME_LIMIT_MAX} นาที</span>
+        </div>
+        <div className="label mt-4">จำนวนครั้งที่นักศึกษาทำได้</div>
+        <div className="tw-seg" role="group" aria-label="จำนวนครั้งที่ทำได้">
+          <button className={once ? "" : "on"} onClick={() => once && saveAttempts(null)}>ทำซ้ำได้</button>
+          <button className={once ? "on" : ""} onClick={() => !once && saveAttempts(1)}>ทำได้ครั้งเดียว</button>
+        </div>
+        <div className="t-xs muted mt-2">{once ? "นับทุกรอบที่เริ่มทำ แม้ยังไม่ส่งหรือหมดเวลา เมื่อทำครบแล้วนักศึกษาเริ่มรอบใหม่ไม่ได้" : "นักศึกษาเริ่มรอบใหม่ได้ไม่จำกัด"}</div>
       </div>
 
       <div className="tw-sec">

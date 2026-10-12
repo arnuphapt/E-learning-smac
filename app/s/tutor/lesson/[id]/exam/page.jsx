@@ -99,7 +99,7 @@ export default function StudentTutorExam() {
             return;
           }
         }
-        if (preview.attempt?.expired) setNotice("รอบก่อนหน้าหมดเวลาแล้ว ระบบนับเป็นการส่งคำตอบ คุณเริ่มรอบใหม่ได้");
+        if (preview.attempt?.expired) setNotice("รอบก่อนหน้าหมดเวลาแล้ว ระบบนับเป็นการส่งคำตอบ" + (preview.canStart ? " คุณเริ่มรอบใหม่ได้" : ""));
         setPre(preview);
       } catch {
         if (!cancelled) setMissing(true);
@@ -220,6 +220,7 @@ export default function StudentTutorExam() {
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
         if (d.state === "empty") setEmpty(true);
+        else if (d.state === "limit") setPre((p) => ({ ...p, canStart: false })); // the limit was used up since this page loaded
         else toast("เริ่มทำข้อสอบไม่สำเร็จ กรุณาลองใหม่", "error");
         return;
       }
@@ -304,14 +305,27 @@ export default function StudentTutorExam() {
                   <div className="t-xl fw-7 mt-1" style={{ color: "var(--fg)" }}>{pre.minutes} นาที</div>
                 </div>
               </div>
+              {pre.limit === 1 && pre.canStart && (
+                <div className="clay-well flex items-start gap-3 mb-4" style={{ padding: 14, background: "var(--warning-soft)", color: "var(--warning)" }}>
+                  <Icon name="alert" size={18} /><div className="t-sm">บทนี้ทำได้ครั้งเดียว เมื่อกดเริ่มแล้วนับเป็น 1 ครั้งแม้ยังไม่ส่งคำตอบ</div>
+                </div>
+              )}
               <ul className="t-sm muted pretty" style={{ margin: "0 0 24px", paddingLeft: 18, lineHeight: 1.7, color: "#475569" }}>
-                <li>เวลา 1 นาทีต่อข้อ นับรวมทั้งชุดเป็นนาฬิกาเดียว</li>
+                <li>{lesson.timeLimit != null ? `เวลา ${pre.minutes} นาทีต่อรอบ` : "เวลา 1 นาทีต่อข้อ"} นับรวมทั้งชุดเป็นนาฬิกาเดียว</li>
                 <li>นาฬิกาเริ่มเมื่อคุณกดเริ่ม และเดินต่อแม้ปิดหน้าจอหรือเน็ตหลุด</li>
                 <li>ชุดข้อสุ่มใหม่ทุกรอบ ถ้ากลับเข้ามาระหว่างทำจะได้รอบเดิมต่อ</li>
               </ul>
-              <button className="clay-btn clay-btn-primary w-full" disabled={busy} onClick={start} style={{ width: "100%", padding: "12px 20px" }}>
-                <Icon name="play" size={16} />{busy ? "กำลังเริ่ม..." : "เริ่มทำข้อสอบ"}
-              </button>
+              {pre.canStart ? (
+                <button className="clay-btn clay-btn-primary w-full" disabled={busy} onClick={start} style={{ width: "100%", padding: "12px 20px" }}>
+                  <Icon name="play" size={16} />{busy ? "กำลังเริ่ม..." : "เริ่มทำข้อสอบ"}
+                </button>
+              ) : (
+                <>
+                  <button className="clay-btn clay-btn-primary w-full" disabled style={{ width: "100%", padding: "12px 20px" }}>ทำไปแล้ว</button>
+                  <div className="t-sm muted text-center mt-2">บทนี้ทำได้ครั้งเดียว และทำไปแล้ว</div>
+                  <button className="clay-btn clay-btn-soft w-full mt-3" style={{ width: "100%" }} onClick={() => nav("/s/tutor/lesson/" + lesson.id + "/result")}>ดูผลของฉัน</button>
+                </>
+              )}
             </>
           )}
         </div>

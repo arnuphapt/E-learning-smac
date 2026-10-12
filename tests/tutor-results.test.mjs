@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { summarizeLesson, roundsOf, exportRows, weakestGroup, domainCounts, filterByDomain } from "../lib/tutor-results.js";
+import { summarizeLesson, roundsOf, exportRows, weakestGroup, domainCounts, filterByDomain, timeUsedSeconds, formatClock, formatDuration } from "../lib/tutor-results.js";
 
 const g = (topic_id, name, correct, total) => ({ topic_id, name, correct, total, percent: Math.floor((correct * 100) / total), status: "x" });
 const att = (id, student_id, score, total, startedAt, groups, extra = {}) => ({
@@ -103,7 +103,7 @@ test("exportRows: one row per student with best score, rounds and a % column per
   assert.equal(rows.length, 2);
   const r1 = rows.find((r) => r["ชื่อ-นามสกุล"] === "ก");
   assert.deepEqual(r1, {
-    "รหัสนักศึกษา": "650001", "โดเมน": "x", "ชื่อ-นามสกุล": "ก", "อีเมล": "a@x", "จำนวนรอบ": 1, "คะแนนดีที่สุด": 2, "เต็ม": 4, "ร้อยละ": 50,
+    "รหัสนักศึกษา": "650001", "โดเมน": "x", "ชื่อ-นามสกุล": "ก", "อีเมล": "a@x", "จำนวนรอบ": 1, "คะแนนดีที่สุด": 2, "เต็ม": 4, "ร้อยละ": 50, "เวลาที่ใช้ (นาที)": 0,
     "ทำล่าสุด": "2026-10-01", "หัวข้อ: ไต": 0, "หัวข้อ: หัวใจ": 100,
   });
   const r2 = rows.find((r) => r["ชื่อ-นามสกุล"] === "-"); // unknown user
@@ -122,4 +122,38 @@ test("domain filter: counts per domain (smnc.ac.th first, no-email ignored); fil
   assert.deepEqual(filterByDomain(rows, users, "smnc.ac.th").map((r) => r.student_id), ["s2"]);
   assert.equal(filterByDomain(rows, users, ""), rows);
   assert.equal(summarizeLesson(filterByDomain(rows, users, "z.example")).students.length, 2);
+});
+
+test("timeUsedSeconds: started_at -> submitted_at, capped at deadline_at, null while there is no end stamp", () => {
+  const t = (min, sec = 0) => new Date(Date.UTC(2026, 9, 1, 0, min, sec)).toISOString();
+  assert.equal(timeUsedSeconds({ started_at: t(0), submitted_at: t(3, 25), deadline_at: t(10) }), 205);
+  assert.equal(timeUsedSeconds({ started_at: t(0), submitted_at: t(12), deadline_at: t(10) }), 600); // late stamp: capped at the deadline
+  assert.equal(timeUsedSeconds({ started_at: t(0), submitted_at: t(10), deadline_at: t(10), status: "expired" }), 600);
+  assert.equal(timeUsedSeconds({ started_at: t(0), submitted_at: t(2) }), 120); // no deadline column loaded: no cap
+  assert.equal(timeUsedSeconds({ started_at: t(0), submitted_at: null, deadline_at: t(10) }), null);
+  assert.equal(timeUsedSeconds({ started_at: t(5), submitted_at: t(4) }), 0); // never negative
+});
+
+test("formatClock m:ss and formatDuration X นาที Y วินาที", () => {
+  assert.equal(formatClock(null), "—");
+  assert.equal(formatClock(0), "0:00");
+  assert.equal(formatClock(205), "3:25");
+  assert.equal(formatClock(3605), "60:05");
+  assert.equal(formatDuration(null), "—");
+  assert.equal(formatDuration(45), "45 วินาที");
+  assert.equal(formatDuration(205), "3 นาที 25 วินาที");
+  assert.equal(formatDuration(600), "10 นาที 0 วินาที");
+});
+
+test("time used reaches the summary (best round), roundsOf and the Excel row (minutes, 1 decimal)", () => {
+  const t = (min, sec = 0) => new Date(Date.UTC(2026, 9, 1, 0, min, sec)).toISOString();
+  const a = (id, score, startMin, endMin, endSec) => ({ ...att(id, "s1", score, 4, t(startMin), A), submitted_at: t(endMin, endSec), deadline_at: t(startMin + 10) });
+  const rows = [a("r1", 2, 0, 1, 0), a("r2", 3, 20, 23, 25)]; // best = r2 (3/4) took 3:25
+  const s = summarizeLesson(rows);
+  assert.equal(s.students[0].best.seconds, 205);
+  assert.deepEqual(roundsOf(rows, "s1").map((r) => r.seconds), [60, 205]);
+  assert.equal(exportRows(s, new Map())[0]["เวลาที่ใช้ (นาที)"], 3.4);
+  const none = summarizeLesson([{ ...att("n1", "s2", 1, 2, t(0), A), submitted_at: null }]);
+  assert.equal(none.students[0].best.seconds, null);
+  assert.equal(exportRows(none, new Map())[0]["เวลาที่ใช้ (นาที)"], "");
 });
