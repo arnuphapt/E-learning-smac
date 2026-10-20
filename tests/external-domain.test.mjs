@@ -15,6 +15,8 @@ const grades = [
   { prefix: "69", year_label: "ปี 1", domain: "a.example", year_no: 1001 },
   { prefix: "68", year_label: "ปี 2", domain: "a.example", year_no: 1002 },
   { prefix: "69", year_label: "ปี 1", domain: "b.example", year_no: 1003 },
+  { prefix: "", year_label: "ทั้งวิทยาลัย", domain: "c.example", year_no: 1004 },
+  { prefix: "69", year_label: "ปี 1", domain: "c.example", year_no: 1005 },
 ];
 const guest = (email, over = {}) => ({ email, tutorOnly: true, studyYear: 1, section: "A", studentNo: "", ...over });
 const set = (over = {}) => ({ section: null, year_level: [], access: { allowedEmails: [] }, ...over });
@@ -70,6 +72,38 @@ test("a guest never matches a school year (number or label), nor a section", () 
 test("a guest with a non-numeric email has no year: sees nothing, unless listed by email", () => {
   assert.equal(can(set({ year_level: [1001] }), guest("somebody@a.example")), false);
   assert.equal(can(set({ year_level: [1001], access: { allowedEmails: ["somebody@a.example"] } }), guest("somebody@a.example")), true);
+});
+
+test("external domain-wide year level (empty prefix): non-numeric email gets domain-wide row", () => {
+  assert.equal(can(set({ year_level: [1004] }), guest("Thanpisit.yo@c.example")), true);
+  assert.equal(can(set({ year_level: [1005] }), guest("Thanpisit.yo@c.example")), false);
+});
+
+test("external domain precedence: numeric email matches exact prefix over domain-wide row", () => {
+  assert.equal(can(set({ year_level: [1005] }), guest("69010001@c.example")), true);
+  assert.equal(can(set({ year_level: [1004] }), guest("69010001@c.example")), false);
+});
+
+test("external domain fallback: numeric email without matching prefix falls back to domain-wide row", () => {
+  assert.equal(can(set({ year_level: [1004] }), guest("68010001@c.example")), true);
+  assert.equal(can(set({ year_level: [1005] }), guest("68010001@c.example")), false);
+});
+
+test("school user is unaffected by smnc.ac.th empty prefix row", () => {
+  const schoolGradesWithEmpty = [
+    ...grades,
+    { prefix: "", year_label: "ทั้งโรงเรียน", domain: "smnc.ac.th", year_no: 1099 },
+  ];
+  const stu = { email: "69010001@smnc.ac.th", studentNo: "69010001", section: "A", studyYear: 1 };
+  const stuNonNumeric = { email: "somebody@smnc.ac.th", studentNo: null, section: "A", studyYear: null };
+  assert.equal(canStudentAccessCourse(set({ year_level: ["ทั้งโรงเรียน"] }), stuNonNumeric, [], schoolGradesWithEmpty), false);
+  assert.equal(canStudentAccessCourse(set({ year_level: [1099] }), stuNonNumeric, [], schoolGradesWithEmpty), false);
+  assert.equal(canStudentAccessCourse(set({ year_level: ["ชั้นปีที่ 1"] }), stu, [], schoolGradesWithEmpty), true);
+});
+
+test("domain isolation: domain A empty prefix row does not apply to domain B", () => {
+  assert.equal(can(set({ year_level: [1004] }), guest("somebody@b.example")), false);
+  assert.equal(can(set({ year_level: [1004] }), guest("68010001@b.example")), false);
 });
 
 test("tutor sets still fail closed for a guest: no lock = nobody", () => {

@@ -35,6 +35,7 @@ function GradeDialog({ mode, row, onClose, onSave, grades, domains }) {
   const [newDomain, setNewDomain] = useState("");
   const domain = domainSel === NEW_DOMAIN ? newDomain.trim().toLowerCase() : domainSel;
   const external = domain !== DEFAULT_DOMAIN; // external domains: tutor mode only (see lib/registration.js)
+  const [scope, setScope] = useState(row && row.prefix === "" ? "all" : "prefix");
   const [prefix, setPrefix] = useState(row ? row.prefix : "");
   const [yearLabel, setYearLabel] = useState(row ? row.year_label : "ชั้นปีที่ 1");
   const [customLabel, setCustomLabel] = useState("");
@@ -51,8 +52,9 @@ function GradeDialog({ mode, row, onClose, onSave, grades, domains }) {
   }, [row]);
 
   const handleSave = () => {
-    const cleanPrefix = prefix.trim();
-    if (!cleanPrefix || cleanPrefix.length !== 2 || isNaN(cleanPrefix)) {
+    const isAllDomain = external && scope === "all";
+    const cleanPrefix = isAllDomain ? "" : prefix.trim();
+    if (!isAllDomain && (!cleanPrefix || cleanPrefix.length !== 2 || isNaN(cleanPrefix))) {
       toast("กรุณากรอกรหัสนักศึกษา 2 ตัวแรกให้ถูกต้อง (เช่น 66)");
       return;
     }
@@ -68,7 +70,11 @@ function GradeDialog({ mode, row, onClose, onSave, grades, domains }) {
     }
 
     if (mode === "add" && grades.some((g) => (g.domain || DEFAULT_DOMAIN) === domain && g.prefix === cleanPrefix)) {
-      toast(`รหัสประจำตัวขึ้นต้นด้วย "${cleanPrefix}" ของโดเมน ${domain} ได้ถูกกำหนดไว้แล้ว`);
+      if (cleanPrefix === "") {
+        toast("โดเมนนี้มีชั้นปีแบบทั้งโดเมนอยู่แล้ว");
+      } else {
+        toast(`รหัสประจำตัวขึ้นต้นด้วย "${cleanPrefix}" ของโดเมน ${domain} ได้ถูกกำหนดไว้แล้ว`);
+      }
       return;
     }
 
@@ -108,7 +114,10 @@ function GradeDialog({ mode, row, onClose, onSave, grades, domains }) {
         <Select
           className="input"
           value={domainSel}
-          onChange={(e) => setDomainSel(e.target.value)}
+          onChange={(e) => {
+            setDomainSel(e.target.value);
+            if (e.target.value === DEFAULT_DOMAIN) setScope("prefix");
+          }}
           disabled={mode === "edit"}
           style={{ width: "100%", height: 38 }}
         >
@@ -123,26 +132,57 @@ function GradeDialog({ mode, row, onClose, onSave, grades, domains }) {
         {external && (
           <p className="t-xs muted mt-1">
             โดเมนอื่นนอกจาก {DEFAULT_DOMAIN} เป็นโดเมนภายนอก: ผู้ล็อกอินด้วยอีเมลโดเมนนี้จะเข้าได้เฉพาะชุดติว (Tutor) เท่านั้น
-            โดยชั้นปีคำนวณจากเลขรหัสในอีเมล (ตัวเลขล้วนก่อน @) ตามตารางของโดเมนนี้ และเลือกล็อกชุดติวได้ในหน้าตั้งค่าชุดติว
+            โดยชั้นปีคำนวณจากเลขรหัสในอีเมล (ตัวเลขล้วนก่อน @) ตามตารางของโดเมนนี้ หรือเลือก &apos;ใช้ทั้งโดเมน&apos; หากอีเมลไม่มีรหัสนักศึกษา และเลือกล็อกชุดติวได้ในหน้าตั้งค่าชุดติว
           </p>
         )}
       </div>
 
-      <div className="field">
-        <label className="label">
-          รหัสนักศึกษา 2 ตัวหน้า <span className="c-danger">*</span>
-        </label>
-        <input
-          className="input"
-          value={prefix}
-          onChange={(e) => setPrefix(e.target.value.replace(/\D/g, "").slice(0, 2))}
-          placeholder="เช่น 65 หรือ 66"
-          disabled={mode === "edit"}
-          maxLength={2}
-          style={{ width: "100%" }}
-        />
-        {mode === "add" && <p className="t-xs muted mt-1">ตัวเลข 2 หลักแรกของรหัสนักศึกษา (เช่น นักศึกษารหัส 66xxxxxx ป้อน 66)</p>}
-      </div>
+      {external && (
+        <div className="field">
+          <label className="label">รูปแบบการกำหนดชั้นปี</label>
+          <div className="tabs pill">
+            <button
+              type="button"
+              className={scope !== "all" ? "on" : ""}
+              onClick={() => setScope("prefix")}
+              disabled={mode === "edit"}
+            >
+              กำหนดเลขต้นรหัส
+            </button>
+            <button
+              type="button"
+              className={scope === "all" ? "on" : ""}
+              onClick={() => setScope("all")}
+              disabled={mode === "edit"}
+            >
+              ใช้ทั้งโดเมน
+            </button>
+          </div>
+          {scope === "all" && (
+            <p className="t-xs muted mt-1">
+              ทุกคนที่เข้าสู่ระบบด้วยโดเมนนี้จะได้ชั้นปีนี้ ใช้สำหรับวิทยาลัยที่อีเมลไม่มีรหัสนักศึกษา
+            </p>
+          )}
+        </div>
+      )}
+
+      {(!external || scope !== "all") && (
+        <div className="field">
+          <label className="label">
+            รหัสนักศึกษา 2 ตัวหน้า <span className="c-danger">*</span>
+          </label>
+          <input
+            className="input"
+            value={prefix}
+            onChange={(e) => setPrefix(e.target.value.replace(/\D/g, "").slice(0, 2))}
+            placeholder="เช่น 65 หรือ 66"
+            disabled={mode === "edit"}
+            maxLength={2}
+            style={{ width: "100%" }}
+          />
+          {mode === "add" && <p className="t-xs muted mt-1">ตัวเลข 2 หลักแรกของรหัสนักศึกษา (เช่น นักศึกษารหัส 66xxxxxx ป้อน 66)</p>}
+        </div>
+      )}
 
       <div className="field">
         <label className="label">
@@ -337,9 +377,11 @@ export default function MasterStudentGradePage() {
   };
 
   // Filter logic
-  const filteredGrades = gradesList.filter((g) => {
-    return (filterYearLabel === "all" || g.year_label === filterYearLabel) && (filterDomain === "all" || (g.domain || DEFAULT_DOMAIN) === filterDomain);
-  });
+  const filteredGrades = gradesList
+    .filter((g) => {
+      return (filterYearLabel === "all" || g.year_label === filterYearLabel) && (filterDomain === "all" || (g.domain || DEFAULT_DOMAIN) === filterDomain);
+    })
+    .map((g) => ({ ...g, scopeText: g.prefix === "" ? "ทั้งโดเมน" : g.prefix }));
 
   // Get unique year labels for filter dropdown
   const uniqueYearLabels = Array.from(new Set(gradesList.map((g) => g.year_label))).sort();
@@ -363,7 +405,7 @@ export default function MasterStudentGradePage() {
         loading={loading}
         className="table"
             enableSearch={true}
-            searchKeys={["prefix", "year_label", "domain"]}
+            searchKeys={["scopeText", "year_label", "domain"]}
             searchPlaceholder="ค้นหาเลขรหัส หรือ ชั้นปี..."
             headers={["เลขรหัส 2 ตัวหน้า", "โดเมนอีเมล", "ชั้นปีการศึกษา", "วันที่สร้าง", ""]}
             data={filteredGrades}
@@ -402,7 +444,9 @@ export default function MasterStudentGradePage() {
                   <div className="flex items-center gap-2">
                     <div
                       style={{
-                        width: 32,
+                        width: g.prefix ? 32 : "auto",
+                        minWidth: 32,
+                        padding: g.prefix ? 0 : "0 8px",
                         height: 32,
                         borderRadius: 8,
                         background: "var(--primary-soft)",
@@ -413,9 +457,11 @@ export default function MasterStudentGradePage() {
                         fontSize: 13,
                       }}
                     >
-                      {g.prefix}
+                      {g.prefix || "ทั้งโดเมน"}
                     </div>
-                    <span className="fw-6">รหัสประจำตัวขึ้นต้นด้วย {g.prefix}</span>
+                    <span className="fw-6">
+                      {g.prefix ? `รหัสประจำตัวขึ้นต้นด้วย ${g.prefix}` : `ทุกคนในโดเมน ${g.domain || DEFAULT_DOMAIN}`}
+                    </span>
                   </div>
                 </td>
                 <td>
@@ -438,7 +484,9 @@ export default function MasterStudentGradePage() {
                     onDelete={() => {
                       setConfirmDlg({
                         title: "ลบการกำหนดชั้นปี",
-                        desc: `คุณต้องการลบสิทธิ์การเชื่อมโยงของรหัส "${g.prefix}" หรือไม่?`,
+                        desc: g.prefix
+                          ? `คุณต้องการลบสิทธิ์การเชื่อมโยงของรหัส "${g.prefix}" หรือไม่?`
+                          : `คุณต้องการลบสิทธิ์การเชื่อมโยงของทุกคนในโดเมน ${g.domain || DEFAULT_DOMAIN} หรือไม่?`,
                         onConfirm: () => handleDeleteGrade(g.id),
                       });
                     }}
