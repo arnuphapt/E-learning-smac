@@ -200,11 +200,11 @@ export default function MasterSectionsPage() {
 
   return (
     <div className="container">
-      <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="Section / กลุ่มเรียน"
+      <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="กลุ่มเรียน"
         desc="จัดการข้อมูลห้องเรียนและกลุ่มเรียนของนักศึกษา" />
 
       <Table
-        title="Section / กลุ่มเรียน"
+        title="กลุ่มเรียน"
         description="กลุ่มเรียนของนักศึกษาในระบบ"
         addButton={
           <button className="btn btn-primary btn-sm" onClick={() => setDlg({ mode: "add" })}>

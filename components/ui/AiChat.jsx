@@ -8,6 +8,8 @@ import { supabase } from "@/lib/supabase";
 import { fileHref } from "@/lib/files";
 import { isStaffRole } from "@/lib/roles";
 import { Dialog } from "@/components/ui/Primitives";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import toast from "@/components/ui/Toast";
 
 const parseEmotionAndReply = (text) => {
   if (!text) return { emotion: "smile", cleanText: "" };
@@ -468,8 +470,16 @@ export default function AiChat({ lesson, course, open, onClose }) {
     setMessages([{ role: "assistant", content: greeting }]);
   };
 
-  const handleDeleteSession = async (sessId) => {
-    if (!confirm("คุณต้องการลบประวัติการสนทนาของเซสชันนี้ใช่หรือไม่?")) return;
+  const [deleteSessionConfirm, setDeleteSessionConfirm] = useState(null);
+
+  const handleDeleteSession = (sessId) => {
+    setDeleteSessionConfirm(sessId);
+  };
+
+  const confirmDeleteSession = async () => {
+    const sessId = deleteSessionConfirm;
+    if (!sessId) return;
+    setDeleteSessionConfirm(null);
 
     try {
       const res = await fetch("/api/ai/history/clear", {
@@ -486,9 +496,10 @@ export default function AiChat({ lesson, course, open, onClose }) {
       if (lesson) {
         loadHistoryAndSession(lesson.id, lesson.title);
       }
+      toast("ลบประวัติการสนทนาเรียบร้อยแล้ว", "success");
     } catch (err) {
       console.error("Failed to delete session:", err);
-      alert("ไม่สามารถลบเซสชันได้ กรุณาลองใหม่อีกครั้ง");
+      toast("ไม่สามารถลบเซสชันได้ กรุณาลองใหม่อีกครั้ง", "error");
     }
   };
 
@@ -1200,6 +1211,18 @@ export default function AiChat({ lesson, course, open, onClose }) {
         </div>
       </div>
 
+      {deleteSessionConfirm && (
+        <ConfirmDialog
+          open={Boolean(deleteSessionConfirm)}
+          danger
+          title="ยืนยันการลบประวัติการสนทนา"
+          message="คุณต้องการลบประวัติการสนทนาของเซสชันนี้ใช่หรือไม่?"
+          confirmText="ลบข้อมูล"
+          cancelText="ยกเลิก"
+          onClose={() => setDeleteSessionConfirm(null)}
+          onConfirm={confirmDeleteSession}
+        />
+      )}
       {showHistoryDialog && (
         <Dialog
           title="ประวัติการสนทนา"

@@ -25,6 +25,7 @@ export default function StudentTopNav() {
   const tutorOnly = isTutorOnlyRole(session?.user?.role); // external-domain user: tutor mode only
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
   const onTutor = pathname.startsWith("/s/tutor");
+  const onLive = pathname.startsWith("/s/live");
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
   const onCal = pathname === "/s/calendar";
   const onBroadcasts = pathname === "/s/broadcasts";
@@ -188,9 +189,14 @@ export default function StudentTopNav() {
           100% { transform: rotate(0); }
         }
         .ring-shake {
-          animation: ring 2.5s ease-in-out infinite;
+          animation: ring 2.5s ease-in-out 3 forwards;
           transform-origin: 50% 0;
           display: inline-block;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ring-shake {
+            animation: none !important;
+          }
         }
       `}</style>
       <Link href={tutorOnly ? "/s/tutor" : "/s/courses"} className="logo pointer" style={{ textDecoration: 'none' }}>
@@ -201,19 +207,16 @@ export default function StudentTopNav() {
         {!tutorOnly && <Link href="/s/courses" className={onCourses ? "on" : ""} style={{ textDecoration: 'none' }}>รายวิชา</Link>}
         <Link href="/s/tutor" className={onTutor ? "on" : ""} style={{ textDecoration: 'none' }}>ชุดติว</Link>
         {!tutorOnly && <>
+          <Link href="/s/live" className={onLive ? "on" : ""} style={{ textDecoration: 'none' }}>ควิซสด</Link>
           <Link href="/s/assignments" className={onAssignments ? "on" : ""} style={{ textDecoration: 'none' }}>ใบงาน</Link>
           <Link href="/s/calendar" className={onCal ? "on" : ""} style={{ textDecoration: 'none' }}>ปฏิทิน</Link>
           <Link href="/s/broadcasts" className={onBroadcasts ? "on" : ""} style={{ textDecoration: 'none' }}>ประกาศ</Link>
           <Link href="/s/ai" className={onAi ? "on" : ""} style={{ textDecoration: 'none' }}>AI ผู้ช่วย</Link>
         </>}
       </nav>
-      <div className="proto-spacer" />
-      {!tutorOnly && <div className="rel hide-m">
-        <Icon name="search" size={16} style={{ position: "absolute", left: 11, top: 10, color: "var(--subtle)" }} />
-        <input className="input" style={{ width: 220, paddingLeft: 34, height: 38 }} placeholder="ค้นหารายวิชา บทเรียน…" />
-      </div>}
+      <div className="flex-1 proto-spacer" />
       {!tutorOnly && <div className="rel" ref={bellRef}>
-        <button className="iconbtn ghost rel" onClick={toggleBell} style={{ position: "relative" }}>
+        <button className="iconbtn ghost rel" onClick={toggleBell} style={{ position: "relative" }} aria-label="การแจ้งเตือน">
           <div className={shouldShake ? "ring-shake" : ""}>
             <Icon name="bell" size={18} />
           </div>

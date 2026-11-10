@@ -40,14 +40,7 @@ export default function InstructorHeader({ onMenuClick }) {
         <Icon name="menu" size={18} />
       </button>
 
-      <div className="flex-1 hide-m">
-        <div className="rel" style={{ width: 280 }}>
-          <Icon name="search" size={16} style={{ position: "absolute", left: 11, top: 10, color: "var(--subtle)" }} />
-          <input className="input" style={{ width: "100%", paddingLeft: 34, height: 38 }} placeholder="ค้นหารายวิชา, นักศึกษา…" />
-        </div>
-      </div>
-      
-      <div className="only-m flex-1" />
+      <div className="flex-1" />
       
       <div className="flex items-center gap-3">
         <div className="rel" ref={menuRef}>

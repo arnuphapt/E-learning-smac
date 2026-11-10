@@ -9,6 +9,7 @@
   --mint-2:#e0f2fe;
   --coral:#d2785f;
   --coral-soft:#f3e0d8;
+  --coral-text:#b4533c;
   --gold:#b8893f;
   --line:#e2e8f0;
   --muted:#5c6b70;
@@ -75,7 +76,7 @@
 .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:center;position:relative;z-index:1;}
 .hero h1{font-family:var(--serif);font-weight:600;font-size:clamp(40px,5.4vw,68px);line-height:1.12;letter-spacing:-.01em;color:var(--teal-ink);margin:22px 0 0;}
 .hero h1 .hl{color:var(--teal);position:relative;white-space:nowrap;}
-.hero .sub{font-family:var(--serif);font-size:clamp(20px,2.4vw,27px);color:var(--coral);font-weight:500;margin-top:14px;}
+.hero .sub{font-family:var(--serif);font-size:clamp(20px,2.4vw,27px);color:var(--coral-text);font-weight:500;margin-top:14px;}
 .hero .lead{font-size:17px;color:var(--muted);margin-top:24px;max-width:560px;line-height:1.8;text-wrap:pretty;}
 .hero-cta{display:flex;gap:14px;margin-top:36px;flex-wrap:wrap;}
 .hero-trust{display:flex;align-items:center;gap:14px;margin-top:34px;color:var(--muted);font-size:14px;}
@@ -117,7 +118,7 @@
 .feat:last-child{border-bottom:1px solid var(--line);}
 .feat.rev{grid-template-columns:1.15fr .85fr;}
 .feat.rev .feat-media{order:-1;}
-.feat-num{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--coral);letter-spacing:.1em;}
+.feat-num{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--coral-text);letter-spacing:.1em;}
 .feat h3{font-family:var(--serif);font-weight:600;font-size:clamp(24px,2.7vw,32px);line-height:1.25;color:var(--teal-ink);margin:14px 0 0;letter-spacing:-.01em;}
 .feat p{font-size:16.5px;color:var(--muted);margin-top:16px;line-height:1.8;text-wrap:pretty;}
 .feat-chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;}
@@ -149,7 +150,7 @@
 .sign-foot{display:flex;align-items:center;gap:18px;margin-top:40px;padding-top:32px;border-top:1px solid var(--line);}
 .sign-foot .seal{width:60px;height:60px;border-radius:14px;background:var(--teal);color:#fff;display:grid;place-items:center;flex:0 0 60px;box-shadow:0 10px 22px -8px rgba(13,110,140,.6);}
 .sign-foot .who{font-family:var(--sans);}
-.sign-foot .who .a{font-size:14px;color:var(--coral);font-weight:600;}
+.sign-foot .who .a{font-size:14px;color:var(--coral-text);font-weight:600;}
 .sign-foot .who .b{font-size:18px;font-weight:700;color:var(--teal-ink);margin-top:2px;}
 .sign-foot .who .c{font-size:14px;color:var(--muted);}
 

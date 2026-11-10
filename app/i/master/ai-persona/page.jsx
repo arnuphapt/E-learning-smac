@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Icon from "@/components/ui/Icon";
 import { PageHead, Crumb } from "@/components/ui/Shared";
+import { Select } from "@/components/ui/Primitives";
 import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
 import { hasPermission, PERMISSIONS } from "@/lib/rbac";
@@ -525,10 +526,11 @@ export default function AiPersonaPage() {
             <div style={{ padding: "24px 28px" }}>
               {isEditing ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ fontSize: 13, color: "var(--muted-fg)", fontWeight: 500 }} className="pretty">
+                  <label htmlFor="ai-persona-markdown" style={{ fontSize: 13, color: "var(--muted-fg)", fontWeight: 500, display: "block" }} className="pretty">
                     ✏️ แก้ไขข้อกำหนดพฤติกรรม AI ในรูปแบบ Markdown:
-                  </div>
+                  </label>
                   <textarea
+                    id="ai-persona-markdown"
                     className="input"
                     value={draftContent}
                     onChange={(e) => setDraftContent(e.target.value)}
@@ -615,14 +617,17 @@ export default function AiPersonaPage() {
                   <Icon name="sparkle" size={18} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--fg)" }}>โมเดลเริ่มต้นของระบบ (Default AI Model)</div>
-                  <div style={{ fontSize: 11.5, color: "var(--muted-fg)" }}>โมเดลหลักที่ใช้สำหรับห้องแชทบทเรียนและโหมดติวเตอร์</div>
+                  <label htmlFor="default-ai-model" style={{ fontSize: 13.5, fontWeight: 700, color: "var(--fg)", display: "block", cursor: "pointer" }}>โมเดลเริ่มต้นของระบบ (Default AI Model)</label>
+                  <div id="default-ai-model-desc" style={{ fontSize: 11.5, color: "var(--muted-fg)" }}>โมเดลหลักที่ใช้สำหรับห้องแชทบทเรียนและโหมดติวเตอร์</div>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 280 }}>
-                <select
-                  className="input"
-                  style={{ fontWeight: 600, fontSize: 13, height: 38 }}
+                <Select
+                  id="default-ai-model"
+                  aria-describedby="default-ai-model-desc"
+                  aria-label="โมเดลเริ่มต้นของระบบ (Default AI Model)"
+                  className="fw-6"
+                  style={{ width: "100%", minWidth: 280, fontSize: 13 }}
                   value={
                     isCustomModel || !["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-2.5-pro"].includes(configDraft.model)
                       ? "custom"
@@ -643,15 +648,16 @@ export default function AiPersonaPage() {
                   <option value="gemini-2.5-flash">Gemini 2.5 Flash (รุ่นเดิม เสถียร)</option>
                   <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (เร็วพิเศษ ประหยัด)</option>
                   <option value="gemini-2.5-pro">Gemini 2.5 Pro (คิดวิเคราะห์ลึก)</option>
-                  <option value="custom">กำหนดเอง (ระบุชื่อโมเดล)...</option>
-                </select>
+                  <option value="custom">กำหนดเอง (ระบุชื่อโมเดล)…</option>
+                </Select>
               </div>
             </div>
 
             {(isCustomModel || !["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-2.5-pro"].includes(configDraft.model)) && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-                <span style={{ fontSize: 12, color: "var(--muted-fg)", whiteSpace: "nowrap" }}>ชื่อโมเดล:</span>
+                <label htmlFor="custom-ai-model" style={{ fontSize: 12, color: "var(--muted-fg)", whiteSpace: "nowrap", cursor: "pointer" }}>ชื่อโมเดล:</label>
                 <input
+                  id="custom-ai-model"
                   className="input"
                   style={{ flex: 1, fontFamily: "monospace", fontSize: 13, height: 36 }}
                   value={configDraft.model}
@@ -707,12 +713,14 @@ export default function AiPersonaPage() {
                     <Icon name={icon} size={14} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--fg)" }}>{label}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted-fg)", lineHeight: 1.4 }}>{desc}</div>
+                    <label htmlFor={`config-${key}`} style={{ fontSize: 12.5, fontWeight: 700, color: "var(--fg)", display: "block", cursor: "pointer" }}>{label}</label>
+                    <div id={`config-desc-${key}`} style={{ fontSize: 11, color: "var(--muted-fg)", lineHeight: 1.4 }}>{desc}</div>
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <input
+                    id={`config-${key}`}
+                    aria-describedby={`config-desc-${key}`}
                     className="input"
                     style={{ flex: 1, fontWeight: 700, fontSize: 16, textAlign: "right", padding: "8px 12px" }}
                     value={configDraft[key]}

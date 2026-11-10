@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useEffect, useId } from "react";
 import Icon from "./Icon";
+import { getFocusableElements, registerDialogKeyHandler } from "./dialog-focus";
 
 export function Avatar({ name, size = 34, color, src }) {
   const initials = (name || "?").trim().slice(0, 1);
@@ -28,21 +29,117 @@ export function Ph({ label, h = 180, style }) {
   return <div className="ph" style={{ height: h, ...style }}>{label}</div>;
 }
 
-export function Dialog({ title, desc, children, footer, onClose, lg }) {
+function DialogContent({ title, desc, children, footer, onClose, lg }) {
+  const dialogRef = useRef(null);
+  const prevActiveElement = useRef(null);
+  const titleId = useId();
+
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    prevActiveElement.current = document.activeElement;
+
+    const focusables = getFocusableElements(dialogRef.current);
+    const autoFocusEl = dialogRef.current?.querySelector('[autofocus], [data-autofocus]');
+    const initialTarget = autoFocusEl || focusables[0] || dialogRef.current;
+    initialTarget?.focus();
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onCloseRef.current?.();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        const currentFocusables = getFocusableElements(dialogRef.current);
+        if (currentFocusables.length === 0) {
+          e.preventDefault();
+          dialogRef.current?.focus();
+          return;
+        }
+
+        const first = currentFocusables[0];
+        const last = currentFocusables[currentFocusables.length - 1];
+
+        if (e.shiftKey) {
+          if (
+            document.activeElement === first ||
+            document.activeElement === dialogRef.current ||
+            !dialogRef.current?.contains(document.activeElement)
+          ) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (
+            document.activeElement === last ||
+            document.activeElement === dialogRef.current ||
+            !dialogRef.current?.contains(document.activeElement)
+          ) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+
+    const unregister = registerDialogKeyHandler(handleKeyDown);
+    return () => {
+      if (!unregister()) return;
+      const prev = prevActiveElement.current;
+      if (prev && prev !== document.body && typeof prev.focus === "function") {
+        if (!("isConnected" in prev) || prev.isConnected) {
+          prev.focus();
+        }
+      }
+    };
+  }, []);
+
   return (
     <div className="overlay" onClick={onClose}>
-      <div className={"dialog scroll" + (lg ? " lg" : "")} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
+        className={"dialog scroll" + (lg ? " lg" : "")}
+        onClick={(e) => e.stopPropagation()}
+        style={{ outline: "none" }}
+      >
         <div className="dialog-h flex items-start justify-between">
           <div>
-            <div className="t">{title}</div>
+            <div className="t" id={titleId}>{title}</div>
             {desc && <div className="d pretty">{desc}</div>}
           </div>
-          <button className="iconbtn ghost" onClick={onClose}><Icon name="x" size={18} /></button>
+          <button type="button" className="iconbtn ghost" onClick={onClose} aria-label="ปิด">
+            <Icon name="x" size={18} />
+          </button>
         </div>
         <div className="dialog-b">{children}</div>
         {footer && <div className="dialog-f">{footer}</div>}
       </div>
     </div>
+  );
+}
+
+export function Dialog({ open = true, title, desc, children, footer, onClose, lg }) {
+  if (!open) return null;
+  return (
+    <DialogContent
+      title={title}
+      desc={desc}
+      footer={footer}
+      onClose={onClose}
+      lg={lg}
+    >
+      {children}
+    </DialogContent>
   );
 }
 
@@ -107,7 +204,18 @@ export function statusBadge(status, showPublish = false) {
   return <StatusBadge status={status} showPublish={showPublish} />;
 }
 
-export function Select({ value, onChange, children, className, style, disabled }) {
+export function Select({
+  value,
+  onChange,
+  children,
+  className,
+  style,
+  disabled,
+  id,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledby,
+  ...rest
+}) {
   const [isOpen, setIsOpen] = React.useState(false);
   const containerRef = React.useRef(null);
 
@@ -167,8 +275,13 @@ export function Select({ value, onChange, children, className, style, disabled }
   return (
     <div ref={containerRef} className={`custom-select-container ${cleanClassName}`} style={{ position: "relative", ...style }}>
       <button
+        id={id}
         type="button"
         disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={ariaLabel || rest["ariaLabel"]}
+        aria-labelledby={ariaLabelledby || rest["ariaLabelledby"]}
         onClick={() => setIsOpen(!isOpen)}
         className="input flex items-center justify-between"
         style={{

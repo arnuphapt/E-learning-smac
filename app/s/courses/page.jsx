@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { isStaffRole } from "@/lib/roles";
@@ -15,7 +16,7 @@ function PageHead({ kicker, title, desc, right }) {
     <div className="flex items-end justify-between gap-4 mb-5 wrap">
       <div>
         {kicker && <div className="t-xs fw-6 uppercase c-primary mb-1">{kicker}</div>}
-        <div className="t-3xl fw-7 serif" style={{ color: "var(--fg)", letterSpacing: "-.01em" }}>{title}</div>
+        <h1 className="t-3xl fw-7 serif" style={{ color: "var(--fg)", letterSpacing: "-.01em", margin: 0 }}>{title}</h1>
         {desc && <div className="muted mt-1 pretty" style={{ maxWidth: 620 }}>{desc}</div>}
       </div>
       {right}
@@ -40,7 +41,7 @@ function hexToRgba(hex, alpha = 1) {
 function CourseCard({ c, nav }) {
   const hero = c.hero && c.hero.startsWith("#") ? c.hero : "#0d6e8c";
   return (
-    <div className="card pointer" style={{ display: "flex", flexDirection: "column" }} onClick={() => nav("/s/course/" + c.id)}>
+    <div className="card pointer" style={{ display: "flex", flexDirection: "column" }}>
       <div className="card-p flex-1 flex col">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center" style={{ gap: 12 }}>
@@ -75,7 +76,12 @@ function CourseCard({ c, nav }) {
           </div>
           <span className="t-xs muted">{c.term}</span>
         </div>
-        <div className="t-md fw-7 serif" style={{ letterSpacing: "-.01em" }}>{c.title}</div>
+        <div className="t-md fw-7 serif" style={{ letterSpacing: "-.01em" }}>
+          <Link href={"/s/course/" + c.id} style={{ color: "inherit", textDecoration: "none" }}>
+            <span className="absolute inset-0" aria-hidden="true" />
+            {c.title}
+          </Link>
+        </div>
         <div className="muted t-sm mt-1 pretty" style={{ minHeight: 36 }}>{c.subtitle}</div>
         <div className="flex items-center gap-2 mt-3 t-xs muted"><Icon name="user" size={14} />{c.instructor}</div>
         <div className="mt-4">
@@ -94,7 +100,7 @@ function CourseCard({ c, nav }) {
 function CourseListItem({ c, nav }) {
   const hero = c.hero && c.hero.startsWith("#") ? c.hero : "#0d6e8c";
   return (
-    <div className="card pointer" style={{ display: "flex", alignItems: "stretch" }} onClick={() => nav("/s/course/" + c.id)}>
+    <div className="card pointer" style={{ display: "flex", alignItems: "stretch" }}>
       <div className="card-p flex items-center gap-4 flex-1 course-list-item-p">
         <div
           className="clay-pod"
@@ -115,7 +121,12 @@ function CourseListItem({ c, nav }) {
         </div>
         <div className="flex-1" style={{ minWidth: 0 }}>
           <div className="flex items-center gap-3 wrap mb-1">
-            <span className="fw-7 t-base">{c.title}</span>
+            <span className="fw-7 t-base">
+              <Link href={"/s/course/" + c.id} style={{ color: "inherit", textDecoration: "none" }}>
+                <span className="absolute inset-0" aria-hidden="true" />
+                {c.title}
+              </Link>
+            </span>
             <span
               style={{
                 padding: "3px 10px",
@@ -303,8 +314,8 @@ export default function StudentCourses() {
           <span className="t-sm muted ml-2">{list.length} รายวิชา</span>
         </div>
         <div className="proto-seg" style={{ background: "var(--muted)", border: "1px solid var(--border)" }}>
-          <button className={view === "grid" ? "on" : ""} onClick={() => setV("grid")} style={{ color: view === "grid" ? "#fff" : "var(--muted-fg)" }}><Icon name="grid" size={14} />ตาราง</button>
-          <button className={view === "list" ? "on" : ""} onClick={() => setV("list")} style={{ color: view === "list" ? "#fff" : "var(--muted-fg)" }}><Icon name="listChk" size={14} />รายการ</button>
+          <button type="button" className={view === "grid" ? "on" : ""} onClick={() => setV("grid")} style={{ color: view === "grid" ? "#fff" : "var(--muted-fg)" }}><Icon name="grid" size={14} />ตาราง</button>
+          <button type="button" className={view === "list" ? "on" : ""} onClick={() => setV("list")} style={{ color: view === "list" ? "#fff" : "var(--muted-fg)" }}><Icon name="listChk" size={14} />รายการ</button>
         </div>
       </div>
 
@@ -312,7 +323,7 @@ export default function StudentCourses() {
         <div className="card"><div className="empty">
           <div className="ec"><Icon name="book" size={24} /></div>
           <div><div className="fw-6 fg">ไม่มีรายวิชาในปีการศึกษานี้</div><div className="t-sm mt-1">ลองเลือกปีการศึกษาอื่น หรือดูทุกปีการศึกษา</div></div>
-          <button className="btn btn-outline btn-sm" onClick={() => setYear("all")}>ดูทุกปีการศึกษา</button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setYear("all")}>ดูทุกปีการศึกษา</button>
         </div></div>
       ) : view === "grid" ? (
         <div className="grid grid-3 gap-4">{list.map((c) => <CourseCard key={c.id} c={c} nav={nav} />)}</div>

@@ -6,11 +6,15 @@ import { syncSupabaseUser } from "@/lib/supabase";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 
 function SupabaseSync() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   useEffect(() => {
-    syncSupabaseUser(session?.user?.id || session?.dbId || null);
-  }, [session]);
+    if (status === "authenticated") {
+      syncSupabaseUser(session?.user?.id || session?.dbId || null, status);
+    } else if (status === "unauthenticated") {
+      syncSupabaseUser(null, status);
+    }
+  }, [session, status]);
 
   return null;
 }

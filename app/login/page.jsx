@@ -21,10 +21,14 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const error = searchParams?.get("error") || null;
+  const rawCallback = searchParams?.get("callbackUrl");
+  const callbackUrl = (rawCallback && rawCallback.startsWith("/") && !rawCallback.startsWith("//") && !rawCallback.startsWith("/\\"))
+    ? rawCallback
+    : "/s/courses";
 
   const handleGoogleLogin = async () => {
     setLoading(true);
-    await signIn("google", { callbackUrl: "/s/courses" });
+    await signIn("google", { callbackUrl });
   };
 
   return (
@@ -54,7 +58,7 @@ function LoginContent() {
 
         {/* Error message */}
         {error && (
-          <div className="login-error">
+          <div className="login-error" role="alert">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="15" y1="9" x2="9" y2="15" />

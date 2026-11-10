@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
@@ -30,9 +31,23 @@ const formatThaiDate = (dateStr, timeStr) => {
 
 function ChecklistItem({ icon, label, sub, tone, action, onClick, active }) {
   const colors = { done: "var(--success)", current: "var(--primary)", todo: "var(--subtle)", locked: "var(--subtle)" };
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className={"flex items-center gap-3 " + (onClick ? "pointer" : "")} onClick={onClick}
-      style={{ padding: "11px 12px", borderRadius: 11, background: active ? "var(--primary-soft)" : "transparent", transition: ".12s" }}>
+    <Tag
+      type={onClick ? "button" : undefined}
+      className={"flex items-center gap-3 w-full text-left " + (onClick ? "pointer" : "")}
+      onClick={onClick}
+      style={{
+        padding: "11px 12px",
+        borderRadius: 11,
+        background: active ? "var(--primary-soft)" : "transparent",
+        transition: ".12s",
+        border: "none",
+        font: "inherit",
+        color: "inherit",
+        cursor: onClick ? "pointer" : "default"
+      }}
+    >
       <div style={{
         width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", flex: "0 0 30px",
         background: tone === "done" ? "var(--success-soft)" : tone === "current" ? "var(--primary-soft)" : "var(--muted)",
@@ -45,7 +60,7 @@ function ChecklistItem({ icon, label, sub, tone, action, onClick, active }) {
         {sub && <div className="t-xs muted truncate">{sub}</div>}
       </div>
       {action}
-    </div>
+    </Tag>
   );
 }
 
@@ -390,7 +405,7 @@ function LessonNotes({ studentId, lessonId }) {
           style={{ width: "100%", resize: "vertical" }}
         />
         <div className="flex justify-end mt-3">
-          <button className="btn btn-soft btn-sm" onClick={handleSave}>
+          <button type="button" className="btn btn-soft btn-sm" onClick={handleSave}>
             <Icon name="check" size={15} />
             {saved ? "บันทึกสำเร็จ" : "บันทึกโน้ต"}
           </button>
@@ -406,14 +421,19 @@ function NextLessonCard({ lesson, nav, allLessons }) {
   const next = all[idx + 1];
   if (!next) return null;
   return (
-    <div className="card pointer" onClick={() => nav("/s/lesson/" + next.id)}>
+    <div className="card pointer">
       <div className="card-p flex items-center gap-3">
         <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--muted)", display: "grid", placeItems: "center", flex: "0 0 44px" }}>
           <Icon name={next.status === "locked-pretest" ? "lock" : "play"} size={18} style={{ color: "var(--subtle)" }} />
         </div>
         <div className="flex-1" style={{ minWidth: 0 }}>
           <div className="t-xs muted">บทเรียนถัดไป</div>
-          <div className="t-sm fw-6 truncate">บทที่ {next.index} · {next.title}</div>
+          <div className="t-sm fw-6 truncate">
+            <Link href={"/s/lesson/" + next.id} style={{ color: "inherit", textDecoration: "none" }}>
+              <span className="absolute inset-0" aria-hidden="true" />
+              บทที่ {next.index} · {next.title}
+            </Link>
+          </div>
         </div>
         <Icon name="chevR" size={18} style={{ color: "var(--subtle)" }} />
       </div>

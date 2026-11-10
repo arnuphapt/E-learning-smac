@@ -7,6 +7,8 @@ export function toast(message, type = "success") {
   if (!container) {
     container = document.createElement("div");
     container.id = "toast-container";
+    container.setAttribute("role", "status");
+    container.setAttribute("aria-live", "polite");
     container.style.position = "fixed";
     container.style.bottom = "24px";
     container.style.right = "24px";
@@ -45,7 +47,7 @@ export function toast(message, type = "success") {
   toastEl.style.pointerEvents = "auto";
   toastEl.style.transform = "translateY(30px) scale(0.95)";
   toastEl.style.opacity = "0";
-  toastEl.style.transition = "all 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
+  toastEl.style.transition = "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
   
   const iconSpan = document.createElement("span");
   iconSpan.style.display = "flex";
@@ -83,7 +85,7 @@ export function toast(message, type = "success") {
         toastEl.parentNode.removeChild(toastEl);
       }
     }, 350);
-  }, 3500);
+  }, 5000);
 }
 
 export default toast;

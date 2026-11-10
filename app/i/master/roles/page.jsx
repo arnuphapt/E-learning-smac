@@ -258,11 +258,11 @@ export default function RolesPage() {
 
   return (
     <div className="container">
-      <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="จัดการสิทธิ์ (Roles)"
+      <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="จัดการสิทธิ์"
         desc="กำหนด Role และสิทธิ์การเข้าถึงเมนูต่างๆ ในระบบ" />
 
       <Table
-        title="จัดการสิทธิ์ (Roles)"
+        title="จัดการสิทธิ์"
         description="กำหนด Role และสิทธิ์การเข้าถึงสำหรับผู้ใช้แต่ละประเภท"
         addButton={
           <button className="btn btn-primary btn-sm" onClick={() => setDialog({ mode: "add", row: null })}>

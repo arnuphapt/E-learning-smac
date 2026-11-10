@@ -237,8 +237,8 @@ const VideoManage = forwardRef(function VideoManage({ lesson, onSave, toast, isN
         <div className="card">
           <div className="card-h"><div className="title">รายละเอียดบทเรียน</div></div>
           <div className="card-p">
-            <div className="field"><label className="label">ชื่อบทเรียน <span className="c-danger">*</span></label><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น บทที่ 1 — ความรู้เบื้องต้น" /></div>
-            <div className="field"><label className="label">คำอธิบาย</label><textarea className="input" rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="คำอธิบายและหัวข้อในบทเรียนนี้…" /></div>
+            <div className="field"><label className="label" htmlFor="lesson-title">ชื่อบทเรียน <span className="c-danger">*</span></label><input id="lesson-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น บทที่ 1 — ความรู้เบื้องต้น" /></div>
+            <div className="field"><label className="label" htmlFor="lesson-desc">คำอธิบาย</label><textarea id="lesson-desc" className="input" rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="คำอธิบายและหัวข้อในบทเรียนนี้…" /></div>
 
           </div>
         </div>
@@ -271,16 +271,16 @@ function QuestionEditor({ q, onClose, onSave }) {
   return (
     <Dialog title={q.text ? "แก้ไขข้อสอบ" : "เพิ่มข้อสอบใหม่"} desc="ข้อสอบปรนัย เลือกคำตอบที่ถูกต้อง 1 ข้อ" onClose={onClose} lg
       footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={() => onSave({ ...q, text, choices, answer })}><Icon name="check" size={15} />บันทึกข้อสอบ</button></>}>
-      <div className="field"><label className="label">โจทย์คำถาม</label><textarea className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โจทย์คำถาม…" /></div>
-      <label className="label">ตัวเลือก <span className="muted fw-4">— เลือกวงกลมเพื่อกำหนดคำตอบที่ถูกต้อง</span></label>
+      <div className="field"><label className="label" htmlFor="q-editor-text">โจทย์คำถาม</label><textarea id="q-editor-text" className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โจทย์คำถาม…" /></div>
+      <div className="label">ตัวเลือก <span className="muted fw-4">— เลือกวงกลมเพื่อกำหนดคำตอบที่ถูกต้อง</span></div>
       <div className="flex col gap-2 mb-2">
         {choices.map((c) => (
           <div key={c.id} className="flex items-center gap-2">
-            <button onClick={() => setAnswer(c.id)} style={{ width: 24, height: 24, borderRadius: 99, border: "2px solid " + (answer === c.id ? "var(--success)" : "#cbd5e1"), background: "#fff", cursor: "pointer", display: "grid", placeItems: "center", flex: "0 0 24px" }}>
+            <button type="button" aria-label={"เลือกตัวเลือก " + c.id.toUpperCase() + " เป็นคำตอบที่ถูกต้อง"} onClick={() => setAnswer(c.id)} style={{ width: 24, height: 24, borderRadius: 99, border: "2px solid " + (answer === c.id ? "var(--success)" : "#cbd5e1"), background: "#fff", cursor: "pointer", display: "grid", placeItems: "center", flex: "0 0 24px" }}>
               {answer === c.id && <span style={{ width: 11, height: 11, borderRadius: 99, background: "var(--success)" }} />}
             </button>
-            <input className="input" value={c.text} onChange={(e) => setC(c.id, e.target.value)} placeholder={"ตัวเลือก " + c.id.toUpperCase()} />
-            {choices.length > 2 && <button className="iconbtn ghost c-danger" onClick={() => setChoices(choices.filter((x) => x.id !== c.id))}><Icon name="trash" size={15} /></button>}
+            <input aria-label={"ตัวเลือก " + c.id.toUpperCase()} className="input" value={c.text} onChange={(e) => setC(c.id, e.target.value)} placeholder={"ตัวเลือก " + c.id.toUpperCase()} />
+            {choices.length > 2 && <button type="button" aria-label={"ลบตัวเลือก " + c.id.toUpperCase()} className="iconbtn ghost c-danger" onClick={() => setChoices(choices.filter((x) => x.id !== c.id))}><Icon name="trash" size={15} /></button>}
           </div>
         ))}
       </div>
@@ -477,17 +477,21 @@ function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
         <div className="flex items-center justify-between mb-3">
           <div className="tabs pill">
             <button 
+              type="button"
               className={(which === "pre" ? "on" : "") + (!lesson?.has_pretest ? " disabled" : "")} 
-              onClick={lesson?.has_pretest ? () => setWhich("pre") : undefined}
-              disabled={!lesson?.has_pretest}
+              onClick={lesson?.has_pretest ? () => setWhich("pre") : () => toast("เปิดใช้งานที่สวิตช์ 'มีข้อสอบ Pre-test' ในการตั้งค่าการเข้าถึง (แท็บวิดีโอ)")}
+              title={!lesson?.has_pretest ? "เปิดใช้งานที่สวิตช์ 'มีข้อสอบ Pre-test' ในการตั้งค่าการเข้าถึง (แท็บวิดีโอ)" : undefined}
+              aria-disabled={!lesson?.has_pretest}
               style={!lesson?.has_pretest ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             >
               Pre-test
             </button>
             <button 
+              type="button"
               className={(which === "post" ? "on" : "") + (!lesson?.has_posttest ? " disabled" : "")} 
-              onClick={lesson?.has_posttest ? () => setWhich("post") : undefined}
-              disabled={!lesson?.has_posttest}
+              onClick={lesson?.has_posttest ? () => setWhich("post") : () => toast("เปิดใช้งานที่สวิตช์ 'มีข้อสอบ Post-test' ในการตั้งค่าการเข้าถึง (แท็บวิดีโอ)")}
+              title={!lesson?.has_posttest ? "เปิดใช้งานที่สวิตช์ 'มีข้อสอบ Post-test' ในการตั้งค่าการเข้าถึง (แท็บวิดีโอ)" : undefined}
+              aria-disabled={!lesson?.has_posttest}
               style={!lesson?.has_posttest ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             >
               Post-test
@@ -527,31 +531,31 @@ function TestBuilder({ lesson, toast, questions, onLoad, onSaveSettings }) {
         <div className="card card-p">
           <div className="t-sm fw-7 mb-3">ตั้งค่าแบบทดสอบ {which === "pre" ? "ก่อนเรียน" : "หลังเรียน"}</div>
           <div className="field">
-            <label className="label">คะแนนผ่าน (%)</label>
-            <input className="input" value={passingValue !== "" && passingValue !== null && passingValue !== undefined ? passingValue + "%" : ""} onChange={(e) => setPassingValue(e.target.value)} placeholder="เช่น 60" />
+            <label className="label" htmlFor="test-passing-score">คะแนนผ่าน (%)</label>
+            <input id="test-passing-score" className="input" value={passingValue !== "" && passingValue !== null && passingValue !== undefined ? passingValue + "%" : ""} onChange={(e) => setPassingValue(e.target.value)} placeholder="เช่น 60" />
           </div>
           <div className="field">
-            <label className="label">เวลาทำ (นาที)</label>
-            <input className="input" value={timeValue} onChange={(e) => setTimeValue(e.target.value)} />
+            <label className="label" htmlFor="test-time-limit">เวลาทำ (นาที)</label>
+            <input id="test-time-limit" className="input" value={timeValue} onChange={(e) => setTimeValue(e.target.value)} />
           </div>
           <div className="field">
-            <label className="label">จำนวนครั้งที่ทำได้</label>
-            <Select className="input" value={attemptsValue} onChange={(e) => setAttemptsValue(e.target.value)}>
+            <label className="label" htmlFor="test-attempts">จำนวนครั้งที่ทำได้</label>
+            <Select id="test-attempts" aria-label="จำนวนครั้งที่ทำได้" className="input" value={attemptsValue} onChange={(e) => setAttemptsValue(e.target.value)}>
               <option value="1">1 ครั้ง</option>
               <option value="2">2 ครั้ง</option>
               <option value="unlimited">ไม่จำกัด</option>
             </Select>
           </div>
           <div className="field">
-            <label className="label">กำหนดส่ง (วันที่)</label>
-            <input className="input" type="date" value={which === "pre" ? preDue : postDue} onChange={(e) => {
+            <label className="label" htmlFor="test-due-date">กำหนดส่ง (วันที่)</label>
+            <input id="test-due-date" className="input" type="date" value={which === "pre" ? preDue : postDue} onChange={(e) => {
               if (which === "pre") setPreDue(e.target.value);
               else setPostDue(e.target.value);
             }} />
           </div>
           <div className="field">
-            <label className="label">เวลาที่กำหนดส่ง</label>
-            <input className="input" value={which === "pre" ? preDueTime : postDueTime} onChange={(e) => {
+            <label className="label" htmlFor="test-due-time">เวลาที่กำหนดส่ง</label>
+            <input id="test-due-time" className="input" value={which === "pre" ? preDueTime : postDueTime} onChange={(e) => {
               let val = e.target.value;
               let cleaned = val.replace(/[^0-9]/g, "").slice(0, 4);
               if (cleaned.length >= 2) {
@@ -765,11 +769,11 @@ function AssignmentBuilder({ lesson, toast, assignment, rubric, onBack, onLoad }
           <div className="card mb-4">
             <div className="card-h"><div className="title">รายละเอียดใบงาน</div></div>
             <div className="card-p">
-              <div className="field"><label className="label">ชื่อใบงาน</label><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-              <div className="field"><label className="label">คำชี้แจง</label><textarea className="input" rows={4} value={instructions} onChange={(e) => setInstructions(e.target.value)} /></div>
+              <div className="field"><label className="label" htmlFor="asg-title">ชื่อใบงาน</label><input id="asg-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+              <div className="field"><label className="label" htmlFor="asg-instructions">คำชี้แจง</label><textarea id="asg-instructions" className="input" rows={4} value={instructions} onChange={(e) => setInstructions(e.target.value)} /></div>
               <div className="grid grid-3 gap-3">
-                <div className="field" style={{ margin: 0 }}><label className="label">กำหนดส่ง</label><input className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>
-                <div className="field" style={{ margin: 0 }}><label className="label">เวลา</label><input className="input" value={dueTime} onChange={(e) => {
+                <div className="field" style={{ margin: 0 }}><label className="label" htmlFor="asg-due-date">กำหนดส่ง</label><input id="asg-due-date" className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>
+                <div className="field" style={{ margin: 0 }}><label className="label" htmlFor="asg-due-time">เวลา</label><input id="asg-due-time" className="input" value={dueTime} onChange={(e) => {
                   let val = e.target.value;
                   let cleaned = val.replace(/[^0-9]/g, "").slice(0, 4);
                   if (cleaned.length >= 2) {
@@ -786,9 +790,9 @@ function AssignmentBuilder({ lesson, toast, assignment, rubric, onBack, onLoad }
                   }
                   setDueTime(formatted);
                 }} placeholder="23:59" /></div>
-                <div className="field" style={{ margin: 0 }}><label className="label">คะแนนเต็ม</label><input className="input" value={total} readOnly /></div>
+                <div className="field" style={{ margin: 0 }}><label className="label" htmlFor="asg-total-points">คะแนนเต็ม</label><input id="asg-total-points" className="input" value={total} readOnly /></div>
               </div>
-              <label className="label mt-2">รูปแบบการส่งงาน</label>
+              <div className="label mt-2">รูปแบบการส่งงาน</div>
               <div className="flex gap-2 wrap">
                 <Chk label="แนบไฟล์ (PDF/DOCX/รูปภาพ)" on={allowFile} onChange={setAllowFile} />
                 <Chk label="พิมพ์คำตอบเป็นข้อความ" on={allowText} onChange={setAllowText} />
@@ -808,14 +812,14 @@ function AssignmentBuilder({ lesson, toast, assignment, rubric, onBack, onLoad }
                   <div key={c.id} className="flex items-start gap-2" style={{ padding: 12, border: "1px solid var(--border)", borderRadius: 11, background: "#fbfcfd" }}>
                     <div className="iconbtn ghost" style={{ cursor: "grab", marginTop: 2 }}><Icon name="more" size={15} style={{ transform: "rotate(90deg)" }} /></div>
                     <div className="flex-1">
-                      <input className="input mb-2" value={c.name} onChange={(e) => setCritName(c.id, e.target.value)} placeholder={"เกณฑ์ที่ " + (i + 1)} style={{ fontWeight: 600 }} />
-                      <input className="input" value={c.desc || ""} onChange={(e) => setCritDesc(c.id, e.target.value)} placeholder="คำอธิบายเกณฑ์ (ระดับคะแนนเต็ม)" style={{ height: 34, fontSize: 13 }} />
+                      <input aria-label={"ชื่อเกณฑ์ที่ " + (i + 1)} className="input mb-2" value={c.name} onChange={(e) => setCritName(c.id, e.target.value)} placeholder={"เกณฑ์ที่ " + (i + 1)} style={{ fontWeight: 600 }} />
+                      <input aria-label={"คำอธิบายเกณฑ์ที่ " + (i + 1)} className="input" value={c.desc || ""} onChange={(e) => setCritDesc(c.id, e.target.value)} placeholder="คำอธิบายเกณฑ์ (ระดับคะแนนเต็ม)" style={{ height: 34, fontSize: 13 }} />
                     </div>
                     <div style={{ width: 92, flex: "0 0 92px" }}>
-                      <label className="t-xs muted mb-1 block">คะแนนเต็ม</label>
-                      <input className="input center fw-7" value={c.max} onChange={(e) => setMax(c.id, e.target.value)} />
+                      <label className="t-xs muted mb-1 block" htmlFor={`crit-max-${c.id}`}>คะแนนเต็ม</label>
+                      <input id={`crit-max-${c.id}`} className="input center fw-7" value={c.max} onChange={(e) => setMax(c.id, e.target.value)} />
                     </div>
-                    <button className="iconbtn ghost c-danger" style={{ marginTop: 20 }} onClick={() => setCriteria(criteria.filter((x) => x.id !== c.id))}><Icon name="trash" size={15} /></button>
+                    <button type="button" aria-label="ลบเกณฑ์" className="iconbtn ghost c-danger" style={{ marginTop: 20 }} onClick={() => setCriteria(criteria.filter((x) => x.id !== c.id))}><Icon name="trash" size={15} /></button>
                   </div>
                 ))}
               </div>
@@ -1029,7 +1033,7 @@ function DocsManage({ lesson, onSave, toast }) {
             <label className={`btn btn-primary btn-sm ${uploading ? "disabled" : ""}`} style={{ cursor: "pointer", position: "relative" }}>
               <Icon name="upload" size={15} />
               {uploading ? "กำลังอัปโหลด..." : "อัปโหลดเอกสาร"}
-              <input type="file" onChange={handleUpload} style={{ display: "none" }} disabled={uploading} />
+              <input type="file" aria-label="อัปโหลดเอกสารประกอบการเรียน" onChange={handleUpload} style={{ display: "none" }} disabled={uploading} />
             </label>
           </div>
 
@@ -1076,7 +1080,7 @@ function DocsManage({ lesson, onSave, toast }) {
             <label className={`btn btn-primary btn-sm ${uploadingAi ? "disabled" : ""}`} style={{ cursor: "pointer", position: "relative", background: "linear-gradient(135deg, var(--primary), #0891b2)" }}>
               <Icon name="upload" size={15} />
               {uploadingAi ? "กำลังอัปโหลด..." : "อัปโหลดเอกสาร AI"}
-              <input type="file" onChange={handleUploadAi} style={{ display: "none" }} disabled={uploadingAi} />
+              <input type="file" aria-label="อัปโหลดเอกสารสำหรับ AI" onChange={handleUploadAi} style={{ display: "none" }} disabled={uploadingAi} />
             </label>
           </div>
 
@@ -1473,8 +1477,9 @@ function InstructorLessonContent() {
       <Crumb nav={nav} items={[course.kind === "tutor" ? { label: "ชุดติว", to: "/i/tutor" } : { label: "รายวิชา", to: "/i/courses" }, { label: course.code, to: "/i/course/" + course.id }, { label: isNew ? "สร้างบทเรียนใหม่" : "บทที่ " + lesson.index }]} />
       <PageHead kicker={isNew ? "สร้างบทเรียนใหม่ · " + course.code : "แก้ไขบทเรียน · " + course.code} title={isNew ? "บทเรียนใหม่" : lesson.title}
         right={!isNew && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 wrap">
             <Select
+              aria-label="สถานะบทเรียน"
               value={lesson.status || "draft"}
               onChange={async (e) => {
                 const newStatus = e.target.value;
@@ -1506,25 +1511,38 @@ function InstructorLessonContent() {
         <VideoManage lesson={lesson} onSave={handleSaveLessonDetails} toast={toast} isNew={isNew} onLessonChange={(fields) => setLesson(prev => ({ ...prev, ...fields }))} />
       ) : (
         <>
-          <div className="tabs mb-5">
+          <div className="tabs mb-4" style={{ overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch" }}>
             {[
-              ["video", "วิดีโอ", "video", true],
-              ["docs", "เอกสารประกอบ", "folder", !!lesson.has_docs],
-              ["test", "ข้อสอบ Pre/Post", "clipboard", !!(lesson.has_pretest || lesson.has_posttest)],
-              ["assign", "ใบงาน + Rubric", "file", !!lesson.has_assignment]
-            ].map(([k, t, ic, enabled]) => (
+              { key: "video", title: "วิดีโอ", icon: "video", enabled: true, hint: "" },
+              { key: "docs", title: "เอกสารประกอบ", icon: "folder", enabled: !!lesson.has_docs, hint: "เปิดใช้งานที่สวิตช์ \"มีเอกสารประกอบการเรียน\" ในการตั้งค่าการเข้าถึง (แท็บวิดีโอ)" },
+              { key: "test", title: "ข้อสอบ Pre/Post", icon: "clipboard", enabled: !!(lesson.has_pretest || lesson.has_posttest), hint: "เปิดใช้งานที่สวิตช์ \"มีข้อสอบ Pre-test\" หรือ \"Post-test\" ในการตั้งค่าการเข้าถึง (แท็บวิดีโอ)" },
+              { key: "assign", title: "ใบงาน + Rubric", icon: "file", enabled: !!lesson.has_assignment, hint: "เปิดใช้งานที่สวิตช์ \"มีใบงาน\" ในการตั้งค่าการเข้าถึง (แท็บวิดีโอ)" }
+            ].map((item) => (
               <button
-                key={k}
-                className={(tab === k ? "on" : "") + (!enabled ? " disabled" : "")}
-                onClick={enabled ? () => handleTabChange(k) : undefined}
-                disabled={!enabled}
-                style={!enabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                key={item.key}
+                type="button"
+                className={(tab === item.key ? "on" : "") + (!item.enabled ? " disabled" : "")}
+                onClick={item.enabled ? () => handleTabChange(item.key) : () => toast(item.hint)}
+                title={!item.enabled ? item.hint : undefined}
+                aria-disabled={!item.enabled}
+                aria-label={!item.enabled ? `${item.title} (${item.hint})` : item.title}
+                style={{
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  ...(!item.enabled ? { opacity: 0.5, cursor: "not-allowed" } : {})
+                }}
               >
-                <Icon name={ic} size={15} />
-                {t}
+                <Icon name={item.icon} size={15} />
+                {item.title}
               </button>
             ))}
           </div>
+          {(!lesson.has_docs || !(lesson.has_pretest || lesson.has_posttest) || !lesson.has_assignment) && (
+            <div className="t-xs muted mb-4 flex items-center gap-1.5" style={{ marginTop: -8 }}>
+              <Icon name="help" size={13} className="c-primary" />
+              <span>แท็บที่ปิดอยู่สามารถเปิดใช้งานได้จากสวิตช์ &quot;การตั้งค่าการเข้าถึง&quot; ในแท็บวิดีโอ</span>
+            </div>
+          )}
 
           <div style={{ display: tab === "video" ? "block" : "none" }}>
             <VideoManage ref={videoManageRef} lesson={lesson} onSave={handleSaveLessonDetails} toast={toast} isNew={isNew} onLessonChange={(fields) => setLesson(prev => ({ ...prev, ...fields }))} />

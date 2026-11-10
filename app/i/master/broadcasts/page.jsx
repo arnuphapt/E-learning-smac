@@ -63,7 +63,7 @@ function BroadcastDialog({ mode, row, masterYearLabels, onClose, onSave }) {
       }
     >
       <div className="field">
-        <label className="label">หัวข้อประกาศ <span className="c-danger">*</span></label>
+        <label className="label">หัวข้อประกาศ<span className="c-danger">*</span></label>
         <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="เช่น แจ้งปิดระบบชั่วคราว" />
       </div>
       <div className="field">
@@ -188,7 +188,7 @@ export default function BroadcastsPage() {
   const handleDelete = async (row) => {
     if (!(await confirm({
       title: "ลบประกาศ",
-      message: `ลบประกาศ "${row.title}" ใช่หรือไม่?`,
+      message: `ลบประกาศ"${row.title}" ใช่หรือไม่?`,
       confirmText: "ลบ",
       danger: true,
     }))) return;
@@ -201,7 +201,7 @@ export default function BroadcastsPage() {
   const handleResend = async (row) => {
     if (!(await confirm({
       title: "ส่งประกาศซ้ำ",
-      message: `คุณต้องการส่งประกาศ "${row.title}" ซ้ำอีกครั้งใช่หรือไม่? การส่งซ้ำจะอัปเดตเวลาการประกาศเป็นปัจจุบันเพื่อส่งแจ้งเตือนไปยังนักศึกษาอีกครั้ง`,
+      message: `คุณต้องการส่งประกาศ"${row.title}" ซ้ำอีกครั้งใช่หรือไม่? การส่งซ้ำจะอัปเดตเวลาการประกาศเป็นปัจจุบันเพื่อส่งแจ้งเตือนไปยังนักศึกษาอีกครั้ง`,
       confirmText: "ส่งซ้ำ",
       cancelText: "ยกเลิก",
     }))) return;
@@ -233,7 +233,7 @@ export default function BroadcastsPage() {
     <div className="container">
       <PageHead
         kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)"
-        title="ประกาศ (Broadcasts)"
+        title="ประกาศ"
         desc="สร้างและจัดการประกาศที่แสดงในหน้าของนักศึกษา"
       />
 

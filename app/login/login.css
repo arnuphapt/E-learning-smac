@@ -138,7 +138,7 @@
   align-items: center;
   gap: 16px;
   margin: 28px 0;
-  color: #94a3b8;
+  color: #556377;
   font-size: 13px;
 }
 .login-divider::before,
@@ -165,7 +165,7 @@
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.04), inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.95), inset -1px -1px 2px rgba(15, 23, 42, 0.02);
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: inherit;
 }
 .login-google-btn:hover {
@@ -213,7 +213,7 @@
   padding-top: 24px;
   border-top: 1px solid #f1f5f9;
   font-size: 13px;
-  color: #94a3b8;
+  color: #556377;
   line-height: 1.6;
 }
 .login-footer a {
@@ -272,7 +272,7 @@
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   appearance: none;
   background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -302,7 +302,7 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   font-family: inherit;
 }
 .dev-login-btn:hover:not(:disabled) {

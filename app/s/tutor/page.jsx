@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Icon from "@/components/ui/Icon";
 import Loading from "@/components/ui/Loading";
 
@@ -21,7 +21,6 @@ function hexToRgba(hex, alpha = 1) {
 
 // Tutor sets this student may open. The list comes from /api/tutor/sets, which enforces the year / section lock.
 export default function StudentTutorSets() {
-  const router = useRouter();
   const [sets, setSets] = useState(null);
   const [failed, setFailed] = useState(false);
 
@@ -82,8 +81,7 @@ export default function StudentTutorSets() {
               <div
                 key={c.id}
                 className="clay-card clay-card-interactive"
-                style={{ display: "flex", flexDirection: "column" }}
-                onClick={() => router.push("/s/tutor/" + c.id)}
+                style={{ display: "flex", flexDirection: "column", position: "relative" }}
               >
                 <div className="card-p flex-1 flex col" style={{ padding: 22 }}>
                   <div className="flex items-center justify-between mb-4">
@@ -132,10 +130,16 @@ export default function StudentTutorSets() {
                       <Icon name="book" size={13} />
                       {c.lessons} บท
                     </span>
-                    <span className="clay-btn clay-btn-soft clay-btn-sm">
+                    <Link
+                      href={"/s/tutor/" + c.id}
+                      className="clay-btn clay-btn-soft clay-btn-sm"
+                      aria-label={`เปิดชุดติว: ${c.title}`}
+                      style={{ textDecoration: "none" }}
+                    >
+                      <span className="absolute inset-0" aria-hidden="true" />
                       เปิดชุดติว
                       <Icon name="arrR" size={14} />
-                    </span>
+                    </Link>
                   </div>
                 </div>
               </div>

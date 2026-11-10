@@ -10,6 +10,8 @@ import { fileHref, STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import Loading from "@/components/ui/Loading";
 import { Select, Dialog } from "@/components/ui/Primitives";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import toast from "@/components/ui/Toast";
 import AiAvatar from "@/components/ui/AiAvatar";
 
 // ---- Simple markdown renderer (bold, bullets, code) ----
@@ -675,8 +677,16 @@ export default function StudentSeparateAiPage() {
     changeEmotion("idle");
   };
 
-  const handleDeleteSession = async (sessId) => {
-    if (!confirm("คุณต้องการลบประวัติการสนทนาของเซสชันนี้ใช่หรือไม่?")) return;
+  const [deleteSessionConfirm, setDeleteSessionConfirm] = useState(null);
+
+  const handleDeleteSession = (sessId) => {
+    setDeleteSessionConfirm(sessId);
+  };
+
+  const confirmDeleteSession = async () => {
+    const sessId = deleteSessionConfirm;
+    if (!sessId) return;
+    setDeleteSessionConfirm(null);
 
     try {
       const res = await fetch("/api/ai/history/clear", {
@@ -693,9 +703,10 @@ export default function StudentSeparateAiPage() {
       if (selectedLesson) {
         loadHistoryAndSession(selectedLesson.id, selectedLesson.title);
       }
+      toast("ลบประวัติการสนทนาเรียบร้อยแล้ว", "success");
     } catch (err) {
       console.error("Failed to delete session:", err);
-      alert("ไม่สามารถลบเซสชันได้ กรุณาลองใหม่อีกครั้ง");
+      toast("ไม่สามารถลบเซสชันได้ กรุณาลองใหม่อีกครั้ง", "error");
     }
   };
 
@@ -1124,7 +1135,7 @@ export default function StudentSeparateAiPage() {
       </aside>
 
       {/* Main Workspace (Full height column) */}
-      <main
+      <div
         style={{
           flex: 1,
           display: "flex",
@@ -1256,9 +1267,18 @@ export default function StudentSeparateAiPage() {
               <div style={{ fontSize: 22, fontWeight: 700, color: "var(--fg)", marginBottom: 8 }}>
                 ยินดีต้อนรับสู่ AI ผู้ช่วยเรียนรู้
               </div>
-              <p style={{ color: "var(--muted-fg)", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
-                กรุณาเลือกรายวิชาและบทเรียนจากแถบเมนูด้านซ้าย เพื่อเริ่มการสนทนาหรือขอสรุปเนื้อหาจาก AI ติวเตอร์
+              <p style={{ color: "var(--muted-fg)", fontSize: 14, lineHeight: 1.6, margin: "0 0 16px" }}>
+                กดปุ่มเมนู ☰ ด้านบนเพื่อเลือกรายวิชาและบทเรียน เพื่อเริ่มการสนทนาหรือขอสรุปเนื้อหาจาก AI ติวเตอร์
               </p>
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="btn btn-outline"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+              >
+                <Icon name="menu" size={16} />
+                <span>เลือกรายวิชาและบทเรียน</span>
+              </button>
             </div>
           </div>
         ) : selectedLesson.allow_ai === false ? (
@@ -1791,9 +1811,21 @@ export default function StudentSeparateAiPage() {
             </div>
           </div>
         )}
-      </main>
+      </div>
 
       {/* History Dialog if triggered */}
+      {deleteSessionConfirm && (
+        <ConfirmDialog
+          open={Boolean(deleteSessionConfirm)}
+          danger
+          title="ยืนยันการลบประวัติการสนทนา"
+          message="คุณต้องการลบประวัติการสนทนาของเซสชันนี้ใช่หรือไม่?"
+          confirmText="ลบข้อมูล"
+          cancelText="ยกเลิก"
+          onClose={() => setDeleteSessionConfirm(null)}
+          onConfirm={confirmDeleteSession}
+        />
+      )}
       {showHistoryDialog && (
         <Dialog
           title="ประวัติการสนทนา"

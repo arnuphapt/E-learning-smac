@@ -33,6 +33,7 @@ function InstructorSidebarContent({ open, onClose }) {
     const onBankList = pathname === "/i/tutor/bank";
     items1.push(["/i/tutor", "award", "ชุดติว", !onBankList && (pathname.startsWith("/i/tutor") || pathname.endsWith("/bank"))]);
     items1.push(["/i/tutor/bank", "clipboard", "คลังข้อสอบ", onBankList]);
+    items1.push(["/i/live/quizzes", "target", "ควิซสด", pathname.startsWith("/i/live")]);
   }
 
   let items2 = [];
@@ -51,17 +52,17 @@ function InstructorSidebarContent({ open, onClose }) {
     academicMasterItems.push(["/i/master/years", "cal", "ปีการศึกษา", pathname === "/i/master/years" || (pathname === "/i/master" && tab === "years")]);
     academicMasterItems.push(["/i/master/terms", "layers", "ภาคเรียน", pathname === "/i/master/terms"]);
     academicMasterItems.push(["/i/master/groups", "folder", "กลุ่มวิชา", pathname === "/i/master/groups"]);
-    studentMasterItems.push(["/i/master/sections", "users", "Section / กลุ่มเรียน", pathname === "/i/master/sections"]);
+    studentMasterItems.push(["/i/master/sections", "users", "กลุ่มเรียน", pathname === "/i/master/sections"]);
     studentMasterItems.push(["/i/master/studentgrade", "award", "กำหนดชั้นปีนักศึกษา", pathname === "/i/master/studentgrade"]);
     systemMasterItems.push(["/i/master/ai-persona", "settings", "กำหนด Persona AI", pathname === "/i/master/ai-persona"]);
   }
   
   if (hasPermission(user, PERMISSIONS.USERS_MANAGE)) {
     systemMasterItems.push(["/i/master/users", "user", "จัดการผู้ใช้งาน", pathname === "/i/master/users"]);
-    systemMasterItems.push(["/i/master/roles", "shield", "จัดการสิทธิ์ (Roles)", pathname === "/i/master/roles"]);
+    systemMasterItems.push(["/i/master/roles", "shield", "จัดการสิทธิ์", pathname === "/i/master/roles"]);
   }
   if (hasPermission(user, PERMISSIONS.BROADCASTS_MANAGE)) {
-    systemMasterItems.push(["/i/master/broadcasts", "bell", "ประกาศ (Broadcasts)", pathname === "/i/master/broadcasts"]);
+    systemMasterItems.push(["/i/master/broadcasts", "bell", "ประกาศ", pathname === "/i/master/broadcasts"]);
   }
 
   const Item = ([to, ic, label, active]) => (
@@ -80,6 +81,8 @@ function InstructorSidebarContent({ open, onClose }) {
         <button 
           className="iconbtn ghost sidebar-close-btn" 
           onClick={onClose}
+          aria-label="ปิดเมนู"
+          title="ปิดเมนู"
           style={{ width: 32, height: 32, marginRight: 8 }}
         >
           <Icon name="x" size={16} />
@@ -97,13 +100,13 @@ function InstructorSidebarContent({ open, onClose }) {
       {items2.length > 0 && <div className="sb-label">งานและคะแนน</div>}
       {items2.map(Item)}
       
-      {academicMasterItems.length > 0 && <div className="sb-label">ข้อมูลหลักสูตร (Academic Data)</div>}
+      {academicMasterItems.length > 0 && <div className="sb-label">ข้อมูลหลักสูตร</div>}
       {academicMasterItems.map(Item)}
 
       {studentMasterItems.length > 0 && <div className="sb-label">กลุ่มเรียนและชั้นปี (Student Data)</div>}
       {studentMasterItems.map(Item)}
 
-      {systemMasterItems.length > 0 && <div className="sb-label">จัดการระบบ (System Settings)</div>}
+      {systemMasterItems.length > 0 && <div className="sb-label">จัดการระบบ</div>}
       {systemMasterItems.map(Item)}
       
       <div className="sb-foot">
@@ -127,8 +130,26 @@ function InstructorSidebarContent({ open, onClose }) {
 
 export default function InstructorSidebar({ open, onClose }) {
   return (
-    <Suspense fallback={<div className={`sidebar app-scroll ${open ? "open" : ""}`} />}>
-      <InstructorSidebarContent open={open} onClose={onClose} />
-    </Suspense>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (min-width: 1025px) {
+          .sidebar-close-btn {
+            display: none !important;
+          }
+        }
+        @media (max-width: 1024px) {
+          .sidebar {
+            transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.25s !important;
+          }
+          .sidebar:not(.open) {
+            visibility: hidden !important;
+            pointer-events: none !important;
+          }
+        }
+      `}} />
+      <Suspense fallback={<div className={`sidebar app-scroll ${open ? "open" : ""}`} />}>
+        <InstructorSidebarContent open={open} onClose={onClose} />
+      </Suspense>
+    </>
   );
 }

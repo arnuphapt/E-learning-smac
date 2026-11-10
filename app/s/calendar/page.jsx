@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { isStaffRole } from "@/lib/roles";
@@ -280,9 +281,15 @@ export default function Calendar() {
                     {inMonth && day === TODAY && <span className="badge badge-primary" style={{ height: 17, padding: "0 6px", fontSize: 9.5 }}>วันนี้</span>}
                   </div>
                   {evs.map((e, j) => (
-                    <div key={j} className="cal-ev" style={{ background: TONE_BG[e.tone], color: TONE_FG[e.tone] }} onClick={() => nav(e.to)} title={e.t}>
+                    <Link
+                      key={j}
+                      href={e.to}
+                      className="cal-ev"
+                      style={{ background: TONE_BG[e.tone], color: TONE_FG[e.tone], textDecoration: "none" }}
+                      title={e.t}
+                    >
                       <span className="d" /><span className="truncate">{e.t}</span>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               );
@@ -314,7 +321,12 @@ export default function Calendar() {
                   const monthStr = monthsShortThai[e.date.getMonth()];
                   
                   return (
-                    <div key={i} className="flex items-center gap-3 pointer" style={{ padding: "11px 12px", borderRadius: 11 }} onClick={() => nav(e.to)}>
+                    <Link
+                      key={i}
+                      href={e.to}
+                      className="flex items-center gap-3 pointer"
+                      style={{ padding: "11px 12px", borderRadius: 11, color: "inherit", textDecoration: "none" }}
+                    >
                       <div style={{ width: 46, flex: "0 0 46px", textAlign: "center", padding: "6px 0", borderRadius: 9, background: TONE_BG[e.tone], color: TONE_FG[e.tone] }}>
                         <div className="t-xs fw-6" style={{ lineHeight: 1 }}>{monthStr}</div>
                         <div className="t-lg fw-7 tnum" style={{ lineHeight: 1.1 }}>{e.date.getDate()}</div>
@@ -326,7 +338,7 @@ export default function Calendar() {
                         </div>
                       </div>
                       <Badge tone={left <= 3 ? "warning" : "muted"}>{left === 0 ? "วันนี้" : "อีก " + left + " วัน"}</Badge>
-                    </div>
+                    </Link>
                   );
                 })
               )}

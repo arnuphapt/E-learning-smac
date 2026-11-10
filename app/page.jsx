@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import "./landing.css";
 
-function ImageSlot({ src, placeholder, shape = "rounded", radius = 22, ratio = "16/11" }) {
+function ImageSlot({ src, placeholder, shape = "rounded", radius = 22, ratio = "16/11", width = 800, height = 550 }) {
   if (src) {
     return (
       <div style={{
@@ -14,7 +14,7 @@ function ImageSlot({ src, placeholder, shape = "rounded", radius = 22, ratio = "
         boxShadow: "0 10px 30px -10px rgba(0,0,0,0.08)",
         border: "1px solid var(--border-soft, #f1f5f9)"
       }}>
-        <img src={src} alt={placeholder} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <img src={src} alt={placeholder} width={width} height={height} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       </div>
     );
   }
@@ -85,7 +85,7 @@ export default function LandingPage() {
                 <path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5" />
               </svg>
             </span>
-            <span>Digital Learning Space<small>พื้นที่เรียนรู้ดิจิตอลเกี่ยวกับสาระสำคัญด้านการพยาบาล</small></span>
+            <span>Digital Learning Space<small>พื้นที่เรียนรู้ดิจิทัลเกี่ยวกับสาระสำคัญด้านการพยาบาล</small></span>
           </a>
           <div className="nav-links">
             <a href="#about">เกี่ยวกับระบบ</a>
@@ -113,7 +113,7 @@ export default function LandingPage() {
             <div className="hero-copy">
               <span className="eyebrow reveal in">วิทยาลัยพยาบาลศรีมหาสารคาม · คณะพยาบาลศาสตร์ สถาบันพระบรมราชชนก</span>
               <h1 className="reveal in d1">ยินดีต้อนรับสู่<br /><span className="hl">ระบบการเรียนรู้ออนไลน์</span></h1>
-              <div className="sub serif reveal in d1">พื้นที่เรียนรู้ดิจิตอลเกี่ยวกับสาระสำคัญด้านการพยาบาล</div>
+              <div className="sub serif reveal in d1">พื้นที่เรียนรู้ดิจิทัลเกี่ยวกับสาระสำคัญด้านการพยาบาล</div>
               <p className="lead reveal in d2">พื้นที่แห่งการเรียนรู้ที่ออกแบบมาเพื่อสนับสนุนการศึกษาของนักศึกษาพยาบาลให้เกิดประสิทธิภาพสูงสุด ทั้งในและนอกชั้นเรียน — เพียงเข้าสู่ระบบก็พร้อมเริ่มต้นการเรียนรู้ได้ทันที</p>
               <div className="hero-cta reveal in d2">
                 <Link className="btn btn-primary btn-lg" href="/login">เริ่มเรียนรู้
@@ -129,7 +129,7 @@ export default function LandingPage() {
             <div className="hero-visual reveal in d2">
               <span className="dotgrid dg1"></span>
               <div className="hero-frame">
-                <ImageSlot src="/e4ac61bf-a1f3-4995-8a22-0604e9dd4f35.jpg" placeholder="ภาพนักศึกษาพยาบาล / การเรียนการสอน" ratio="4/5" radius={26} />
+                <ImageSlot src="/e4ac61bf-a1f3-4995-8a22-0604e9dd4f35.jpg" placeholder="ภาพนักศึกษาพยาบาล / การเรียนการสอน" ratio="4/5" radius={26} width={640} height={800} />
               </div>
               <div className="hero-badge hb-1">
                 <span className="ic" style={{ background: "var(--mint)", color: "var(--teal)" }}>
@@ -171,7 +171,7 @@ export default function LandingPage() {
       <section className="section statement" id="about">
         <div className="wrap">
           <span className="eyebrow reveal">เกี่ยวกับระบบ</span>
-          <p className="big reveal d1" style={{ marginTop: 24 }}>พื้นที่เรียนรู้ดิจิตอลเกี่ยวกับ<b>สาระสำคัญด้านการพยาบาลนี้ ได้รวบรวมสาระสำคัญในหลากหลายรายวิชาเกี่ยวกับวิชาชีพการพยาบาลและการผดุงครรภ์ไว้อย่างครบถ้วน</b></p>
+          <p className="big reveal d1" style={{ marginTop: 24 }}>พื้นที่เรียนรู้ดิจิทัลเกี่ยวกับ<b>สาระสำคัญด้านการพยาบาลนี้ ได้รวบรวมสาระสำคัญในหลากหลายรายวิชาเกี่ยวกับวิชาชีพการพยาบาลและการผดุงครรภ์ไว้อย่างครบถ้วน</b></p>
         </div>
       </section>
 
@@ -304,7 +304,7 @@ export default function LandingPage() {
             <div className="in">
               <h2>พร้อมเริ่มต้นการเรียนรู้แล้วหรือยัง?</h2>
               <p>เข้าสู่ระบบเพื่อเข้าถึงรายวิชา บทเรียน วิดีโอการสอน และแบบทดสอบทั้งหมดของคุณ</p>
-              <Link className="btn btn-primary btn-lg" href="/s/courses">เข้าสู่ระบบ Digital learning space<svg className="ar" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg></Link>
+              <Link className="btn btn-primary btn-lg" href="/login">เข้าสู่ระบบ Digital learning space<svg className="ar" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg></Link>
             </div>
           </div>
         </div>
@@ -324,7 +324,7 @@ export default function LandingPage() {
             <div className="footer-links">
               <div className="footer-col">
                 <h4>ระบบ</h4>
-                <Link href="/s/courses">เข้าสู่ระบบ</Link>
+                <Link href="/login">เข้าสู่ระบบ</Link>
                 <a href="#features">จุดเด่น</a>
                 <a href="#about">เกี่ยวกับ</a>
               </div>
@@ -334,15 +334,10 @@ export default function LandingPage() {
                 <Link href="/s/courses">แบบทดสอบ</Link>
                 <Link href="/s/assignments">ส่งงาน</Link>
               </div>
-              <div className="footer-col">
-                <h4>ติดต่อ</h4>
-                <a href="#">สาขาวิชาฯ</a>
-                <a href="#">ฝ่ายสนับสนุน</a>
-              </div>
             </div>
           </div>
           <div className="footer-bot">
-            <span>© 2568 วิทยาลัยพยาบาลศรีมหาสารคาม · สถาบันพระบรมราชชนก</span>
+            <span>© {new Date().getFullYear() + 543} วิทยาลัยพยาบาลศรีมหาสารคาม · สถาบันพระบรมราชชนก</span>
             <span>ออกแบบเพื่อการเรียนรู้ของนักศึกษาพยาบาล</span>
           </div>
         </div>

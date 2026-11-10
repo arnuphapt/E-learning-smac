@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_DOMAIN } from "@/lib/course-access";
@@ -309,21 +310,45 @@ export default function InstructorCourses() {
       <PageHead kicker="พื้นที่อาจารย์ผู้สอน" title="จัดการรายวิชา"
         desc="กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ" />
 
+      <style>{`
+        @media (min-width: 768px) {
+          .course-table th:first-child,
+          .course-table td:first-child {
+            width: 36px !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
+            text-align: center;
+          }
+          .course-table th:nth-child(2),
+          .course-table td:nth-child(2) {
+            width: 28px !important;
+            padding-left: 2px !important;
+            padding-right: 2px !important;
+            text-align: center;
+          }
+          .course-table th:nth-child(3),
+          .course-table td:nth-child(3) {
+            min-width: 280px;
+            width: 45%;
+          }
+        }
+      `}</style>
+
       <Table
         title="รายวิชาทั้งหมด"
         description="รายชื่อวิชาในกลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ"
         addButton={
           hasRole(user?.role, "admin", "course_manager") && (
-            <button className="btn btn-primary btn-sm" onClick={() => nav("/i/course/new")}>
+            <Link className="btn btn-primary btn-sm" href="/i/course/new">
               <Icon name="plus" size={15} />สร้างรายวิชา
-            </button>
+            </Link>
           )
         }
         loading={loading}
-        className="table hover"
+        className="table hover course-table"
             headers={[
-              "",
-              "รายวิชา", 
+              <span key="exp" style={{ display: "inline-block", width: 24 }} />,
+              <span key="title" style={{ minWidth: 260, display: "inline-block" }}>รายวิชา</span>, 
               <span className="hide-m" key="term">ภาคเรียน</span>, 
               "บทเรียน", 
               "นักศึกษา", 
@@ -335,7 +360,7 @@ export default function InstructorCourses() {
             renderRow={(c, i) => (
               <React.Fragment key={c.id}>
                 <tr onClick={() => toggleExpand(c.id)} style={{ cursor: "pointer" }}>
-                  <td style={{ width: 40, paddingLeft: 16 }}>
+                  <td style={{ width: 28, padding: "13px 2px", textAlign: "center" }}>
                     <div style={{ display: "grid", placeItems: "center" }}>
                       <Icon 
                         name="chevD" 
@@ -348,7 +373,7 @@ export default function InstructorCourses() {
                       />
                     </div>
                   </td>
-                  <td>
+                  <td style={{ minWidth: 280 }}>
                     <div className="flex items-center gap-3">
                       {(() => {
                         const hero = c.hero && c.hero.startsWith("#") ? c.hero : "#0d6e8c";
@@ -389,11 +414,11 @@ export default function InstructorCourses() {
                   </td>
                   <td>
                     <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-                      <button className="btn btn-outline btn-sm" onClick={() => nav("/i/course/" + c.id)} style={{ display: "flex", alignItems: "center", gap: 4, height: 32 }}>
+                      <Link className="btn btn-outline btn-sm" href={"/i/course/" + c.id} style={{ display: "flex", alignItems: "center", gap: 4, height: 32 }}>
                         <Icon name="pencil" size={13} /> จัดการรายวิชา
-                      </button>
+                      </Link>
                       {hasRole(user?.role, "admin", "course_manager") && (
-                        <button className="iconbtn ghost c-danger" onClick={() => handleDeleteCourse(c)} style={{ height: 32, width: 32 }}>
+                        <button className="iconbtn ghost c-danger" onClick={() => handleDeleteCourse(c)} style={{ height: 32, width: 32 }} aria-label="ลบรายวิชา" title="ลบรายวิชา">
                           <Icon name="trash" size={15} />
                         </button>
                       )}
@@ -424,10 +449,10 @@ export default function InstructorCourses() {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <button className="btn btn-outline btn-sm" onClick={() => nav("/i/lesson/" + l.id)} style={{ height: 28, fontSize: 12, padding: "0 10px" }}>
+                                  <Link className="btn btn-outline btn-sm" href={"/i/lesson/" + l.id} style={{ height: 28, fontSize: 12, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 4 }}>
                                     <Icon name="pencil" size={13} /> จัดการ
-                                  </button>
-                                  <button className="iconbtn ghost c-danger" onClick={() => handleDeleteLesson(l, c.id)} style={{ height: 28, width: 28 }}>
+                                  </Link>
+                                  <button className="iconbtn ghost c-danger" onClick={() => handleDeleteLesson(l, c.id)} style={{ height: 28, width: 28 }} aria-label="ลบบทเรียน" title="ลบบทเรียน">
                                     <Icon name="trash" size={14} />
                                   </button>
                                 </div>

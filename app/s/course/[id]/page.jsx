@@ -340,7 +340,7 @@ export default function StudentCourse() {
                 </span>
                 <span className="t-xs muted">{course.term}</span>
               </div>
-              <div className="t-2xl fw-7 serif" style={{ letterSpacing: "-.01em", lineHeight: 1.3, marginBottom: 6 }}>{course.title}</div>
+              <h1 className="t-2xl fw-7 serif" style={{ letterSpacing: "-.01em", lineHeight: 1.3, margin: 0, marginBottom: 6 }}>{course.title}</h1>
               <div className="muted t-sm pretty">{course.subtitle}</div>
               <div className="flex items-center gap-3 mt-3.5 t-sm muted wrap">
                 <span className="flex items-center gap-1"><Icon name="user" size={15} />{course.instructor}</span>

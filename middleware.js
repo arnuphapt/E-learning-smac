@@ -35,8 +35,8 @@ export async function middleware(request) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Tutor-only users (external domains): tutor mode and nothing else. A page sends them to /s/tutor (this is also where
-  // the login callback /s/courses lands them), an API answers 403.
+  // Tutor-only users (external domains): tutor mode and nothing else. Live quiz (/i/live, /s/live, /api/live) is forbidden.
+  // A page sends them to /s/tutor (this is also where the login callback /s/courses lands them), an API answers 403.
   if (token && isTutorOnlyRole(token.role)) {
     if (inside(pathname, "/s/tutor") || inside(pathname, "/api/tutor") || pathname === "/api/files") return NextResponse.next();
     if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

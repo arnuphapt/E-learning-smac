@@ -82,8 +82,9 @@ export default function StudentProfile() {
         
         <div className="flex col gap-3">
           <div className="field">
-            <label className="label">ชื่อ-นามสกุล</label>
+            <label className="label" htmlFor="profile-name">ชื่อ-นามสกุล</label>
             <input 
+              id="profile-name"
               type="text" 
               className="input" 
               value={form.name} 
@@ -92,8 +93,9 @@ export default function StudentProfile() {
           </div>
           
           <div className="field">
-            <label className="label">รหัสนักศึกษา</label>
+            <label className="label" htmlFor="profile-student-no">รหัสนักศึกษา</label>
             <input 
+              id="profile-student-no"
               type="text" 
               className="input" 
               value={form.student_no} 
@@ -102,14 +104,14 @@ export default function StudentProfile() {
           </div>
           
           <div className="field">
-            <label className="label">อีเมล</label>
-            <input type="text" className="input" value={session?.user?.email} disabled />
-            <div className="t-xs muted mt-1">ไม่สามารถเปลี่ยนอีเมลได้ เนื่องจากล็อกอินผ่าน Google</div>
+            <label className="label" htmlFor="profile-email">อีเมล</label>
+            <input id="profile-email" type="text" className="input" value={session?.user?.email} disabled aria-describedby="profile-email-hint" />
+            <div className="t-xs muted mt-1" id="profile-email-hint">ไม่สามารถเปลี่ยนอีเมลได้ เนื่องจากล็อกอินผ่าน Google</div>
           </div>
         </div>
 
         <div className="flex items-center justify-between mt-5">
-          <div className="t-sm" style={{ color: msg.includes("ผิดพลาด") ? "var(--danger)" : "var(--success)" }}>
+          <div className="t-sm" role="status" aria-live="polite" style={{ color: msg.includes("ผิดพลาด") ? "var(--danger)" : "var(--success)" }}>
             {msg}
           </div>
           <button className="btn btn-primary" onClick={saveProfile} disabled={saving}>

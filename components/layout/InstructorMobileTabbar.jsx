@@ -143,6 +143,29 @@ function MoreSheet({ onClose }) {
                 </span>
               </Link>
             )}
+            {hasPermission(user, PERMISSIONS.COURSES_VIEW) && (
+              <Link
+                href="/i/live/quizzes"
+                onClick={onClose}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: pathname.startsWith("/i/live") ? "var(--primary-soft)" : "var(--muted)",
+                  color: pathname.startsWith("/i/live") ? "var(--primary)" : "var(--fg)",
+                  fontWeight: 500,
+                  fontSize: 13,
+                  textDecoration: "none",
+                }}
+              >
+                <Icon name="target" size={16} />
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  ควิซสด
+                </span>
+              </Link>
+            )}
           </div>
         </div>
 

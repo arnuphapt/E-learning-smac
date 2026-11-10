@@ -18,14 +18,33 @@ function ToggleRow({ label, on }) {
   return (
     <div className="flex items-center justify-between" style={{ padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
       <span className="t-sm pretty" style={{ paddingRight: 12 }}>{label}</span>
-      <button onClick={() => setV(!v)} style={{ width: 40, height: 23, borderRadius: 99, border: 0, cursor: "pointer", padding: 2, background: v ? "var(--primary)" : "#cbd5e1", transition: ".15s", flex: "0 0 40px" }}>
-        <span style={{ display: "block", width: 19, height: 19, borderRadius: 99, background: "#fff", transform: v ? "translateX(17px)" : "translateX(0)", transition: ".15s" }} />
+      <button
+        type="button"
+        role="switch"
+        aria-checked={v}
+        aria-label={label}
+        onClick={() => setV(!v)}
+        style={{
+          minWidth: 44,
+          minHeight: 44,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "transparent",
+          border: 0,
+          cursor: "pointer",
+          padding: 0
+        }}
+      >
+        <span style={{ display: "block", width: 40, height: 23, borderRadius: 99, padding: 2, background: v ? "var(--primary)" : "#cbd5e1", transition: ".15s" }}>
+          <span style={{ display: "block", width: 19, height: 19, borderRadius: 99, background: "#fff", transform: v ? "translateX(17px)" : "translateX(0)", transition: ".15s" }} />
+        </span>
       </button>
     </div>
   );
 }
 
-function MultiSelect({ options, selectedValues, onChange, placeholder = "เลือกคณาจารย์..." }) {
+function MultiSelect({ options, selectedValues, onChange, placeholder = "เลือกคณาจารย์...", id, ariaLabel, ariaLabelledby }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const containerRef = React.useRef(null);
 
@@ -49,6 +68,22 @@ function MultiSelect({ options, selectedValues, onChange, placeholder = "เล�
         }
       `}</style>
       <div 
+        id={id}
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledby}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setIsOpen((prev) => !prev);
+          } else if (e.key === "Escape" && isOpen) {
+            e.preventDefault();
+            setIsOpen(false);
+          }
+        }}
         onClick={() => setIsOpen(!isOpen)}
         className="input flex items-center justify-between"
         style={{ 
@@ -86,7 +121,9 @@ function MultiSelect({ options, selectedValues, onChange, placeholder = "เล�
                 }}
               >
                 {opt.name}
-                <span 
+                <button 
+                  type="button"
+                  aria-label={`ลบ ${opt.name}`}
                   onClick={(e) => { 
                     e.stopPropagation(); 
                     onChange(selectedValues.filter(id => id !== opt.id)); 
@@ -96,11 +133,18 @@ function MultiSelect({ options, selectedValues, onChange, placeholder = "เล�
                     fontWeight: "bold",
                     fontSize: 12,
                     marginLeft: 4,
-                    color: "var(--primary)"
+                    color: "var(--primary)",
+                    background: "transparent",
+                    border: 0,
+                    padding: "2px 4px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 4
                   }}
                 >
                   ✕
-                </span>
+                </button>
               </span>
             ))}
           </div>
@@ -110,6 +154,7 @@ function MultiSelect({ options, selectedValues, onChange, placeholder = "เล�
 
       {isOpen && (
         <div 
+          role="listbox"
           style={{ 
             position: "absolute", 
             top: "100%", 
@@ -134,6 +179,19 @@ function MultiSelect({ options, selectedValues, onChange, placeholder = "เล�
               return (
                 <div 
                   key={u.id}
+                  role="option"
+                  aria-selected={isSelected}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (isSelected) {
+                        onChange(selectedValues.filter(id => id !== u.id));
+                      } else {
+                        onChange([...selectedValues, u.id]);
+                      }
+                    }
+                  }}
                   onClick={() => {
                     if (isSelected) {
                       onChange(selectedValues.filter(id => id !== u.id));
@@ -160,6 +218,8 @@ function MultiSelect({ options, selectedValues, onChange, placeholder = "เล�
                     type="checkbox" 
                     checked={isSelected}
                     onChange={() => {}}
+                    tabIndex={-1}
+                    aria-hidden="true"
                     style={{ pointerEvents: "none" }}
                   />
                   <div className="flex col" style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -409,13 +469,14 @@ export default function CreateCourse() {
             <div className="card-h"><div className="title">ข้อมูลรายวิชา</div></div>
             <div className="card-p">
               <div className="field">
-                <label className="label">ชื่อรายวิชา <span className="c-danger">*</span></label>
-                <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น การพยาบาลผู้ใหญ่ 1" />
+                <label className="label" htmlFor="course-title">ชื่อรายวิชา <span className="c-danger">*</span></label>
+                <input id="course-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น การพยาบาลผู้ใหญ่ 1" required aria-required="true" />
               </div>
               <div className="grid grid-2 gap-3">
-                <div className="field"><label className="label">รหัสวิชา <span className="c-danger">*</span></label><input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="เช่น NUR301" /></div>
-                <div className="field"><label className="label">กลุ่มวิชา</label>
+                <div className="field"><label className="label" htmlFor="course-code">รหัสวิชา <span className="c-danger">*</span></label><input id="course-code" className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="เช่น NUR301" required aria-required="true" /></div>
+                <div className="field"><label className="label" htmlFor="course-subject-group" id="label-subject-group">กลุ่มวิชา</label>
                   <Select 
+                    id="course-subject-group"
                     className="input" 
                     value={subjectGroup} 
                     onChange={(e) => setSubjectGroup(e.target.value)}
@@ -435,8 +496,8 @@ export default function CreateCourse() {
                 </div>
               </div>
               <div className="grid grid-2 gap-3">
-                <div className="field"><label className="label">ภาคเรียน</label>
-                  <Select className="input" value={term} onChange={(e) => setTerm(e.target.value)}>
+                <div className="field"><label className="label" htmlFor="course-term" id="label-term">ภาคเรียน</label>
+                  <Select id="course-term" className="input" value={term} onChange={(e) => setTerm(e.target.value)}>
                     {terms.length === 0 ? (
                       <option value="">(ไม่มีข้อมูลภาคเรียน - กรุณาเพิ่มในระบบหลักก่อน)</option>
                     ) : (
@@ -446,8 +507,8 @@ export default function CreateCourse() {
                     )}
                   </Select>
                 </div>
-                <div className="field"><label className="label">Section / กลุ่มเรียน</label>
-                  <Select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
+                <div className="field"><label className="label" htmlFor="course-section" id="label-section">กลุ่มเรียน</label>
+                  <Select id="course-section" className="input" value={section} onChange={(e) => setSection(e.target.value)}>
                     {sections.length === 0 ? (
                       <option value="">— ยังไม่มี Section กรุณาเพิ่มในระบบหลักก่อน —</option>
                     ) : (
@@ -474,13 +535,15 @@ export default function CreateCourse() {
                 </div>
               </div>
               <div className="field">
-                <label className="label">คำอธิบายรายวิชา</label>
-                <textarea className="input" rows={3} value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="สรุปขอบเขตเนื้อหาและจุดเน้นของรายวิชา…" />
+                <label className="label" htmlFor="course-subtitle">คำอธิบายรายวิชา</label>
+                <textarea id="course-subtitle" className="input" rows={3} value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="สรุปขอบเขตเนื้อหาและจุดเน้นของรายวิชา…" />
               </div>
               <div className="grid grid-2 gap-3">
                 <div className="field">
-                  <label className="label">อาจารย์ผู้รับผิดชอบหลัก <span className="c-danger">*</span></label>
+                  <label className="label" htmlFor="course-main-managers" id="label-main-managers">อาจารย์ผู้รับผิดชอบหลัก <span className="c-danger">*</span></label>
                   <MultiSelect
+                    id="course-main-managers"
+                    ariaLabelledby="label-main-managers"
                     options={instructors.filter(u => !selectedInstructors.includes(u.id))}
                     selectedValues={mainManagers}
                     onChange={setMainManagers}
@@ -488,16 +551,18 @@ export default function CreateCourse() {
                   />
                 </div>
                 <div className="field">
-                  <label className="label">หน่วยกิต</label>
-                  <input className="input" value={credits} onChange={(e) => setCredits(e.target.value)} placeholder="เช่น 3 (2-2-5)" />
+                  <label className="label" htmlFor="course-credits">หน่วยกิต</label>
+                  <input id="course-credits" className="input" value={credits} onChange={(e) => setCredits(e.target.value)} placeholder="เช่น 3 (2-2-5)" />
                 </div>
               </div>
 
               {/* อาจารย์ผู้สอนร่วม */}
               <div className="field" style={{ marginTop: 12 }}>
-                <label className="label">อาจารย์ผู้สอนร่วม <span className="t-xs muted fw-4">(เลือกได้หลายคน)</span></label>
+                <label className="label" htmlFor="course-co-instructors" id="label-co-instructors">อาจารย์ผู้สอนร่วม <span className="t-xs muted fw-4">(เลือกได้หลายคน)</span></label>
                 <div style={{ paddingTop: 6 }}>
                   <MultiSelect
+                    id="course-co-instructors"
+                    ariaLabelledby="label-co-instructors"
                     options={availableInstructors}
                     selectedValues={selectedInstructors}
                     onChange={setSelectedInstructors}
@@ -508,20 +573,21 @@ export default function CreateCourse() {
 
               {/* Year Level Access */}
               <div className="field" style={{ marginTop: 12 }}>
-                <label className="label">ชั้นปีที่เข้าถึงได้ <span className="t-xs muted fw-4">(ไม่เลือก = ทุกชั้นปี)</span></label>
-                <div className="flex items-center gap-3 flex-wrap" style={{ paddingTop: 6 }}>
+                <label className="label" id="label-year-levels">ชั้นปีที่เข้าถึงได้ <span className="t-xs muted fw-4">(ไม่เลือก = ทุกชั้นปี)</span></label>
+                <div role="group" aria-labelledby="label-year-levels" className="flex items-center gap-3 flex-wrap" style={{ paddingTop: 6 }}>
                   {masterYearLabels.length === 0 ? (
                     <span className="t-sm muted">กำลังโหลดข้อมูลชั้นปี... หรือไม่มีข้อมูลชั้นปีในระบบ</span>
                   ) : masterYearLabels.map((yrLabel) => {
                     const checked = yearLevels.includes(yrLabel);
+                    const inputId = "year-level-" + String(yrLabel).replace(/\s+/g, "-");
                     return (
-                      <label key={yrLabel} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
-                        padding: "7px 14px", borderRadius: 9, border: `1.5px solid ${checked ? "var(--primary)" : "var(--border)"}`,
+                      <label key={yrLabel} htmlFor={inputId} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none",
+                        minHeight: 40, padding: "8px 14px", borderRadius: 9, border: `1.5px solid ${checked ? "var(--primary)" : "var(--border)"}`,
                         background: checked ? "var(--primary-bg, #eef6ff)" : "var(--surface)", transition: ".15s", fontWeight: checked ? 700 : 400,
                         color: checked ? "var(--primary)" : "var(--fg)" }}>
-                        <input type="checkbox" style={{ display: "none" }} checked={checked}
+                        <input id={inputId} type="checkbox" style={{ position: "absolute", opacity: 0, width: 1, height: 1, margin: -1, padding: 0, overflow: "hidden", clip: "rect(0, 0, 0, 0)", border: 0 }} checked={checked}
                           onChange={() => setYearLevels(prev => checked ? prev.filter(y => y !== yrLabel) : [...prev, yrLabel].sort())} />
-                        <span style={{ width: 16, height: 16, borderRadius: 5, border: `2px solid ${checked ? "var(--primary)" : "var(--border-strong)"}`,
+                        <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: 5, border: `2px solid ${checked ? "var(--primary)" : "var(--border-strong)"}`,
                           background: checked ? "var(--primary)" : "transparent", display: "grid", placeItems: "center", flexShrink: 0 }}>
                           {checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </span>
@@ -544,17 +610,36 @@ export default function CreateCourse() {
             <div className="card-h"><div className="title">สีปกรายวิชา</div><div className="desc">ใช้แสดงบนการ์ดรายวิชาและหัวบทเรียน</div></div>
             <div className="card-p flex gap-3 wrap" style={{ alignItems: "center" }}>
               {COLORS.map((c) => (
-                <button key={c} onClick={() => setColor(c)} style={{ width: 46, height: 46, borderRadius: 12, background: c, cursor: "pointer", border: "3px solid " + (color === c ? "var(--fg)" : "transparent"), boxShadow: "var(--shadow-xs)", display: "grid", placeItems: "center", color: "#fff" }}>
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`เลือกสี ${c}`}
+                  aria-pressed={color === c}
+                  onClick={() => setColor(c)}
+                  style={{ width: 46, height: 46, borderRadius: 12, background: c, cursor: "pointer", border: "3px solid " + (color === c ? "var(--fg)" : "transparent"), boxShadow: "var(--shadow-xs)", display: "grid", placeItems: "center", color: "#fff" }}
+                >
                   {color === c && <Icon name="check" size={18} />}
                 </button>
               ))}
-              <label title="เลือกสีเอง" style={{ width: 46, height: 46, borderRadius: 12, border: "2px dashed var(--border-strong)", cursor: "pointer", display: "grid", placeItems: "center", overflow: "hidden", position: "relative", background: COLORS.includes(color) ? "transparent" : color }}>
+              <label
+                htmlFor="course-color-picker"
+                title="เลือกสีเอง"
+                aria-label="เลือกสีเอง"
+                style={{ width: 46, height: 46, borderRadius: 12, border: "2px dashed var(--border-strong)", cursor: "pointer", display: "grid", placeItems: "center", overflow: "hidden", position: "relative", background: COLORS.includes(color) ? "transparent" : color }}
+              >
                 {COLORS.includes(color) ? (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--subtle)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
                 ) : (
                   !COLORS.includes(color) && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
                 )}
-                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }} />
+                <input
+                  id="course-color-picker"
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  aria-label="เลือกสีปกรายวิชาเอง"
+                  style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
+                />
               </label>
             </div>
           </div>

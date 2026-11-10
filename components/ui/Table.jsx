@@ -128,7 +128,7 @@ function makeResponsiveRow(element, index, headers) {
     const childrenArray = React.Children.toArray(originalChildren);
     
     const rowNumCell = (
-      <td key="row-num" className="tnum" data-label="No." style={{ width: 55, textAlign: "center", color: "#64748b", fontWeight: 500, borderBottom: "1px solid #e2e8f0" }}>
+      <td key="row-num" className="tnum" data-label="ลำดับ" style={{ width: 55, textAlign: "center", color: "#64748b", fontWeight: 500, borderBottom: "1px solid #e2e8f0" }}>
         {index}
       </td>
     );
@@ -161,7 +161,7 @@ export default function Table({
   filter,
   enableSearch = true,
   searchKeys = [],
-  searchPlaceholder = "ค้นหาข้อมูล...",
+  searchPlaceholder = "ค้นหาข้อมูล…",
   title,
   description,
   addButton,
@@ -519,21 +519,51 @@ export default function Table({
           <table className={className}>
             <thead>
               <tr>
-                <th style={{ width: 55, textAlign: "center" }}>No.</th>
+                <th style={{ width: 55, textAlign: "center" }}>ลำดับ</th>
                 {headers.map((h, i) => {
                   const sortable = isColumnSortable(i);
                   const isCurrent = sortConfig.keyIndex === i;
+                  let ariaSort;
+                  if (sortable) {
+                    ariaSort = "none";
+                    if (isCurrent && sortConfig.direction === "asc") {
+                      ariaSort = "ascending";
+                    } else if (isCurrent && sortConfig.direction === "desc") {
+                      ariaSort = "descending";
+                    }
+                  }
                   return (
                     <th
                       key={i}
                       className={sortable ? "sortable" : undefined}
-                      onClick={sortable ? () => handleSort(i) : undefined}
-                      style={sortable ? { cursor: "pointer", userSelect: "none" } : undefined}
+                      aria-sort={ariaSort}
+                      style={sortable ? { userSelect: "none" } : undefined}
                     >
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        {h}
-                        {sortable && <SortIcon direction={isCurrent ? sortConfig.direction : null} />}
-                      </div>
+                      {sortable ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSort(i)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            background: "transparent",
+                            border: "none",
+                            padding: 0,
+                            font: "inherit",
+                            color: "inherit",
+                            cursor: "pointer",
+                            textAlign: "inherit"
+                          }}
+                        >
+                          {h}
+                          <SortIcon direction={isCurrent ? sortConfig.direction : null} />
+                        </button>
+                      ) : (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          {h}
+                        </div>
+                      )}
                     </th>
                   );
                 })}

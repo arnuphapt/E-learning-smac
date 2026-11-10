@@ -24,7 +24,7 @@ const TabItem = ({ href, icon, label, active, showDot, shake }) => (
         <Icon name={icon} size={20} />
       </div>
     </div>
-    <span>{label}</span>
+    <span style={{ fontSize: 11, whiteSpace: "nowrap" }}>{label}</span>
     {showDot && (
       <span style={{ position: "absolute", top: 2, right: 12, width: 7, height: 7, borderRadius: "50%", background: "#ef4444", border: "1.5px solid var(--surface, #fff)" }} />
     )}
@@ -132,6 +132,7 @@ export default function StudentMobileTabbar() {
 
   const onCourses = pathname === "/s/courses" || pathname.startsWith("/s/course") || pathname.startsWith("/s/lesson") || pathname.startsWith("/s/test");
   const onTutor = pathname.startsWith("/s/tutor");
+  const onLive = pathname.startsWith("/s/live");
   const onAssignments = pathname.startsWith("/s/assignments") || pathname.startsWith("/s/assignment");
   const onCal = pathname === "/s/calendar";
   const onBroadcasts = pathname === "/s/broadcasts";
@@ -167,14 +168,32 @@ export default function StudentMobileTabbar() {
           100% { transform: rotate(0); }
         }
         .ring-shake {
-          animation: ring 2.5s ease-in-out infinite;
+          animation: ring 2.5s ease-in-out 3 forwards;
           transform-origin: 50% 0;
           display: inline-block;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ring-shake {
+            animation: none !important;
+          }
+        }
+        .tabbar a, .tabbar button {
+          color: var(--muted-fg);
+          font-size: 11px;
+        }
+        .tabbar a.on {
+          color: var(--primary);
+        }
+        .tabbar a span, .tabbar button span {
+          font-size: 11px;
+          line-height: 1.2;
+          white-space: nowrap;
         }
       `}</style>
       {!tutorOnly && <TabItem href="/s/courses"     icon="book"      label="รายวิชา"   active={onCourses} />}
       <TabItem href="/s/tutor"       icon="award"     label="ชุดติว"    active={onTutor} />
       {!tutorOnly && <>
+        <TabItem href="/s/live"        icon="target"    label="ควิซสด"   active={onLive} />
         <TabItem href="/s/assignments" icon="clipboard" label="ใบงาน"     active={onAssignments} />
         <TabItem href="/s/broadcasts"  icon="bell"      label="ประกาศ"    active={onBroadcasts} showDot={hasNew} shake={shouldShake} />
         <TabItem href="/s/calendar"    icon="cal"       label="ปฏิทิน"    active={onCal} />

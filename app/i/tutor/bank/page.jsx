@@ -9,7 +9,7 @@ import Icon from "@/components/ui/Icon";
 import Loading from "@/components/ui/Loading";
 import { Badge, Select } from "@/components/ui/Primitives";
 
-const PAGE = 200; // rows rendered at once; "แสดงเพิ่ม" adds another page
+const PAGE = 50; // rows rendered at once; "แสดงเพิ่ม" adds another page
 
 // PostgREST returns at most 1000 rows per request: read the tutor bank in pages so a big bank is not cut silently.
 async function allTutorQuestions() {
@@ -165,7 +165,7 @@ export default function InstructorTutorBank() {
       )}
 
       {shown.length > limit && (
-        <div className="flex justify-center mt-4"><button className="btn btn-outline" onClick={() => setLimit((n) => n + PAGE)}>แสดงเพิ่ม</button></div>
+        <div className="flex justify-center mt-4"><button type="button" className="btn btn-outline" onClick={() => setLimit((n) => n + PAGE)}>แสดงเพิ่ม</button></div>
       )}
     </div>
   );
