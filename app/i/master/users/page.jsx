@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_DOMAIN } from "@/lib/course-access";
@@ -12,6 +12,7 @@ import Table from "@/components/ui/Table";
 import { toast } from "@/components/ui/Toast";
 import { signIn, useSession } from "next-auth/react";
 import { hasPermission, PERMISSIONS } from "@/lib/rbac";
+import ImportUsersDialog from "./ImportUsersDialog";
 
 function RowActions({ onEdit, onDelete, onImpersonate, canImpersonate }) {
   return (
@@ -177,31 +178,44 @@ function ConfirmDialog({ title, desc, onConfirm, onClose }) {
 }
 
 export default function MasterUsersPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
+  const canManageUsers = hasPermission(session?.user, PERMISSIONS.USERS_MANAGE);
   const canImpersonate = hasPermission(session?.user, PERMISSIONS.USERS_IMPERSONATE);
   const [usersList, setUsersList] = useState([]);
   const [gradesList, setGradesList] = useState([]);
   const [rolesList, setRolesList] = useState([]);
+  const [sectionsList, setSectionsList] = useState([]);
   const [subjectGroups, setSubjectGroups] = useState([]);
   const [groupManagers, setGroupManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState(null); // {mode, row}
   const [confirmDlg, setConfirmDlg] = useState(null); // {title, desc, onConfirm}
+  const [importOpen, setImportOpen] = useState(false);
   const [filterRole, setFilterRole] = useState("all");
   const [filterGrade, setFilterGrade] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkSection, setBulkSection] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const selectAllRef = useRef(null);
 
   const loadData = async () => {
     setLoading(true);
-    const [uRes, gRes, rRes, sgRes, sgmRes] = await Promise.all([
+    const [uRes, gRes, rRes, sgRes, sgmRes, secRes] = await Promise.all([
       supabase.from("users").select("*"),
       supabase.from("student_grades").select("*").eq("domain", DEFAULT_DOMAIN),
       supabase.from("roles").select("id, name"),
       supabase.from("subject_groups").select("*").eq("status", "active"),
-      supabase.from("subject_group_managers").select("*")
+      supabase.from("subject_group_managers").select("*"),
+      supabase.from("sections").select("id, name").order("name")
     ]);
 
     if (rRes.data) {
       setRolesList(rRes.data);
+    }
+
+    if (secRes.data) {
+      setSectionsList(secRes.data);
     }
 
     if (gRes.data) {
@@ -228,8 +242,9 @@ export default function MasterUsersPage() {
   };
 
   useEffect(() => {
+    if (sessionStatus === "loading" || !canManageUsers) return;
     loadData();
-  }, []);
+  }, [sessionStatus, canManageUsers]);
 
   const handleSaveUser = async (updatedUser) => {
     setDlg(null);
@@ -298,29 +313,182 @@ export default function MasterUsersPage() {
       toast("เกิดข้อผิดพลาดในการลบผู้ใช้งาน: " + error.message);
     } else {
       setUsersList(prev => prev.filter(u => u.id !== id));
+      setSelectedIds(prev => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       toast("ลบผู้ใช้งานเรียบร้อยแล้ว");
     }
   };
+
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    return usersList.filter((u) => {
+      if (filterRole !== "all") {
+        const roles = u.role ? u.role.split(",").map(r => r.trim()) : [];
+        if (!roles.includes(filterRole)) return false;
+      }
+      if (filterGrade !== "all") {
+        const roles = u.role ? u.role.split(",").map(r => r.trim()) : [];
+        if (!roles.includes("student") || !u.studentId) return false;
+        const prefix = String(u.studentId).slice(0, 2);
+        const gradeMapping = gradesList.find(g => g.prefix === prefix);
+        if (!gradeMapping || gradeMapping.year_label !== filterGrade) return false;
+      }
+      if (query) {
+        const matches = ["name", "email", "studentId"].some((k) => {
+          const val = u[k];
+          return val != null && String(val).toLowerCase().includes(query);
+        });
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [usersList, filterRole, filterGrade, gradesList, searchQuery]);
+
+  const allFilteredSelected = filteredUsers.length > 0 && filteredUsers.every((u) => selectedIds.has(u.id));
+  const someFilteredSelected = filteredUsers.some((u) => selectedIds.has(u.id));
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someFilteredSelected && !allFilteredSelected;
+    }
+  }, [someFilteredSelected, allFilteredSelected]);
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filteredUsers.forEach((u) => next.delete(u.id));
+      } else {
+        filteredUsers.forEach((u) => next.add(u.id));
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectOne = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkAssignSection = async () => {
+    if (!bulkSection || selectedIds.size === 0 || bulkSaving) return;
+    setBulkSaving(true);
+    const ids = Array.from(selectedIds);
+    const { error } = await supabase
+      .from("users")
+      .update({ section: bulkSection })
+      .in("id", ids);
+    setBulkSaving(false);
+
+    if (error) {
+      toast("เกิดข้อผิดพลาดในการกำหนด Section: " + error.message, "error");
+      return;
+    }
+
+    setUsersList((prev) =>
+      prev.map((u) => (selectedIds.has(u.id) ? { ...u, section: bulkSection, sec: bulkSection } : u))
+    );
+    setSelectedIds(new Set());
+    setBulkSection("");
+    toast(`กำหนด Section "${bulkSection}" ให้ผู้ใช้ ${ids.length} คนเรียบร้อยแล้ว`);
+  };
+
+  if (sessionStatus === "loading") {
+    return <Loading className="container p-5 text-center muted" />;
+  }
+
+  if (!canManageUsers) {
+    return (
+      <div className="container">
+        <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="จัดการผู้ใช้งาน" />
+        <div className="card card-p text-center muted">
+          <div className="flex col items-center gap-2 p-4">
+            <Icon name="lock" size={28} />
+            <div className="fw-6 fg">ไม่มีสิทธิ์เข้าถึงหน้านี้</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">
       <PageHead kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title="จัดการผู้ใช้งาน"
         desc="จัดการบัญชีผู้ใช้ในระบบ สิทธิ์บทบาทหน้าที่ และข้อมูลกลุ่มเรียนของนักศึกษา" />
 
+      {selectedIds.size > 0 && (
+        <div className="card p-3 mb-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Badge tone="primary">เลือกแล้ว {selectedIds.size} รายการ</Badge>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkSaving}
+            >
+              ล้างการเลือก
+            </button>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select
+              className="input"
+              value={bulkSection}
+              onChange={(e) => setBulkSection(e.target.value)}
+              style={{ width: 220, height: 38 }}
+              aria-label="เลือก Section สำหรับผู้ใช้ที่เลือก"
+            >
+              <option value="">เลือก Section...</option>
+              {sectionsList.map((s) => (
+                <option key={s.id} value={s.name}>{s.name}</option>
+              ))}
+            </Select>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={handleBulkAssignSection}
+              disabled={!bulkSection || bulkSaving}
+            >
+              <Icon name="check" size={15} />
+              {bulkSaving ? "กำลังบันทึก…" : "กำหนด Section"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <Table
         title="จัดการผู้ใช้งาน"
         description="จัดการข้อมูลผู้สอน นักศึกษา และสิทธิ์การใช้งานระบบ"
         addButton={
-          <button className="btn btn-primary btn-sm" onClick={() => setDlg({ mode: "add" })}>
-            <Icon name="plus" size={15} />เพิ่มผู้ใช้
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button className="btn btn-outline btn-sm" onClick={() => setImportOpen(true)} disabled={loading}>
+              <Icon name="excel" size={15} />นำเข้าจาก Excel
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => setDlg({ mode: "add" })}>
+              <Icon name="plus" size={15} />เพิ่มผู้ใช้
+            </button>
+          </div>
         }
         loading={loading}
         className="table"
-        enableSearch={true}
-        searchKeys={["name", "email", "studentId"]}
-        searchPlaceholder="ค้นหาชื่อ, อีเมล หรือรหัส..."
+        enableSearch={false}
         headers={[
+          <input
+            key="select-all"
+            ref={selectAllRef}
+            type="checkbox"
+            checked={allFilteredSelected}
+            onChange={toggleSelectAll}
+            aria-label="เลือกทั้งหมดในรายการที่กรอง"
+            style={{ width: 16, height: 16, accentColor: "var(--primary)", cursor: "pointer" }}
+          />,
           "ชื่อ-นามสกุล",
           "อีเมล",
           "บทบาท",
@@ -328,23 +496,36 @@ export default function MasterUsersPage() {
           "สถานะ",
           ""
         ]}
-        data={usersList.filter((u) => {
-          if (filterRole !== "all") {
-            const roles = u.role ? u.role.split(",").map(r => r.trim()) : [];
-            if (!roles.includes(filterRole)) return false;
-          }
-          if (filterGrade !== "all") {
-            const roles = u.role ? u.role.split(",").map(r => r.trim()) : [];
-            if (!roles.includes("student") || !u.studentId) return false;
-            const prefix = String(u.studentId).slice(0, 2);
-            const gradeMapping = gradesList.find(g => g.prefix === prefix);
-            if (!gradeMapping || gradeMapping.year_label !== filterGrade) return false;
-          }
-          return true;
-        })}
-        colSpan={6}
+        data={filteredUsers}
+        colSpan={7}
         filter={
           <>
+            <div style={{ position: "relative", display: "flex", alignItems: "center", flex: "1 1 auto", minWidth: 240 }}>
+              <span style={{ position: "absolute", left: 12, color: "#64748b", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                className="input"
+                placeholder="ค้นหาชื่อ, อีเมล หรือรหัส..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: 38,
+                  paddingLeft: 38,
+                  paddingRight: 12,
+                  fontSize: 13,
+                  background: "#fff",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: 8,
+                  transition: "all 0.2s"
+                }}
+              />
+            </div>
+
             <Select
               className="input"
               value={filterRole}
@@ -379,6 +560,15 @@ export default function MasterUsersPage() {
         }
         renderRow={(u) => (
           <tr key={u.id}>
+            <td style={{ width: 40, textAlign: "center" }}>
+              <input
+                type="checkbox"
+                checked={selectedIds.has(u.id)}
+                onChange={() => toggleSelectOne(u.id)}
+                aria-label={`เลือก ${u.name || u.email}`}
+                style={{ width: 16, height: 16, accentColor: "var(--primary)", cursor: "pointer" }}
+              />
+            </td>
             <td>
               <div className="flex items-center gap-2">
                 <Avatar name={u.name ? u.name.replace(/^อ\. (ดร\. )?/, "") : "?"} size={28} />
@@ -409,15 +599,18 @@ export default function MasterUsersPage() {
             </td>
             <td className="tnum t-sm">
               <div>{u.studentId || "-"}</div>
-              {u.role?.split(",").map(r => r.trim()).includes("student") && u.studentId && (
-                <div className="t-xs muted" style={{ fontSize: "11px", marginTop: "2px" }}>
-                  {(() => {
-                    const prefix = String(u.studentId).slice(0, 2);
-                    const mapping = gradesList.find(g => g.prefix === prefix);
-                    return mapping ? mapping.year_label : "";
-                  })()}
-                </div>
-              )}
+              {(() => {
+                const isStudent = u.role?.split(",").map(r => r.trim()).includes("student");
+                const prefix = u.studentId ? String(u.studentId).slice(0, 2) : "";
+                const mapping = isStudent && prefix ? gradesList.find(g => g.prefix === prefix) : null;
+                const secDisplay = u.sec && u.sec !== "ไม่มี" ? `Sec: ${u.sec}` : "";
+                const sub = [mapping ? mapping.year_label : "", secDisplay].filter(Boolean).join(" · ");
+                return sub ? (
+                  <div className="t-xs muted" style={{ fontSize: "11px", marginTop: "2px" }}>
+                    {sub}
+                  </div>
+                ) : null;
+              })()}
             </td>
             <td>
               {u.status === "active" ? (
@@ -446,6 +639,18 @@ export default function MasterUsersPage() {
 
       {dlg && <UserDialog mode={dlg.mode} row={dlg.row} rolesList={rolesList} subjectGroups={subjectGroups} onClose={() => setDlg(null)} onSave={handleSaveUser} />}
       {confirmDlg && <ConfirmDialog title={confirmDlg.title} desc={confirmDlg.desc} onConfirm={confirmDlg.onConfirm} onClose={() => setConfirmDlg(null)} />}
+      {importOpen && (
+        <ImportUsersDialog
+          rolesList={rolesList}
+          sectionsList={sectionsList}
+          existingUsers={usersList}
+          onClose={() => setImportOpen(false)}
+          onImported={async () => {
+            setSelectedIds(new Set());
+            await loadData();
+          }}
+        />
+      )}
     </div>
   );
 }
