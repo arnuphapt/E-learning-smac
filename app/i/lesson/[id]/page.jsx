@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense, useRef, useImperativeHandle, forwardRef } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { DEFAULT_DOMAIN } from "@/lib/course-access";
+import { DEFAULT_DOMAIN, sectionRangeMatch } from "@/lib/course-access";
 import { fileHref } from "@/lib/files";
 import { nextChoiceId } from "@/lib/questions";
 import Icon from "@/components/ui/Icon";
@@ -37,25 +37,6 @@ function ToggleRow({ label, on, onChange }) {
     </div>
   );
 }
-
-const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
-  if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
-  const masterSec = sections.find(s => s.name === sectionName);
-  if (!masterSec) return false;
-  
-  const start = masterSec.range_start;
-  const end = masterSec.range_end;
-  if (!start || !end) return null; // static fallback indicator
-  
-  const snoStr = String(studentNo).trim();
-  if (snoStr.length < 3) return false;
-  const last3 = parseInt(snoStr.slice(-3), 10);
-  const startVal = parseInt(start, 10);
-  const endVal = parseInt(end, 10);
-  if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
-  
-  return last3 >= startVal && last3 <= endVal;
-};
 
 function Chk({ label, on, onChange }) {
   const [v, setV] = React.useState(on);
@@ -1442,7 +1423,7 @@ function InstructorLessonContent() {
       return true;
     }
     if (courseSection && courseSection !== "ไม่ระบุ Section") {
-      const rangeMatch = getStudentSecFromMaster(s.student_no, courseSection, sectionsList);
+      const rangeMatch = sectionRangeMatch(s.student_no, courseSection, sectionsList);
       if (rangeMatch === null) {
         if (s.section !== courseSection) return false;
       } else if (!rangeMatch) {

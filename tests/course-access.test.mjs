@@ -57,6 +57,15 @@ test("sectionRangeMatch edge cases", () => {
   assert.equal(sectionRangeMatch("12", "A", sections), false); // shorter than 3 digits
   assert.equal(sectionRangeMatch("66010030", "A", []), false);
   assert.equal(sectionRangeMatch("66010030", "B", sections), null);
+  assert.equal(sectionRangeMatch("", "B", sections), null);
+  assert.equal(sectionRangeMatch(null, "B", sections), null);
+  assert.equal(sectionRangeMatch("", "A", sections), false);
+});
+
+test("no-range section matches by section name even when studentNo is empty (name-based email)", () => {
+  const nameStudent = { email: "somchai.k@smnc.ac.th", section: "B", studentNo: null, studyYear: null };
+  assert.equal(can(course({ section: "B", year_level: [] }), nameStudent), true);
+  assert.equal(can(course({ section: "B", year_level: [] }), { ...nameStudent, section: "A" }), false);
 });
 
 const canTutor = (c, s = stu()) => canStudentAccessTutorSet(c, s, sections, grades);

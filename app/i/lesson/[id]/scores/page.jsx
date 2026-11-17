@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { DEFAULT_DOMAIN } from "@/lib/course-access";
+import { DEFAULT_DOMAIN, sectionRangeMatch } from "@/lib/course-access";
 import Icon from "@/components/ui/Icon";
 import { Badge, Avatar, Select, statusBadge, Dialog } from "@/components/ui/Primitives";
 import Table from "@/components/ui/Table";
@@ -12,25 +12,6 @@ import Loading from "@/components/ui/Loading";
 import { toast } from "@/components/ui/Toast";
 import { useSession } from "next-auth/react";
 import * as XLSX from "xlsx";
-
-const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
-  if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
-  const masterSec = sections.find(s => s.name === sectionName);
-  if (!masterSec) return false;
-  
-  const start = masterSec.range_start;
-  const end = masterSec.range_end;
-  if (!start || !end) return null; // static fallback indicator
-  
-  const snoStr = String(studentNo).trim();
-  if (snoStr.length < 3) return false;
-  const last3 = parseInt(snoStr.slice(-3), 10);
-  const startVal = parseInt(start, 10);
-  const endVal = parseInt(end, 10);
-  if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
-  
-  return last3 >= startVal && last3 <= endVal;
-};
 
 function ScoresContent() {
   const router = useRouter();
@@ -138,7 +119,7 @@ function ScoresContent() {
       return true;
     }
     if (courseSection && courseSection !== "ไม่ระบุ Section") {
-      const rangeMatch = getStudentSecFromMaster(s.student_no, courseSection, sectionsList);
+      const rangeMatch = sectionRangeMatch(s.student_no, courseSection, sectionsList);
       if (rangeMatch === null) {
         if (s.section !== courseSection) return false;
       } else if (!rangeMatch) {

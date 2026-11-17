@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { isStaffRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
-import { DEFAULT_DOMAIN } from "@/lib/course-access";
+import { DEFAULT_DOMAIN, sectionRangeMatch } from "@/lib/course-access";
 import { fileHref, STUDENT_LESSON_COLUMNS } from "@/lib/files";
 import Icon from "@/components/ui/Icon";
 import Loading from "@/components/ui/Loading";
@@ -437,7 +437,7 @@ export default function StudentSeparateAiPage() {
           if (allowedEmails.includes(email)) return true;
 
           if (c.section && c.section !== "ไม่ระบุ Section") {
-            const rangeMatch = getStudentSecFromMaster(finalStudentNo, c.section, sectionsList);
+            const rangeMatch = sectionRangeMatch(finalStudentNo, c.section, sectionsList);
             if (rangeMatch === null) {
               if (finalStudentSec !== c.section) return false;
             } else if (!rangeMatch) {
@@ -489,25 +489,6 @@ export default function StudentSeparateAiPage() {
     loadData();
     return () => { cancelled = true; };
   }, [studentId, role, authStatus]);
-
-  function getStudentSecFromMaster(studentNo, sectionName, sections) {
-    if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
-    const masterSec = sections.find(s => s.name === sectionName);
-    if (!masterSec) return false;
-
-    const start = masterSec.range_start;
-    const end = masterSec.range_end;
-    if (!start || !end) return null;
-
-    const snoStr = String(studentNo).trim();
-    if (snoStr.length < 3) return false;
-    const last3 = parseInt(snoStr.slice(-3), 10);
-    const startVal = parseInt(start, 10);
-    const endVal = parseInt(end, 10);
-    if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
-
-    return last3 >= startVal && last3 <= endVal;
-  }
 
   // Find objects based on selection
   const selectedCourse = courses.find(c => c.id === selectedCourseId);

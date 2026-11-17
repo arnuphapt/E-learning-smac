@@ -10,25 +10,6 @@ import { PageHead, Crumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import Table from "@/components/ui/Table";
 
-const getStudentSecFromMaster = (studentNo, sectionName, sections) => {
-  if (!studentNo || !sectionName || !sections || sections.length === 0) return false;
-  const masterSec = sections.find(s => s.name === sectionName);
-  if (!masterSec) return false;
-  
-  const start = masterSec.range_start;
-  const end = masterSec.range_end;
-  if (!start || !end) return null;
-  
-  const snoStr = String(studentNo).trim();
-  if (snoStr.length < 3) return false;
-  const last3 = parseInt(snoStr.slice(-3), 10);
-  const startVal = parseInt(start, 10);
-  const endVal = parseInt(end, 10);
-  if (isNaN(last3) || isNaN(startVal) || isNaN(endVal)) return false;
-  
-  return last3 >= startVal && last3 <= endVal;
-};
-
 export default function InstructorAiLogs() {
   const router = useRouter();
   const { data: session } = useSession();
