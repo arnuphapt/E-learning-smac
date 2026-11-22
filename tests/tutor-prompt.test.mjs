@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import {
   SUMMARY_SCHEMA, buildSummaryInput, parseSummary, isFinalSummary, stripEmotionTags,
   buildExplainSystem, EXPLAIN_CORE_RULES, DEFAULT_PERSONA_EXPLAIN, toExplainContents, explainGate,
-} from "../lib/tutor-prompt.js";
-import { buildResult } from "../lib/tutor-analysis.js";
+} from "../lib/tutor-prompt.ts";
+import { buildResult } from "../lib/tutor-analysis.ts";
 
 // one round: q1 right (topic A), q2 wrong (A), q3 not answered (B)
 const questions = {

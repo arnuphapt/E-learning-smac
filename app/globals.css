@@ -1,7 +1,11 @@
-/* Tailwind v4 theme + utilities only (no preflight). Layered, so every unlayered rule below wins on a name clash. */
-@layer theme, utilities;
+/* Layer order: Tailwind preflight (base) < old UI (legacy) < Tailwind utilities. Old rules keep beating preflight, but no longer beat utilities. */
+@layer theme, base, legacy, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);
@@ -13,7 +17,32 @@
   --color-ring: var(--ring);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-fg);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-fg);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-fg);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-xl: calc(var(--radius) + 4px);
   --color-destructive: var(--danger);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
 }
 
 /* ============================================================
@@ -52,6 +81,12 @@
   --info:#1e5fa8;
   --info-soft:#e6eef9;
 
+  --card-foreground:#0f172a;
+  --popover:#ffffff;
+  --popover-foreground:#0f172a;
+  --secondary:#f1f5f9;
+  --secondary-foreground:#0f172a;
+
   --radius:13px;
   --radius-sm:8px;
   --radius-lg:20px;
@@ -63,8 +98,18 @@
   --font:var(--font-plex-sans-thai), var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --serif:var(--font-noto-serif-thai), Georgia, serif;
   --mono:var(--font-plex-mono), ui-monospace, monospace;
+  --sidebar: hsl(0 0% 98%);
+  --sidebar-foreground: hsl(240 5.3% 26.1%);
+  --sidebar-primary: hsl(240 5.9% 10%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(240 4.8% 95.9%);
+  --sidebar-accent-foreground: hsl(240 5.9% 10%);
+  --sidebar-border: hsl(220 13% 91%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
 }
 
+/* Old hand-written UI. Layered below Tailwind utilities so shadcn utilities (hidden/md:block, px-3/pl-9 ...) win on a name clash. */
+@layer legacy {
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
 body{
@@ -480,7 +525,6 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
   }
 }
 
-
 /* ============ tutor mode (instructor side) ============
    Same shell and components; inside .tutor the accent switches from teal to indigo ink, the ground turns lavender grey
    and the set header is a dark band, so an instructor can tell at a glance they are not in a course. */
@@ -643,7 +687,7 @@ button.tw-res-row:focus-visible{outline:2px solid var(--primary);outline-offset:
   --clay-card-radius: 20px;
   --clay-radius-pill: 9999px;
   --clay-radius-control: 14px;
-  
+
   --clay-shadow-card: 0 10px 24px -4px rgba(15, 23, 42, 0.06), 0 3px 8px -2px rgba(15, 23, 42, 0.03), inset 2px 2px 4px rgba(255, 255, 255, 0.95), inset -2px -2px 5px rgba(13, 110, 140, 0.05);
   --clay-shadow-card-hover: 0 16px 32px -6px rgba(15, 23, 42, 0.09), 0 6px 14px -3px rgba(15, 23, 42, 0.04), inset 2px 2px 4px rgba(255, 255, 255, 1), inset -2px -2px 5px rgba(13, 110, 140, 0.07);
   --clay-shadow-card-active: 0 4px 10px -2px rgba(15, 23, 42, 0.06), inset 2px 2px 4px rgba(15, 23, 42, 0.05);
@@ -948,8 +992,6 @@ button.tw-res-row:focus-visible{outline:2px solid var(--primary);outline-offset:
   border: 1px solid var(--border);
 }
 
-
-
 /* ============================================================
    Accessibility: prefers-reduced-motion
    Disables animations and transitions when requested by user/OS
@@ -963,4 +1005,16 @@ button.tw-res-row:focus-visible{outline:2px solid var(--primary);outline-offset:
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+} /* end @layer legacy */
+
+.dark {
+  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
 }

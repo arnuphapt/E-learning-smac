@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { analyzeRows, buildResult, pickBest, percentOf, statusOf, PASS_PERCENT, STRONG_PERCENT } from "../lib/tutor-analysis.js";
+import { analyzeRows, buildResult, pickBest, percentOf, statusOf, PASS_PERCENT, STRONG_PERCENT } from "../lib/tutor-analysis.ts";
 
 // `correct` right + (total - correct) wrong rows of one topic
 const topicRows = (correct, total, topic_id = "t1", topic = "หัวข้อ 1") =>

@@ -1,7 +1,7 @@
 import test, { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { LIVE_ASSETS } from '../lib/live-assets.js';
+import { LIVE_ASSETS } from '../lib/live-assets.ts';
 import {
   TIME_LIMITS,
   PHASES,
@@ -16,7 +16,7 @@ import {
   teamScore,
   pickTeam,
   genPin,
-} from '../lib/live.js';
+} from '../lib/live.ts';
 
 describe('Live Quiz Core Lib', () => {
   describe('validateQuiz', () => {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { summarizeLesson, roundsOf, exportRows, weakestGroup, domainCounts, filterByDomain, timeUsedSeconds, formatClock, formatDuration } from "../lib/tutor-results.js";
+import { summarizeLesson, roundsOf, exportRows, weakestGroup, domainCounts, filterByDomain, timeUsedSeconds, formatClock, formatDuration } from "../lib/tutor-results.ts";
 
 const g = (topic_id, name, correct, total) => ({ topic_id, name, correct, total, percent: Math.floor((correct * 100) / total), status: "x" });
 const att = (id, student_id, score, total, startedAt, groups, extra = {}) => ({

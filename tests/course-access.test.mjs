@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canStudentAccessCourse, canStudentAccessTutorSet, sectionRangeMatch } from "../lib/course-access.js";
+import { canStudentAccessCourse, canStudentAccessTutorSet, sectionRangeMatch } from "../lib/course-access.ts";
 
 const grades = [{ prefix: "66", year_label: "ชั้นปีที่ 4" }];
 const sections = [
@@ -91,7 +91,7 @@ test("tutor set: year / section locks behave like courses once a lock exists", (
 });
 
 // R2 presign decision (lib/file-access.js canViewKey -> canStudentOpenLesson)
-import { canStudentOpenLesson } from "../lib/course-access.js";
+import { canStudentOpenLesson } from "../lib/course-access.ts";
 const openLesson = (l, c, s = stu()) => canStudentOpenLesson(l, c, s, sections, grades);
 
 test("lesson files: missing lesson / draft lesson / missing course are refused", () => {

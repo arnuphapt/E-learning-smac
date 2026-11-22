@@ -1,11 +1,11 @@
 // External-domain (tutor-only) users: registration role, per-domain year derivation, lock matching across domains.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canStudentAccessTutorSet, canStudentAccessCourse, emailDomain } from "../lib/course-access.js";
-import { registrationPlan } from "../lib/registration.js";
-import { isTutorOnlyRole, isStaffRole } from "../lib/roles.js";
-import { viewVerdict, canUpload } from "../lib/r2.js";
-import { lockSummary } from "../lib/tutor-bank.js";
+import { canStudentAccessTutorSet, canStudentAccessCourse, emailDomain } from "../lib/course-access.ts";
+import { registrationPlan } from "../lib/registration.ts";
+import { isTutorOnlyRole, isStaffRole } from "../lib/roles.ts";
+import { viewVerdict, canUpload } from "../lib/r2.ts";
+import { lockSummary } from "../lib/tutor-bank.ts";
 
 // two external domains share the prefix "69" and even the label "ปี 1"; their levels differ by year_no (DB-assigned, >= 1000)
 const grades = [

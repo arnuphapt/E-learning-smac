@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { drawQuestions, shuffle, roundSize } from "../lib/tutor-draw.js";
-import { minutesFor, deadlineFor, isPastDeadline, firstUnansweredIndex } from "../lib/tutor-attempt.js";
+import { drawQuestions, shuffle, roundSize } from "../lib/tutor-draw.ts";
+import { minutesFor, deadlineFor, isPastDeadline, firstUnansweredIndex } from "../lib/tutor-attempt.ts";
 
 // mulberry32: small seeded RNG so every run is the same
 function seeded(seed) {

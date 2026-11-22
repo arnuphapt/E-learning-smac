@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nextChoiceId } from "../lib/questions.js";
+import { nextChoiceId } from "../lib/questions.ts";
 
 const ids = (...a) => a.map((id) => ({ id, text: "" }));
 
@@ -19,7 +19,7 @@ test("nextChoiceId: stays unique past z", () => {
   assert.equal(nextChoiceId(ids(...all)), "c26");
 });
 
-import { uniqueChoiceId } from "../lib/questions.js";
+import { uniqueChoiceId } from "../lib/questions.ts";
 
 test("uniqueChoiceId: never repeats and never collides with the a, b, c... letters", () => {
   const ids = new Set(Array.from({ length: 1000 }, () => uniqueChoiceId()));

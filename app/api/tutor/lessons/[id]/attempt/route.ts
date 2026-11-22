@@ -1,0 +1,187 @@
+import { NextResponse, type NextRequest } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Json } from "@/lib/database.types";
+import { tutorLessonGate as gate, settleAttempt, loadAttemptAccess, type TutorAttemptEndRow } from "@/lib/tutor-server";
+import { drawQuestions, roundSize } from "@/lib/tutor-draw";
+import { deadlineFor, isPastDeadline, roundMinutes, ATTEMPT_LIMIT_CODE, ATTEMPT_LIMIT_MESSAGE } from "@/lib/tutor-attempt";
+
+// Tutor attempt of ONE lesson. Identity is the session (never a user id from the client); the lock on the lesson's
+// tutor set is checked with canOpen(); every DB access is the service role.
+//   GET  /api/tutor/lessons/<lessonId>/attempt  -> preview (question count + minutes), whether a round is open, and the attempt
+//        limit ({ limit, canStart }: limit NULL = unlimited). No questions.
+//   POST /api/tutor/lessons/<lessonId>/attempt  -> start a round, or resume the open one. Body { resume: true } = resume
+//        only (never draws). Returns the exam payload: ONLY the locked questions of the caller's round, in the locked
+//        order, without answer / explanation / topic, plus the student's saved answers.
+//        409 { state: "limit" } = the lesson is once-only (lessons.tutor_max_attempts) and the limit is used up. The check is
+//        the database trigger tutor_attempt_limit_guard (atomic per student + lesson): it fires on the insert below.
+// A round past its deadline is never extended: any access ends it as 'expired' and scores it (settleAttempt, shared with
+// the answer / submit routes under /api/tutor/attempts/<id>/).
+
+type RouteContext = { params: Promise<{ id: string }> };
+
+interface OpenAttemptRow {
+  id: string;
+  lesson_id: string;
+  question_ids: string[];
+  total: number;
+  started_at: string;
+  deadline_at: string;
+  status: string;
+}
+
+const NO_STORE = { "Cache-Control": "no-store" };
+const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: NO_STORE });
+const RECENT_ROUNDS = 3; // "recently seen" = questions of the student's last 3 rounds on this lesson
+const ATTEMPT_COLUMNS = "id, lesson_id, question_ids, total, started_at, deadline_at, status";
+
+async function loadOpenAttempt(db: SupabaseClient<Database>, studentId: string, lessonId: string): Promise<OpenAttemptRow | null> {
+  const { data, error } = await db
+    .from("tutor_attempts")
+    .select(ATTEMPT_COLUMNS)
+    .eq("student_id", studentId)
+    .eq("lesson_id", lessonId)
+    .eq("status", "in_progress")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function loadBank(db: SupabaseClient<Database>, lessonId: string) {
+  const { data, error } = await db.from("questions").select("id, topic_id").eq("lesson_id", lessonId).eq("kind", "tutor");
+  if (error) throw error;
+  return data || [];
+}
+
+async function loadRecentIds(db: SupabaseClient<Database>, studentId: string, lessonId: string): Promise<string[]> {
+  const { data, error } = await db
+    .from("tutor_attempts")
+    .select("question_ids")
+    .eq("student_id", studentId)
+    .eq("lesson_id", lessonId)
+    .order("started_at", { ascending: false })
+    .limit(RECENT_ROUNDS);
+  if (error) throw error;
+  return (data || []).flatMap((a) => a.question_ids);
+}
+
+async function examPayload(db: SupabaseClient<Database>, attempt: OpenAttemptRow, resumed: boolean) {
+  const [{ data: rows, error: qErr }, { data: saved, error: aErr }] = await Promise.all([
+    // explicit columns: never the answer key, the explanation or the topic
+    db.from("questions").select("id, type, text, choices").in("id", attempt.question_ids).eq("lesson_id", attempt.lesson_id).eq("kind", "tutor"),
+    db.from("tutor_answers").select("question_id, chosen").eq("attempt_id", attempt.id),
+  ]);
+  if (qErr) throw qErr;
+  if (aErr) throw aErr;
+  const byId = new Map((rows || []).map((q) => [q.id, q]));
+  const questions = attempt.question_ids
+    .map((id) => byId.get(id))
+    .filter((q): q is NonNullable<typeof q> => Boolean(q))
+    .map((q) => ({
+      id: q.id,
+      type: q.type,
+      text: q.text,
+      choices: Array.isArray(q.choices)
+        ? q.choices
+            .filter((c): c is { id?: Json; text?: Json } => Boolean(c) && typeof c === "object" && !Array.isArray(c))
+            .map((c) => ({ id: c.id, text: c.text }))
+        : [],
+    }));
+  const inAttempt = new Set(questions.map((q) => q.id));
+  const answers = Object.fromEntries((saved || []).filter((a) => inAttempt.has(a.question_id)).map((a) => [a.question_id, a.chosen]));
+  return {
+    serverNow: new Date().toISOString(),
+    attempt: {
+      id: attempt.id,
+      startedAt: attempt.started_at,
+      deadlineAt: attempt.deadline_at,
+      count: attempt.total,
+      minutes: Math.round((Date.parse(attempt.deadline_at) - Date.parse(attempt.started_at)) / 60000), // the round's own stored clock, not today's setting
+      resumed,
+    },
+    questions,
+    answers,
+  };
+}
+
+export async function GET(req: NextRequest, { params }: RouteContext) {
+  try {
+    const g = await gate(req, params);
+    if (g.error) return g.error;
+    const { db, studentId, lesson } = g;
+    const now = Date.now();
+    const [bank, found, access] = await Promise.all([loadBank(db, lesson.id), loadOpenAttempt(db, studentId, lesson.id), loadAttemptAccess(db, studentId, lesson, now)]);
+    const count = roundSize(bank.length, lesson.tutor_draw_count);
+    const open = found && (await settleAttempt(db, found as unknown as TutorAttemptEndRow, now)); // any access past the deadline ends and scores the round
+    return json({
+      serverNow: new Date(now).toISOString(),
+      count,
+      minutes: roundMinutes(count, lesson.tutor_time_limit_minutes),
+      limit: access.limit,
+      canStart: access.canStart,
+      attempt: open && { id: open.id, count: open.total, deadlineAt: open.deadline_at, expired: open.status !== "in_progress" },
+    });
+  } catch (e: unknown) {
+    console.error("Tutor attempt preview failed:", e instanceof Error ? e.message : e);
+    return json({ error: "Failed to load tutor attempt" }, 500);
+  }
+}
+
+export async function POST(req: NextRequest, { params }: RouteContext) {
+  try {
+    const g = await gate(req, params);
+    if (g.error) return g.error;
+    const { db, studentId, lesson } = g;
+    const rawBody: unknown = await req.json().catch(() => ({}));
+    const resumeOnly = rawBody !== null && typeof rawBody === "object" && !Array.isArray(rawBody) && (rawBody as { resume?: unknown }).resume === true;
+    const nowMs = Date.now();
+
+    let attempt = await loadOpenAttempt(db, studentId, lesson.id);
+    let resumed = !!attempt;
+    if (attempt && isPastDeadline(attempt.deadline_at, nowMs)) {
+      await settleAttempt(db, attempt as unknown as TutorAttemptEndRow, nowMs);
+      attempt = null;
+      resumed = false;
+      if (resumeOnly) return json({ error: "Attempt expired", state: "expired" }, 409);
+    }
+    if (!attempt && resumeOnly) return json({ error: "No attempt in progress", state: "none" }, 409);
+
+    if (!attempt) {
+      const [bank, recent] = await Promise.all([loadBank(db, lesson.id), loadRecentIds(db, studentId, lesson.id)]);
+      if (bank.length === 0) return json({ error: "No questions", state: "empty" }, 409);
+      const ids = drawQuestions({ bank, count: lesson.tutor_draw_count, recent });
+      const { data, error } = await db
+        .from("tutor_attempts")
+        .insert({
+          student_id: studentId,
+          lesson_id: lesson.id,
+          question_ids: ids,
+          total: ids.length,
+          started_at: new Date(nowMs).toISOString(),
+          deadline_at: deadlineFor(nowMs, ids.length, lesson.tutor_time_limit_minutes), // server clock: the lesson's round time, else 1 minute per question
+        })
+        .select(ATTEMPT_COLUMNS)
+        .single();
+      if (error && (error.code === "23505" || error.code === ATTEMPT_LIMIT_CODE)) {
+        // two starts raced (one open round per student+lesson; for a once-only lesson the loser hits the limit instead):
+        // hand back the winner's round. No open round = the limit really is used up.
+        attempt = await loadOpenAttempt(db, studentId, lesson.id);
+        resumed = true;
+        if (!attempt) {
+          if (error.code === ATTEMPT_LIMIT_CODE) return json({ error: ATTEMPT_LIMIT_MESSAGE, state: "limit" }, 409);
+          throw error;
+        }
+      } else if (error) {
+        throw error;
+      } else {
+        attempt = data;
+      }
+    }
+    const payload = await examPayload(db, attempt, resumed);
+    // every locked question was deleted / retyped mid-round: nothing to show (the round stays open until its deadline)
+    if (payload.questions.length === 0) return json({ error: "No questions", state: "empty" }, 409);
+    return json(payload);
+  } catch (e: unknown) {
+    console.error("Tutor attempt start failed:", e instanceof Error ? e.message : e);
+    return json({ error: "Failed to start tutor attempt" }, 500);
+  }
+}

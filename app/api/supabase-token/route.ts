@@ -1,0 +1,36 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { mintSupabaseToken } from "@/lib/supabase-token";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { isTutorOnlyRole } from "@/lib/roles";
+
+// Session-gated: exchanges the NextAuth session for a short-lived Supabase JWT.
+// The role in the minted JWT is re-read from the DB on every mint (not the possibly stale
+// NextAuth token), so a demoted/deleted user loses access within the 1h token TTL.
+export async function GET(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId =
+    typeof token.dbId === "string" && token.dbId
+      ? token.dbId
+      : typeof token.sub === "string"
+        ? token.sub
+        : "";
+  try {
+    const { data: user, error } = await supabaseAdmin()
+      .from("users")
+      .select("id, role")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Tutor-only users (external domains) never get a database JWT: tutor mode reads through the service-role API only.
+    if (isTutorOnlyRole(user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json(mintSupabaseToken({ dbId: user.id, role: user.role }), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (e) {
+    console.error("Failed to mint Supabase token:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "Token unavailable" }, { status: 500 });
+  }
+}

@@ -1,0 +1,202 @@
+// Server-only Gemini side of tutor mode (ticket 06): AI result summary, explain-mode call.
+// The prompt text / schema / parsing live in lib/tutor-prompt.js (pure, unit tested); this file only does I/O.
+import { GoogleGenAI, type ContentListUnion } from "@google/genai";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Json } from "./database.types";
+import { claimAiQuota, fillAiClaim, releaseAiClaim, type AiQuotaRpcDb, type AiQuotaTableDb } from "@/lib/ai-quota";
+import { SUMMARY_SCHEMA, SUMMARY_SYSTEM, buildSummaryInput, parseSummary, isFinalSummary } from "@/lib/tutor-prompt";
+
+export const TUTOR_AI_MODEL = "gemini-3.8-flash";
+const AI_TIMEOUT_MS = 30000;
+// Thinking tokens count against maxOutputTokens: with thinking on, a Thai answer / the JSON can be cut off. Off for both calls.
+// (GenerateContentConfig.thinkingConfig, ThinkingConfig.thinkingBudget: 0 = disabled; node_modules/@google/genai genai.d.ts)
+const NO_THINKING = { thinkingBudget: 0 };
+const SUMMARY_CLAIM_TTL_MS = 60000; // a "generating" claim older than this is a crashed request: another open may take over
+
+let client: GoogleGenAI | null = null;
+const gemini = (): GoogleGenAI => (client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }));
+
+export interface TutorAttemptForAi {
+  id: string;
+  lesson_id: string;
+  question_ids: string[];
+  summary: Json | null;
+  result: Json | null;
+}
+
+export interface TutorQuestionRow {
+  id: string;
+  text: string | null;
+  choices: Json | null;
+  explanation: string | null;
+}
+
+export interface EnsureSummaryQuota {
+  studentId: string;
+  limit: number;
+  lessonId: string | null;
+  courseId: string | null;
+}
+
+export type FinalTutorSummary = {
+  version: number;
+  overview: string;
+  topic_notes: Array<{ topic: string; comment: string }>;
+  next_steps: string[];
+  model: string;
+  generated_at: string;
+};
+
+export type EnsureSummaryResult =
+  | { summary: FinalTutorSummary | Record<string, unknown> }
+  | { summary: null; state: "busy" }
+  | { summary: null; state: "quota"; used: number };
+
+// Live questions of an attempt (text / choices / teacher explanation) keyed by id. Tutor questions only.
+export async function loadQuestionMap(
+  db: SupabaseClient<Database>,
+  attempt: Pick<TutorAttemptForAi, "question_ids" | "lesson_id">
+): Promise<Record<string, TutorQuestionRow>> {
+  const { data, error } = await db
+    .from("questions")
+    .select("id, text, choices, explanation")
+    .in("id", attempt.question_ids)
+    .eq("lesson_id", attempt.lesson_id)
+    .eq("kind", "tutor");
+  if (error) throw error;
+  return Object.fromEntries((data || []).map((q) => [q.id, q]));
+}
+
+// ---- summary ----
+// -> { summary } (stored or just generated) | { summary: null, state: "busy" } (another request is generating it)
+//    | { summary: null, state: "quota", used } (the daily AI quota is used up: nothing generated, claim released)
+// quota = { studentId, limit, lessonId, courseId }: the SAME daily quota as explain / chat, claimed (fail closed) only by the
+// request that wins the summary claim, so a stored or busy summary is never charged. The claim row is released if Gemini fails.
+// Throws when Gemini fails: the caller answers 502 and the claim is released, so the next open retries.
+// A stored summary is never regenerated. The claim is a conditional UPDATE (summary IS NULL, or the exact stale claim),
+// made BEFORE the Gemini call, so two concurrent opens cannot both call Gemini: only the winner of the UPDATE does.
+export async function ensureSummary(
+  db: SupabaseClient<Database>,
+  attempt: TutorAttemptForAi,
+  quota: EnsureSummaryQuota,
+  nowMs = Date.now()
+): Promise<EnsureSummaryResult> {
+  const cur = attempt.summary;
+  if (isFinalSummary(cur)) return { summary: cur as Record<string, unknown> };
+  const pendingClaim =
+    cur && typeof cur === "object" && !Array.isArray(cur)
+      ? (cur as { pending?: unknown; at?: unknown })
+      : null;
+  const curAt = typeof pendingClaim?.at === "string" ? pendingClaim.at : null;
+  const stale =
+    Boolean(pendingClaim?.pending) &&
+    curAt !== null &&
+    nowMs - Date.parse(curAt) > SUMMARY_CLAIM_TTL_MS;
+  if (pendingClaim?.pending && !stale) return { summary: null, state: "busy" };
+
+  const at = new Date(nowMs).toISOString();
+  const claimQ = db.from("tutor_attempts").update({ summary: { pending: true, at } }).eq("id", attempt.id).neq("status", "in_progress");
+  const { data: won, error: cErr } = await (curAt ? claimQ.eq("summary->>at", curAt) : claimQ.is("summary", null)).select("id").maybeSingle();
+  if (cErr) throw cErr;
+  if (!won) return { summary: null, state: "busy" }; // someone else claimed first
+
+  const release = () => db.from("tutor_attempts").update({ summary: null }).eq("id", attempt.id).eq("summary->>at", at);
+  const quotaDb: AiQuotaRpcDb & AiQuotaTableDb = {
+    rpc: (fn, args) =>
+      db.rpc(fn, args as unknown as Database["public"]["Functions"]["ai_quota_claim"]["Args"]),
+    from: (table) => db.from(table),
+  };
+  let quotaClaimId: string | null = null;
+  try {
+    const q = await claimAiQuota(quotaDb, { studentId: quota.studentId, limit: quota.limit, mode: "summarize", lessonId: quota.lessonId, courseId: quota.courseId, sessionId: "tutor-summary-" + attempt.id });
+    if (!q.claimId) {
+      await release().then(() => {}, () => {});
+      return { summary: null, state: "quota", used: q.used };
+    }
+    quotaClaimId = q.claimId;
+    const [questions, { data: lesson }, { data: modelSetting }] = await Promise.all([
+      loadQuestionMap(db, attempt),
+      db.from("lessons").select("title").eq("id", attempt.lesson_id).maybeSingle(),
+      db.from("ai_settings").select("value").eq("key", "model").maybeSingle(),
+    ]);
+    const summaryModel = modelSetting?.value || TUTOR_AI_MODEL;
+    const res = await gemini().models.generateContent({
+      model: summaryModel,
+      contents: buildSummaryInput({ lessonTitle: lesson?.title, result: attempt.result, questions }),
+      config: {
+        systemInstruction: SUMMARY_SYSTEM,
+        responseMimeType: "application/json",
+        responseJsonSchema: SUMMARY_SCHEMA,
+        maxOutputTokens: 4096,
+        thinkingConfig: NO_THINKING,
+        temperature: 0.4,
+        abortSignal: AbortSignal.timeout(AI_TIMEOUT_MS),
+      },
+    });
+    const body = parseSummary(res.text);
+    if (!body) throw new Error("summary: model output does not match the schema");
+    const summary: FinalTutorSummary = {
+      version: 1,
+      ...body,
+      model: summaryModel,
+      generated_at: new Date().toISOString(),
+    };
+    const { error } = await db.from("tutor_attempts").update({ summary: summary as Json }).eq("id", attempt.id).eq("summary->>at", at);
+    if (error) throw error;
+    await fillAiClaim(quotaDb, quotaClaimId, { message: "[สรุปผลด้วย AI]", reply: "[สรุปผลด้วย AI]" }); // the log row IS the quota count
+    return { summary };
+  } catch (e) {
+    if (quotaClaimId) await releaseAiClaim(quotaDb, quotaClaimId); // the call failed: it must not count against the quota
+    await release().then(() => {}, () => {}); // best effort: a stuck claim also expires by itself
+    throw e;
+  }
+}
+
+// What the result API sends out: the final summary, never the "generating" claim.
+export const publicSummary = (s: unknown): Record<string, unknown> | null =>
+  isFinalSummary(s) ? (s as Record<string, unknown>) : null;
+
+// ---- explain: config + shared daily quota ----
+const CONFIG_DEFAULTS = { daily_chat_limit: 15, session_token_limit: 50000, max_output_tokens: 4096 } as const;
+type NumericConfigKey = keyof typeof CONFIG_DEFAULTS;
+
+export interface ExplainConfig {
+  model: string;
+  persona: string;
+  dailyLimit: number;
+  sessionTokenLimit: number;
+  maxOutputTokens: number;
+}
+
+// ai_settings via the service role: the numbers /api/ai/chat reads, plus staff's persona ("" = use the code default).
+export async function readExplainConfig(db: SupabaseClient<Database>): Promise<ExplainConfig> {
+  const { data } = await db.from("ai_settings").select("key, value");
+  const get = (k: string): string | undefined => data?.find((r) => r.key === k)?.value;
+  const num = (k: NumericConfigKey): number => parseInt(get(k) ?? "", 10) || CONFIG_DEFAULTS[k];
+  return {
+    model: get("model") || TUTOR_AI_MODEL,
+    persona: get("persona") || "",
+    dailyLimit: num("daily_chat_limit"),
+    sessionTokenLimit: num("session_token_limit"),
+    maxOutputTokens: num("max_output_tokens"),
+  };
+}
+
+export async function generateExplanation({
+  system,
+  contents,
+  maxOutputTokens,
+  model,
+}: {
+  system: string;
+  contents: ContentListUnion;
+  maxOutputTokens: number;
+  model?: string;
+}): Promise<string> {
+  const res = await gemini().models.generateContent({
+    model: model || TUTOR_AI_MODEL,
+    contents,
+    config: { systemInstruction: system, maxOutputTokens, thinkingConfig: NO_THINKING, temperature: 0.7, abortSignal: AbortSignal.timeout(AI_TIMEOUT_MS) },
+  });
+  return res.text || "";
+}

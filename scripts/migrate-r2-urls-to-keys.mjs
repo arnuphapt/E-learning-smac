@@ -9,7 +9,7 @@
 // Idempotent: values that are already keys (or not R2 URLs) are left alone.
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { toKey } from '../lib/r2.js';
+import { toKey } from '../lib/r2.ts';
 
 dotenv.config({ path: '.env.local' });
 

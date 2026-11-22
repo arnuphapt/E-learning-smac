@@ -1,0 +1,325 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
+import { PlusIcon } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { DEFAULT_DOMAIN, sectionRangeMatch } from "@/lib/course-access";
+import type { Json } from "@/lib/database.types";
+import { hasRole } from "@/lib/roles";
+import { PageContainer } from "@/components/common/page-container";
+import { PageHeader } from "@/components/common/page-header";
+import { DataTable } from "@/components/common/data-table";
+import { EmptyState } from "@/components/common/states";
+import { useConfirm } from "@/components/common/confirm";
+import { Button } from "@/components/ui/button";
+import { courseColumns } from "@/components/course/columns";
+import { CourseLessonList } from "@/components/course/lesson-list";
+import type { CourseLessonSummary, EnrichedCourse } from "@/components/course/types";
+
+interface CourseAccessJson {
+  allowedEmails?: string[];
+  [key: string]: unknown;
+}
+
+function parseCourseAccess(raw: Json | null | undefined): CourseAccessJson {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as CourseAccessJson;
+}
+
+export default function InstructorCourses() {
+  const router = useRouter();
+  const { data: session } = useSession();
+  const user = session?.user;
+
+  const confirm = useConfirm();
+  const [courses, setCourses] = useState<EnrichedCourse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const [cRes, lRes, sRes, aRes, subRes, ciRes, sgRes, secRes] = await Promise.all([
+          supabase.from("courses").select("*"),
+          supabase.from("lessons").select("id, course_id, title, index, status").order("index", { ascending: true }),
+          supabase.from("users").select("id, student_no, section, email, study_year").eq("role", "student"),
+          supabase.from("assignments").select("id, course_id"),
+          supabase.from("submissions").select("id, assignment_id, status"),
+          supabase.from("course_instructors").select("course_id").eq("user_id", user.id || ""),
+          supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
+          supabase.from("sections").select("*")
+        ]);
+  
+        if (cRes.data) {
+          const coursesList = cRes.data;
+          const allLessons = lRes.data || [];
+          const allStudents = sRes.data || [];
+          const allAssignments = aRes.data || [];
+          const allSubmissions = subRes.data || [];
+          const myCourseIds = (ciRes?.data || []).map(ci => ci.course_id);
+          const sectionsList = secRes?.data || [];
+  
+          const userRoles = user?.role?.split(",").map(r => r.trim()) || [];
+          const filteredCourses = coursesList.filter((c) => {
+            if (userRoles.includes("admin")) return true;
+            if (userRoles.includes("course_manager")) {
+              return c.group_id === user.group_id || (c.group_id ? Boolean(user.group_ids?.includes(c.group_id)) : false);
+            }
+            if (userRoles.includes("instructor")) {
+              return Boolean(c.id && myCourseIds.includes(c.id));
+            }
+            return false;
+          });
+  
+          const gradesList = sgRes?.data || [];
+  
+          const enrichedCourses: EnrichedCourse[] = filteredCourses.map((c) => {
+            const courseLessons = allLessons.filter((l) => l.course_id === c.id);
+  
+            const courseSection = c.section;
+            const allowedYears = (c.year_level || []) as Array<number | string>;
+            const allowedEmails = parseCourseAccess(c.access).allowedEmails || [];
+            const courseStudents = allStudents.filter((s) => {
+              if (s.email && allowedEmails.includes(s.email)) {
+                return true;
+              }
+              if (allowedYears.length > 0) {
+                const prefix = s.student_no ? s.student_no.substring(0, 2) : "";
+                const mapping = gradesList.find(g => g.prefix === prefix);
+                const studentLabel = mapping ? mapping.year_label : null;
+                const studentFallback = s.study_year ? Number(s.study_year) : null;
+                
+                const hasMatch = allowedYears.some(ay => {
+                  if (typeof ay === 'number' || !isNaN(Number(ay))) {
+                     return Number(ay) === studentFallback || ay == studentFallback;
+                  }
+                  return ay === studentLabel;
+                });
+                if (!hasMatch) return false;
+              }
+              if (courseSection && courseSection !== "ไม่ระบุ Section") {
+                const rangeMatch = sectionRangeMatch(s.student_no, courseSection, sectionsList);
+                if (rangeMatch === null) {
+                  if (s.section !== courseSection) return false;
+                } else if (!rangeMatch) {
+                  return false;
+                }
+              }
+              return true;
+            });
+  
+            const courseAssignments = allAssignments.filter((a) => a.course_id === c.id);
+            const courseAssignmentIds = courseAssignments.map((a) => a.id);
+            const courseSubmissions = allSubmissions.filter((s) => Boolean(s.assignment_id && courseAssignmentIds.includes(s.assignment_id)));
+            const pendingCount = courseSubmissions.filter((s) => s.status === "submitted").length;
+  
+            return {
+              ...c,
+              lessons: courseLessons,
+              lessonsCount: courseLessons.length,
+              studentCount: courseStudents.length,
+              pendingGrading: pendingCount,
+            };
+          });
+  
+          setCourses(enrichedCourses);
+        }
+        setLoading(false);
+    };
+    load();
+  }, [user, reloadKey]);
+
+  const toggleExpand = (courseId: string) => {
+    setExpandedCourses((prev) => ({
+      ...prev,
+      [courseId]: !prev[courseId],
+    }));
+  };
+
+  const handleDeleteCourse = async (c: EnrichedCourse) => {
+    if (!c.id) return;
+    const confirmed = await confirm({
+      title: "ลบรายวิชา",
+      desc: `คุณต้องการลบรายวิชา "${c.title} (${c.code})" ใช่หรือไม่?`,
+      message: `คำเตือน: การดำเนินการนี้จะลบบทเรียน, ข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของรายวิชานี้อย่างถาวรและไม่สามารถกู้คืนได้!`,
+      danger: true,
+      confirmText: "ลบรายวิชา",
+      cancelText: "ยกเลิก"
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const { data: assignments } = await supabase.from("assignments").select("id, rubric_id").eq("course_id", c.id);
+      const assignmentIds = assignments?.map((a) => a.id) || [];
+      const rubricIds = assignments?.map((a) => a.rubric_id).filter((id): id is string => Boolean(id)) || [];
+
+      const { data: lessons } = await supabase.from("lessons").select("id").eq("course_id", c.id);
+      const lessonIds = lessons?.map((l) => l.id) || [];
+
+      if (assignmentIds.length > 0) {
+        const { error: subErr } = await supabase.from("submissions").delete().in("assignment_id", assignmentIds);
+        if (subErr) throw subErr;
+      }
+
+      if (assignmentIds.length > 0) {
+        const { error: asgErr } = await supabase.from("assignments").delete().in("id", assignmentIds);
+        if (asgErr) throw asgErr;
+      }
+
+      if (rubricIds.length > 0) {
+        const { error: rubErr } = await supabase.from("rubrics").delete().in("id", rubricIds);
+        if (rubErr) throw rubErr;
+      }
+
+      if (lessonIds.length > 0) {
+        const { error: qErr } = await supabase.from("questions").delete().in("lesson_id", lessonIds);
+        if (qErr) throw qErr;
+      }
+
+      if (lessonIds.length > 0) {
+        const { error: lesErr } = await supabase.from("lessons").delete().in("id", lessonIds);
+        if (lesErr) throw lesErr;
+      }
+
+      const { error: cErr } = await supabase.from("courses").delete().eq("id", c.id);
+      if (cErr) throw cErr;
+
+      toast.success("ลบรายวิชาเรียบร้อยแล้ว");
+      setReloadKey((k) => k + 1);
+    } catch (error: unknown) {
+      console.error("Error deleting course:", error);
+      toast.error("เกิดข้อผิดพลาดในการลบรายวิชา: " + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+  const handleDeleteLesson = async (l: CourseLessonSummary) => {
+    const confirmed = await confirm({
+      title: "ลบบทเรียน",
+      desc: `คุณต้องการลบบทเรียน "บทที่ ${l.index}: ${l.title}" ใช่หรือไม่?`,
+      message: `คำเตือน: การดำเนินการนี้จะลบข้อสอบ Pre/Post-test, ใบงาน และรายการส่งงานทั้งหมดของบทเรียนนี้อย่างถาวร!`,
+      danger: true,
+      confirmText: "ลบบทเรียน",
+      cancelText: "ยกเลิก"
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const { data: assignments } = await supabase.from("assignments").select("id, rubric_id").eq("lesson_id", l.id);
+      const assignmentIds = assignments?.map((a) => a.id) || [];
+      const rubricIds = assignments?.map((a) => a.rubric_id).filter((id): id is string => Boolean(id)) || [];
+
+      if (assignmentIds.length > 0) {
+        const { error: subErr } = await supabase.from("submissions").delete().in("assignment_id", assignmentIds);
+        if (subErr) throw subErr;
+      }
+
+      if (assignmentIds.length > 0) {
+        const { error: asgErr } = await supabase.from("assignments").delete().in("id", assignmentIds);
+        if (asgErr) throw asgErr;
+      }
+
+      if (rubricIds.length > 0) {
+        const { error: rubErr } = await supabase.from("rubrics").delete().in("id", rubricIds);
+        if (rubErr) throw rubErr;
+      }
+
+      const { error: qErr } = await supabase.from("questions").delete().eq("lesson_id", l.id);
+      if (qErr) throw qErr;
+
+      const { error: lesErr } = await supabase.from("lessons").delete().eq("id", l.id);
+      if (lesErr) throw lesErr;
+
+      toast.success("ลบบทเรียนเรียบร้อยแล้ว");
+      setReloadKey((k) => k + 1);
+    } catch (error: unknown) {
+      console.error("Error deleting lesson:", error);
+      toast.error("เกิดข้อผิดพลาดในการลบบทเรียน: " + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+  const handleCreateLesson = async (courseId: string | null, lessonsCount: number) => {
+    try {
+      toast("กำลังสร้างบทเรียนใหม่...");
+      const nextIndex = lessonsCount + 1;
+      const newId = "l_" + Date.now();
+      const newLessonObj = {
+        id: newId,
+        course_id: courseId,
+        title: "บทเรียนใหม่",
+        description: "",
+        duration: "",
+        status: "draft",
+        index: nextIndex,
+        video: false,
+        pretest: { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
+        posttest: { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
+        assignment: null,
+        watch_limit: false,
+        allow_download: true,
+        allow_ai: true,
+        has_docs: true,
+        has_pretest: true,
+        has_posttest: true,
+        has_assignment: true
+      };
+
+      const { error } = await supabase.from("lessons").insert([newLessonObj]);
+      if (error) {
+        toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message);
+      } else {
+        toast.success("สร้างบทเรียนใหม่สำเร็จแล้ว");
+        router.push(`/i/lesson/${newId}`);
+      }
+    } catch (error: unknown) {
+      console.error(error);
+      toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+  const canManage = hasRole(user?.role, "admin", "course_manager");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers only touch state setters, the supabase client and the confirm dialog
+  const columns = useMemo(() => courseColumns({ expanded: expandedCourses, onToggle: toggleExpand, canManage, onDelete: handleDeleteCourse }), [expandedCourses, canManage]);
+
+  return (
+    <PageContainer>
+      <PageHeader kicker="พื้นที่อาจารย์ผู้สอน" title="จัดการรายวิชา" description="กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ" />
+      <p className="mb-3 text-sm text-muted-foreground">รายชื่อวิชาในกลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ</p>
+      <DataTable.Root data={courses} columns={columns} getRowId={(c: EnrichedCourse) => c.id ?? ""} searchKeys={["title", "code", "subtitle", "term"]}>
+        <DataTable.Toolbar>
+          <DataTable.Search placeholder="ค้นหารายวิชา…" />
+          {canManage && (
+            <DataTable.Actions>
+              <Button asChild>
+                <Link href="/i/course/new">
+                  <PlusIcon />
+                  สร้างรายวิชา
+                </Link>
+              </Button>
+            </DataTable.Actions>
+          )}
+        </DataTable.Toolbar>
+        <DataTable.Content
+          loading={loading}
+          empty={<EmptyState title="ยังไม่มีรายวิชา" />}
+          subRow={(c: EnrichedCourse) =>
+            expandedCourses[c.id ?? ""] ? (
+              <CourseLessonList course={c} onCreateLesson={handleCreateLesson} onDeleteLesson={handleDeleteLesson} />
+            ) : null
+          }
+        />
+        <DataTable.Pagination />
+      </DataTable.Root>
+    </PageContainer>
+  );
+}

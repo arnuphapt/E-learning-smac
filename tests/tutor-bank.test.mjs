@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeTopic, findTopic, bankWarning, parseDrawCount, lockSummary, visibleTutorSets, filterBank, topicNames } from "../lib/tutor-bank.js";
+import { normalizeTopic, findTopic, bankWarning, parseDrawCount, lockSummary, visibleTutorSets, filterBank, topicNames } from "../lib/tutor-bank.ts";
 
 test("topics are reused by trimmed, case-insensitive name", () => {
   const topics = [{ id: "t1", name: "Heart failure" }];

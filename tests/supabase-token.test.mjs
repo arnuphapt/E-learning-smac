@@ -21,7 +21,7 @@ function restoreEnv() {
 let importSeq = 0;
 async function loadModule() {
   importSeq += 1;
-  return import(`../lib/supabase-token.js?case=${importSeq}`);
+  return import(`../lib/supabase-token.ts?case=${importSeq}`);
 }
 
 function decodeJwtPart(part) {

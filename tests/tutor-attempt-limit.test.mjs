@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canStartAttempt } from "../lib/tutor-attempt.js";
+import { canStartAttempt } from "../lib/tutor-attempt.ts";
 
 test("unlimited (NULL) lesson: always can start", () => {
   assert.equal(canStartAttempt(null, 0, false), true);
@@ -24,7 +24,7 @@ test("limit N: used < N", () => {
 });
 
 test("round time: NULL keeps 1 minute per question, a lesson setting fixes the whole round", async () => {
-  const { roundMinutes, deadlineFor, parseTimeLimit } = await import("../lib/tutor-attempt.js");
+  const { roundMinutes, deadlineFor, parseTimeLimit } = await import("../lib/tutor-attempt.ts");
   assert.equal(roundMinutes(20, null), 20);
   assert.equal(roundMinutes(20), 20);
   assert.equal(roundMinutes(20, 45), 45);

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { scoreAttempt } from "../lib/tutor-score.js";
+import { scoreAttempt } from "../lib/tutor-score.ts";
 
 const DL = "2026-10-06T10:20:00.000Z";
 const keys = [{ id: "q1", answer: "a" }, { id: "q2", answer: "b" }, { id: "q3", answer: "c" }, { id: "q4", answer: "d" }];

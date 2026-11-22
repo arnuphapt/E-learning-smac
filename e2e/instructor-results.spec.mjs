@@ -4,7 +4,7 @@
 import { test, expect } from "@playwright/test";
 import XLSX from "xlsx";
 import { FX, FX_PREFIX, STATE, UI_CODE_PREFIX, adminDb } from "./fixtures.mjs";
-import { buildResult } from "../lib/tutor-analysis.js";
+import { buildResult } from "../lib/tutor-analysis.ts";
 
 test.use({ storageState: STATE.instructor });
 

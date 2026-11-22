@@ -1,0 +1,443 @@
+"use client";
+
+import React, { useState, useEffect, useCallback, type ComponentType } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { normalizeTopic, findTopic, bankWarning, parseDrawCount } from "@/lib/tutor-bank";
+import { uniqueChoiceId } from "@/lib/questions";
+import type { Database, Json } from "@/lib/database.types";
+import type { ImportedQuestionRow } from "@/lib/tutor-import";
+import RawIcon from "@/components/ui/Icon";
+import { Badge as RawBadge, Dialog as RawDialog } from "@/components/ui/Primitives";
+import { Crumb as RawCrumb } from "@/components/ui/Shared";
+import Loading from "@/components/ui/Loading";
+import { toast } from "@/components/ui/Toast";
+import { useConfirm as rawUseConfirm } from "@/components/ui/ConfirmDialog";
+import BankImport from "@/components/tutor/BankImport";
+
+type LessonRow = Database["public"]["Tables"]["lessons"]["Row"];
+type CourseAllRow = Database["public"]["Tables"]["courses_all"]["Row"];
+type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
+type TutorTopicRow = Database["public"]["Tables"]["tutor_topics"]["Row"];
+
+interface ChoiceItem {
+  id: string;
+  text: string;
+}
+
+interface QuestionForm {
+  id: string | null;
+  text: string;
+  choices: ChoiceItem[];
+  answer: string;
+  explanation: string;
+  topicName: string;
+}
+
+interface BankState {
+  loading: boolean;
+  lesson: LessonRow | null;
+  course: CourseAllRow | null;
+  questions: QuestionRow[];
+  topics: TutorTopicRow[];
+}
+
+type ConfirmFn = (opts: {
+  title?: string;
+  desc?: string;
+  message?: string;
+  danger?: boolean;
+  cancelText?: string;
+  confirmText?: string;
+}) => Promise<boolean>;
+
+const Icon = RawIcon as unknown as ComponentType<{
+  name: string;
+  size?: number;
+  sw?: number;
+  fill?: string;
+  style?: React.CSSProperties;
+  className?: string;
+}>;
+const Badge = RawBadge as unknown as ComponentType<{
+  children?: React.ReactNode;
+  tone?: string;
+  dot?: boolean;
+}>;
+const Dialog = RawDialog as unknown as ComponentType<{
+  open?: boolean;
+  title?: string;
+  desc?: string;
+  children?: React.ReactNode;
+  footer?: React.ReactNode;
+  onClose?: () => void;
+  lg?: boolean;
+}>;
+const Crumb = RawCrumb as unknown as ComponentType<{
+  items?: Array<{ label: string; to?: string; onClick?: () => void }>;
+  nav?: (path: string) => void;
+}>;
+const useConfirm = rawUseConfirm as unknown as () => ConfirmFn;
+
+const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+function parseChoices(raw: Json | null | undefined): ChoiceItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw as unknown as ChoiceItem[];
+}
+
+const blankQuestion = (): QuestionForm => ({
+  id: null,
+  text: "",
+  choices: [{ id: "a", text: "" }, { id: "b", text: "" }],
+  answer: "a",
+  explanation: "",
+  topicName: "",
+});
+
+function QuestionEditor({
+  q,
+  topics,
+  onClose,
+  onSave,
+}: {
+  q: QuestionForm;
+  topics: TutorTopicRow[];
+  onClose: () => void;
+  onSave: (q: QuestionForm) => Promise<void>;
+}) {
+  const [text, setText] = useState(q.text);
+  const [choices, setChoices] = useState(q.choices);
+  const [answer, setAnswer] = useState(q.answer);
+  const [explanation, setExplanation] = useState(q.explanation);
+  const [topicName, setTopicName] = useState(q.topicName);
+  const [saving, setSaving] = useState(false);
+
+  const setC = (id: string, v: string) => setChoices((cs) => cs.map((c) => (c.id === id ? { ...c, text: v } : c)));
+  const addC = () => setChoices((cs) => [...cs, { id: uniqueChoiceId(), text: "" }]);
+  // Ids are never re-lettered and never reused (uniqueChoiceId): tutor_answers.chosen and the settled result store them and
+  // the review reads the choices live. Labels A, B, C... below are by position. Deleting the current answer leaves none
+  // selected (submit asks for a new pick).
+  const removeC = (id: string) => {
+    setChoices(choices.filter((c) => c.id !== id));
+    if (answer === id) setAnswer("");
+  };
+
+  const submit = async () => {
+    if (!text.trim()) return toast("กรุณาพิมพ์โจทย์คำถาม", "error");
+    if (choices.some((c) => !c.text.trim())) return toast("กรุณากรอกตัวเลือกให้ครบทุกข้อ", "error");
+    if (!choices.some((c) => c.id === answer)) return toast("กรุณาเลือกคำตอบที่ถูกต้อง", "error");
+    setSaving(true);
+    await onSave({ ...q, text: text.trim(), choices, answer, explanation: explanation.trim(), topicName });
+    setSaving(false);
+  };
+
+  return (
+    <Dialog title={q.id ? "แก้ไขข้อสอบในคลัง" : "เพิ่มข้อสอบเข้าคลัง"} desc="ข้อสอบปรนัย เลือกคำตอบที่ถูกต้อง 1 ข้อ" onClose={onClose} lg
+      footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={submit} disabled={saving}><Icon name="check" size={15} />บันทึกข้อสอบ</button></>}>
+      <div className="field"><label className="label">โจทย์คำถาม</label><textarea className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โจทย์คำถาม…" /></div>
+      <label className="label">ตัวเลือก <span className="muted fw-4">— เลือกวงกลมเพื่อกำหนดคำตอบที่ถูกต้อง</span></label>
+      <div className="flex col gap-2 mb-2">
+        {choices.map((c, i) => (
+          <div key={c.id} className="flex items-center gap-2">
+            <button onClick={() => setAnswer(c.id)} style={{ width: 24, height: 24, borderRadius: 99, border: "2px solid " + (answer === c.id ? "var(--success)" : "#cbd5e1"), background: "#fff", cursor: "pointer", display: "grid", placeItems: "center", flex: "0 0 24px" }}>
+              {answer === c.id && <span style={{ width: 11, height: 11, borderRadius: 99, background: "var(--success)" }} />}
+            </button>
+            <input className="input" value={c.text} onChange={(e) => setC(c.id, e.target.value)} placeholder={"ตัวเลือก " + String.fromCharCode(65 + i)} />
+            {choices.length > 2 && <button className="iconbtn ghost c-danger" onClick={() => removeC(c.id)}><Icon name="trash" size={15} /></button>}
+          </div>
+        ))}
+      </div>
+      <button className="btn btn-ghost btn-sm c-primary mb-3" onClick={addC}><Icon name="plus" size={15} />เพิ่มตัวเลือก</button>
+      <div className="field">
+        <label className="label">คำอธิบายเฉลย <span className="muted fw-4">— นักศึกษาเห็นหลังส่งชุดข้อสอบเท่านั้น</span></label>
+        <textarea className="input" rows={3} value={explanation} onChange={(e) => setExplanation(e.target.value)} placeholder="อธิบายว่าทำไมข้อนี้ถึงเป็นคำตอบที่ถูก…" />
+      </div>
+      <div className="field">
+        <label className="label">หัวข้อ <span className="muted fw-4">— พิมพ์เองหรือเลือกจากหัวข้อที่ใช้แล้วในบทนี้ (เว้นว่างได้)</span></label>
+        <input className="input" list="tutor-topics" value={topicName} onChange={(e) => setTopicName(e.target.value)} placeholder="เช่น ภาวะหัวใจล้มเหลว" />
+        <datalist id="tutor-topics">{topics.map((t) => <option key={t.id} value={t.name} />)}</datalist>
+      </div>
+    </Dialog>
+  );
+}
+
+export default function TutorBank() {
+  const router = useRouter();
+  const nav = (path: string) => router.push(path);
+  const confirm = useConfirm();
+  const rawId = useParams()?.id;
+  const lessonId = Array.isArray(rawId) ? rawId[0] : rawId;
+
+  const [state, setState] = useState<BankState>({ loading: true, lesson: null, course: null, questions: [], topics: [] });
+  const [editing, setEditing] = useState<QuestionForm | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [whole, setWhole] = useState(true);
+  const [drawInput, setDrawInput] = useState("");
+
+  const fetchAll = useCallback(async () => {
+    if (!lessonId) return { questions: [], topics: [] };
+    const [qRes, tRes] = await Promise.all([
+      supabase.from("questions").select("*").eq("lesson_id", lessonId).eq("kind", "tutor").order("no", { ascending: true }),
+      supabase.from("tutor_topics").select("*").eq("lesson_id", lessonId).order("created_at", { ascending: true }),
+    ]);
+    if (qRes.error || tRes.error) throw qRes.error || tRes.error;
+    return { questions: qRes.data || [], topics: tRes.data || [] };
+  }, [lessonId]);
+
+  useEffect(() => {
+    if (!lessonId) return;
+    let cancelled = false;
+    (async () => {
+      // the bank does not depend on the lesson row, so load both at once; the course needs lesson.course_id
+      const [{ data: lesson }, rest] = await Promise.all([
+        supabase.from("lessons").select("*").eq("id", lessonId).single(),
+        fetchAll(),
+      ]);
+      if (!lesson) { if (!cancelled) setState((s) => ({ ...s, loading: false })); return; }
+      // courses_all, not the `courses` view: the view hides tutor sets.
+      const { data: course } = lesson.course_id
+        ? await supabase.from("courses_all").select("*").eq("id", lesson.course_id).single()
+        : { data: null };
+      if (cancelled) return;
+      setState({ loading: false, lesson, course, ...rest });
+      setWhole(lesson.tutor_draw_count == null);
+      setDrawInput(lesson.tutor_draw_count == null ? "" : String(lesson.tutor_draw_count));
+    })().catch((e: unknown) => { toast("โหลดข้อมูลไม่สำเร็จ: " + errMsg(e), "error"); setState((s) => ({ ...s, loading: false })); });
+    return () => { cancelled = true; };
+  }, [lessonId, fetchAll]);
+
+  // Deep link from /i/tutor/bank (#q-<id>): the rows render after the async load, so the browser's own hash scroll misses them.
+  useEffect(() => {
+    if (!state.loading) document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "center" });
+  }, [state.loading]);
+
+  // Reload the bank, drop topics no question uses any more, so "lesson has topics" stays true only for real topics.
+  const refresh = async () => {
+    let rest = await fetchAll();
+    const used = new Set(rest.questions.map((q) => q.topic_id).filter((id): id is string => Boolean(id)));
+    const unused = rest.topics.filter((t) => !used.has(t.id)).map((t) => t.id);
+    if (unused.length) {
+      const { error } = await supabase.from("tutor_topics").delete().in("id", unused);
+      if (!error) rest = { ...rest, topics: rest.topics.filter((t) => used.has(t.id)) };
+    }
+    setState((s) => ({ ...s, ...rest }));
+  };
+
+  const topicIdFor = async (name: string, topics: Array<Pick<TutorTopicRow, "id" | "name">>) => {
+    const n = normalizeTopic(name);
+    if (!n || !lessonId) return null;
+    const hit = findTopic(topics, n);
+    if (hit) return hit.id;
+    const id = "tt_" + Date.now() + Math.random().toString(36).slice(2, 6);
+    const { error } = await supabase.from("tutor_topics").insert([{ id, lesson_id: lessonId, name: n }]);
+    if (!error) return id;
+    // lost a race / stale list: the name already exists, use that row
+    const { data } = await supabase.from("tutor_topics").select("*").eq("lesson_id", lessonId);
+    const again = findTopic(data || [], n);
+    if (again) return again.id;
+    throw error;
+  };
+
+  const saveQuestion = async (q: QuestionForm) => {
+    if (!lessonId) return;
+    try {
+      const topic_id = await topicIdFor(q.topicName, state.topics);
+      const row = {
+        type: "single",
+        text: q.text,
+        choices: q.choices as unknown as Json,
+        answer: q.answer,
+        explanation: q.explanation || null,
+        topic_id,
+        lesson_id: lessonId,
+        kind: "tutor",
+      };
+      const { error } = q.id
+        ? await supabase.from("questions").update(row).eq("id", q.id)
+        : await supabase.from("questions").insert([{ ...row, id: "q_" + Date.now(), no: Math.max(0, ...state.questions.map((x) => x.no || 0)) + 1 }]);
+      if (error) throw error;
+      toast(q.id ? "บันทึกข้อสอบแล้ว" : "เพิ่มข้อสอบเข้าคลังแล้ว");
+      setEditing(null);
+      await refresh();
+    } catch (e: unknown) {
+      toast("เกิดข้อผิดพลาด: " + errMsg(e), "error");
+    }
+  };
+
+  // Excel import: items = parsed rows ({ row, text, choices, answer, explanation, topicName }). Topics follow the editor's
+  // rules (topicIdFor: trimmed case-insensitive match, else create). Questions go in chunks so a failing chunk is reported
+  // by row instead of losing the rest. Returns { imported, failed: [{ row, message }] } for the dialog.
+  const importQuestions = async (items: ImportedQuestionRow[]) => {
+    const failed: Array<{ row: number; message: string }> = [];
+    const known: Array<Pick<TutorTopicRow, "id" | "name">> = [...state.topics];
+    const ids = new Map<string, string>();
+    const ready: Array<{ row: number; topic_id: string | null; q: ImportedQuestionRow }> = [];
+    for (const q of items) {
+      const key = normalizeTopic(q.topicName).toLowerCase();
+      try {
+        if (key && !ids.has(key)) {
+          const id = await topicIdFor(q.topicName, known);
+          if (id) {
+            known.push({ id, name: normalizeTopic(q.topicName) });
+            ids.set(key, id);
+          }
+        }
+        ready.push({ row: q.row, topic_id: key ? (ids.get(key) ?? null) : null, q });
+      } catch (e: unknown) {
+        failed.push({ row: q.row, message: "สร้างหัวข้อไม่สำเร็จ: " + errMsg(e) });
+      }
+    }
+    const stamp = Date.now();
+    const firstNo = Math.max(0, ...state.questions.map((x) => x.no || 0)) + 1;
+    let imported = 0;
+    for (let i = 0; i < ready.length; i += 50) {
+      const chunk = ready.slice(i, i + 50);
+      const { error } = await supabase.from("questions").insert(chunk.map(({ q, topic_id }, j) => ({
+        id: `q_${stamp}_${i + j}`,
+        no: firstNo + i + j,
+        type: "single",
+        text: q.text,
+        choices: q.choices as unknown as Json,
+        answer: q.answer,
+        explanation: q.explanation || null,
+        topic_id,
+        lesson_id: lessonId,
+        kind: "tutor",
+      })));
+      if (error) failed.push(...chunk.map((c) => ({ row: c.row, message: error.message })));
+      else imported += chunk.length;
+    }
+    failed.sort((a, b) => a.row - b.row);
+    if (failed.length) toast(`นำเข้าสำเร็จ ${imported} ข้อ ไม่สำเร็จ ${failed.length} ข้อ (แถว ${failed.map((f) => f.row).join(", ")})`, "error");
+    else toast(`นำเข้าข้อสอบ ${imported} ข้อแล้ว`);
+    await refresh().catch((e: unknown) => toast("โหลดคลังไม่สำเร็จ: " + errMsg(e), "error"));
+    return { imported, failed };
+  };
+
+  const deleteQuestion = async (q: QuestionRow) => {
+    const ok = await confirm({ title: "ลบข้อสอบ", message: "ลบข้อสอบนี้ออกจากคลังใช่หรือไม่?", danger: true, confirmText: "ลบ", cancelText: "ยกเลิก" });
+    if (!ok) return;
+    const { error } = await supabase.from("questions").delete().eq("id", q.id);
+    if (error) return toast("เกิดข้อผิดพลาด: " + error.message, "error");
+    toast("ลบข้อสอบเรียบร้อยแล้ว");
+    await refresh().catch((e: unknown) => toast("โหลดคลังไม่สำเร็จ: " + errMsg(e), "error"));
+  };
+
+  const saveDraw = async () => {
+    if (!lessonId) return;
+    const value = whole ? null : parseDrawCount(drawInput);
+    // unchecking "ใช้ทั้งคลัง" needs a real number: blank/invalid must not silently save NULL (= whole bank)
+    if (!whole && !value) return toast("กรุณากรอกจำนวนข้อต่อรอบเป็นเลขจำนวนเต็มมากกว่า 0 หรือเลือก \"ใช้ทั้งคลัง\"", "error");
+    const { error } = await supabase.from("lessons").update({ tutor_draw_count: value }).eq("id", lessonId);
+    if (error) return toast("เกิดข้อผิดพลาด: " + error.message, "error");
+    setState((s) => ({ ...s, lesson: s.lesson ? { ...s.lesson, tutor_draw_count: value ?? null } : null }));
+    toast("บันทึกการตั้งค่าแล้ว");
+  };
+
+  const { loading, lesson, course, questions, topics } = state;
+  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (!lesson || !course) {
+    return <div className="container p-5"><div className="card"><div className="empty"><div className="fw-6 fg">ไม่พบบทเรียน</div></div></div></div>;
+  }
+  if (course.kind !== "tutor") {
+    return (
+      <div className="container p-5"><div className="card"><div className="empty">
+        <div className="fw-6 fg">บทนี้ไม่ได้อยู่ในชุดติว</div>
+        <div className="t-sm muted">คลังข้อสอบใช้ได้เฉพาะบทของชุดติว ข้อสอบ Pre/Post ของรายวิชาจัดการที่หน้าแก้ไขบทเรียน</div>
+        <button className="btn btn-outline btn-sm" onClick={() => nav("/i/lesson/" + lesson.id)}>ไปหน้าแก้ไขบทเรียน</button>
+      </div></div></div>
+    );
+  }
+
+  const topicName = (id: string | null) => topics.find((t) => t.id === id)?.name;
+  const draftValue = whole ? null : parseDrawCount(drawInput);
+  const warning = bankWarning(questions.length, draftValue ?? null);
+  const workspace = "/i/tutor/" + course.id + "?lesson=" + lesson.id;
+
+  return (
+    <div className="tutor">
+      <div className="container-wide">
+        <Crumb nav={nav} items={[{ label: "ชุดติว", to: "/i/tutor" }, { label: course.code, to: workspace }, { label: "บทที่ " + lesson.index + " · คลังข้อสอบ" }]} />
+        <div className="tw-head">
+          <div style={{ minWidth: 0 }}>
+            <div className="flex items-center gap-2"><span className="tw-tag">คลังข้อสอบ</span><span className="tw-tag mono">{course.code}</span></div>
+            <h1>{lesson.title}</h1>
+            <div className="tw-stats">
+              <span><b>{questions.length}</b>ข้อ</span>
+              <span><b>{topics.length}</b>หัวข้อ</span>
+            </div>
+            <div className="t-sm mt-2 pretty" style={{ color: "#d3cff5" }}>นักศึกษาเห็นข้อสอบผ่านหน้าทำข้อสอบของชุดติวเท่านั้น และเห็นเฉลยหลังส่งชุด</div>
+          </div>
+          <button className="btn btn-ghost" onClick={() => nav(workspace)}><Icon name="arrL" size={15} />กลับไปที่บทเรียน</button>
+        </div>
+
+        <div className="flex gap-5 items-start wrap">
+          <div className="flex-1" style={{ minWidth: 300 }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="t-base fw-7">คลังข้อสอบ ({questions.length} ข้อ · {topics.length} หัวข้อ)</div>
+              <div className="flex items-center gap-2 wrap">
+                <button className="btn btn-outline btn-sm" onClick={() => setImporting(true)}><Icon name="excel" size={15} />นำเข้าจาก Excel</button>
+                <button className="btn btn-primary btn-sm" onClick={() => setEditing(blankQuestion())}><Icon name="plus" size={15} />เพิ่มข้อสอบ</button>
+              </div>
+            </div>
+            {questions.length === 0 ? (
+              <button className="tw-rail empty pointer" onClick={() => setEditing(blankQuestion())} style={{ borderStyle: "dashed", width: "100%", padding: "40px 0" }}>
+                <div className="ec"><Icon name="clipboard" size={22} style={{ color: "var(--subtle)" }} /></div>
+                <div className="t-sm muted">ยังไม่มีข้อสอบในคลัง คลิกเพื่อเพิ่มข้อแรก</div>
+              </button>
+            ) : (
+              <div className="tw-rail">
+                {questions.map((q, i) => (
+                  <div key={q.id} id={"q-" + q.id} className="tw-q">
+                    <div className="tw-q-no">{String(i + 1).padStart(2, "0")}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2 wrap">
+                        {topicName(q.topic_id) ? <Badge tone="primary">{topicName(q.topic_id)}</Badge> : <Badge tone="muted">ไม่มีหัวข้อ</Badge>}
+                        {!q.explanation && <Badge tone="warning">ยังไม่มีคำอธิบาย</Badge>}
+                      </div>
+                      <div className="t-sm fw-6 pretty mb-2">{q.text}</div>
+                      <div className="flex col gap-1">
+                        {parseChoices(q.choices).map((c) => (
+                          <div key={c.id} className="flex items-center gap-2 t-sm" style={{ color: c.id === q.answer ? "var(--success)" : "var(--muted-fg)", fontWeight: c.id === q.answer ? 600 : 400 }}>
+                            <Icon name={c.id === q.answer ? "checkC" : "circle"} size={14} />{c.text}
+                          </div>
+                        ))}
+                      </div>
+                      {q.explanation && <div className="t-xs muted mt-2 pretty" style={{ whiteSpace: "pre-line" }}>คำอธิบาย: {q.explanation}</div>}
+                    </div>
+                    <div className="flex col gap-1">
+                      <button className="iconbtn ghost" aria-label="แก้ไขข้อสอบ" onClick={() => setEditing({ id: q.id, text: q.text || "", choices: q.choices ? parseChoices(q.choices) : blankQuestion().choices, answer: q.answer || "a", explanation: q.explanation || "", topicName: topicName(q.topic_id) || "" })}><Icon name="pencil" size={15} /></button>
+                      <button className="iconbtn ghost c-danger" aria-label="ลบข้อสอบ" onClick={() => deleteQuestion(q)}><Icon name="trash" size={15} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ flex: "1 1 280px", maxWidth: 360 }}>
+            <div className="tw-panel"><div className="tw-sec">
+              <div className="tw-sec-t">จำนวนข้อต่อรอบ</div>
+              <p className="tw-sec-d">นักศึกษาแต่ละรอบได้ข้อที่สุ่มจากคลังนี้</p>
+              <label className="flex items-center gap-2 t-sm mb-3" style={{ cursor: "pointer" }}>
+                <input type="checkbox" checked={whole} onChange={(e) => setWhole(e.target.checked)} />ใช้ทั้งคลัง
+              </label>
+              <div className="field">
+                <label className="label">หรือกำหนดจำนวนข้อต่อรอบ</label>
+                <input className="input" inputMode="numeric" value={drawInput} disabled={whole} onChange={(e) => setDrawInput(e.target.value.replace(/[^0-9]/g, ""))} placeholder="เช่น 20" />
+              </div>
+              {warning && (
+                <div className="tw-warn mb-3"><Icon name="alert" size={14} style={{ flex: "0 0 14px", marginTop: 3 }} /><span className="pretty">{warning}</span></div>
+              )}
+              <button className="btn btn-primary btn-block" onClick={saveDraw}><Icon name="check" size={15} />บันทึกการตั้งค่า</button>
+            </div></div>
+          </div>
+        </div>
+
+        {importing && <BankImport topics={topics} onClose={() => setImporting(false)} onImport={importQuestions} />}
+        {editing && <QuestionEditor q={editing} topics={topics} onClose={() => setEditing(null)} onSave={saveQuestion} />}
+      </div>
+    </div>
+  );
+}

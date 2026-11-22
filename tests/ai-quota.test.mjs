@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { claimAiQuota, fillAiClaim, releaseAiClaim } from "../lib/ai-quota.js";
+import { claimAiQuota, fillAiClaim, releaseAiClaim } from "../lib/ai-quota.ts";
 
 const rpcDb = (result) => ({ rpc: async (name, args) => ({ ...result, name, args }) });
 
@@ -45,7 +45,7 @@ test("fillAiClaim updates message + reply of the claim row and throws on error; 
   await releaseAiClaim(tableDb({ message: "denied" }), "c1"); // logged, not thrown
 });
 
-import { claimAiQuotaFailOpen } from "../lib/ai-quota.js";
+import { claimAiQuotaFailOpen } from "../lib/ai-quota.ts";
 
 const seqDb = (...results) => { const calls = []; return { calls, rpc: async (_n, a) => { calls.push(a); return results.shift(); } }; };
 const quiet = async (fn) => { const orig = console.error; console.error = () => {}; try { return await fn(); } finally { console.error = orig; } };

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { viewVerdict } from "../lib/r2.js";
+import { viewVerdict } from "../lib/r2.ts";
 
 const student = { sub: "s1", role: "student" };
 const staff = { sub: "t1", role: "instructor" };

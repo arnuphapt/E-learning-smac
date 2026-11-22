@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseImportRows, TEMPLATE_HEADERS, TEMPLATE_EXAMPLES, MAX_IMPORT_ROWS } from "../lib/tutor-import.js";
+import { parseImportRows, TEMPLATE_HEADERS, TEMPLATE_EXAMPLES, MAX_IMPORT_ROWS } from "../lib/tutor-import.ts";
 
 const H = TEMPLATE_HEADERS;
 const rows = (...body) => [H, ...body];

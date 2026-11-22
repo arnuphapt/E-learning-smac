@@ -5,7 +5,7 @@
 import { test, expect } from "@playwright/test";
 import XLSX from "xlsx";
 import { FX, FX_PREFIX, STATE, UI_CODE_PREFIX, adminDb, questionText } from "./fixtures.mjs";
-import { TEMPLATE_HEADERS } from "../lib/tutor-import.js";
+import { TEMPLATE_HEADERS } from "../lib/tutor-import.ts";
 
 test.use({ storageState: STATE.instructor });
 
