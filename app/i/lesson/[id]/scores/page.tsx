@@ -1,604 +1,238 @@
-"use client";
+"use client"
 
-import React, { useState, useEffect, Suspense, type ComponentType } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { DEFAULT_DOMAIN, sectionRangeMatch } from "@/lib/course-access";
-import type { Database, Json } from "@/lib/database.types";
-import RawIcon from "@/components/ui/Icon";
-import { Badge as RawBadge, Avatar as RawAvatar, Select as RawSelect, statusBadge, Dialog as RawDialog } from "@/components/ui/Primitives";
-import RawTable from "@/components/ui/LegacyTable";
-import { PageHead as RawPageHead, Crumb as RawCrumb } from "@/components/ui/Shared";
-import Loading from "@/components/ui/Loading";
-import { toast } from "@/components/ui/Toast";
-import { useSession } from "next-auth/react";
-import * as XLSX from "xlsx";
+import { Suspense, useEffect, useMemo, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { toast } from "sonner"
+import { ArrowLeftIcon, ChartColumnIcon, CircleCheckIcon, ClipboardListIcon, DownloadIcon, FileTextIcon, TriangleAlertIcon } from "lucide-react"
+import { supabase } from "@/lib/supabase"
+import { DEFAULT_DOMAIN } from "@/lib/course-access"
+import type { Database } from "@/lib/database.types"
+import { PageContainer } from "@/components/common/page-container"
+import { PageHeader } from "@/components/common/page-header"
+import { DataTable } from "@/components/common/data-table"
+import { EmptyState, LoadingState } from "@/components/common/states"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AnswerReviewDialog } from "@/components/grading/answer-review-dialog"
+import { asgScoreColumns, testScoreColumns, type AsgScoreItem, type TestScoreItem } from "@/components/grading/score-columns"
+import { ScoreStatCards } from "@/components/grading/score-stat-cards"
+import { average, exportScoresExcel, filterEnrolledStudents, type CourseAllRow, type ScoresBundleData, type StudentFallback, type TestKind, type TestScoreRow } from "@/components/grading/scores"
 
-type LessonRow = Database["public"]["Tables"]["lessons"]["Row"];
-type CourseAllRow = Database["public"]["Tables"]["courses_all"]["Row"];
-type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
-type AssignmentRow = Database["public"]["Tables"]["assignments"]["Row"];
-type SubmissionRow = Database["public"]["Tables"]["submissions"]["Row"];
-type TestScoreRow = Database["public"]["Tables"]["test_scores"]["Row"];
-type StudentRow = Database["public"]["Tables"]["users"]["Row"];
-type SectionRow = Database["public"]["Tables"]["sections"]["Row"];
+type LessonRow = Database["public"]["Tables"]["lessons"]["Row"]
 
-interface GradeRow {
-  prefix: string;
-  year_label: string;
+interface SelectedSubmission {
+  student: StudentFallback
+  record: TestScoreRow
+  kind: TestKind
 }
 
-interface ChoiceItem {
-  id: string;
-  text?: string;
-}
-
-interface ScoresBundleData {
-  questions: QuestionRow[];
-  assignments: AssignmentRow[];
-  submissions: SubmissionRow[];
-  testScores: TestScoreRow[];
-  students: StudentRow[];
-  studentGrades: GradeRow[];
-  sectionsList: SectionRow[];
-}
-
-interface StudentFallback {
-  id?: string;
-  name: string;
-  student_no: string | null;
-  section?: string | null;
-}
-
-interface SelectedSubmissionModal {
-  student: StudentFallback;
-  record: TestScoreRow;
-  kind: "pre" | "post";
-}
-
-interface TableProps<T> {
-  headers?: React.ReactNode[];
-  data?: T[];
-  renderRow: (item: T) => React.ReactNode;
-  colSpan?: number;
-  className?: string;
-  pageSize?: number;
-  emptyText?: string;
-  filter?: React.ReactNode;
-  enableSearch?: boolean;
-  searchKeys?: string[];
-  searchPlaceholder?: string;
-  title?: string;
-  description?: string;
-  addButton?: React.ReactNode;
-  loading?: boolean;
-  sortKeys?: Array<string | boolean | null | ((item: T) => unknown)>;
-}
-
-const Icon = RawIcon as unknown as ComponentType<{
-  name: string;
-  size?: number;
-  sw?: number;
-  fill?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}>;
-const Badge = RawBadge as unknown as ComponentType<{
-  children?: React.ReactNode;
-  tone?: string;
-  dot?: boolean;
-}>;
-const Avatar = RawAvatar as unknown as ComponentType<{
-  name?: string;
-  size?: number;
-  color?: string;
-  src?: string;
-}>;
-const Select = RawSelect as unknown as ComponentType<{
-  value?: string;
-  onChange?: (e: { target: { value: string } }) => void;
-  children?: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
-  disabled?: boolean;
-  id?: string;
-}>;
-const Dialog = RawDialog as unknown as ComponentType<{
-  open?: boolean;
-  title?: string;
-  desc?: string;
-  children?: React.ReactNode;
-  footer?: React.ReactNode;
-  onClose?: () => void;
-  lg?: boolean;
-}>;
-const PageHead = RawPageHead as unknown as ComponentType<{
-  kicker?: string;
-  title?: string;
-  desc?: string;
-  right?: React.ReactNode;
-}>;
-const Crumb = RawCrumb as unknown as ComponentType<{
-  items?: Array<{ label: string; to?: string; onClick?: () => void }>;
-  nav?: (path: string) => void;
-}>;
-const Table = RawTable as unknown as <T>(props: TableProps<T>) => React.ReactElement | null;
-
-function parseCourseAccess(raw: Json | null | undefined): { allowedEmails?: string[] } {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  return raw as { allowedEmails?: string[] };
+const EMPTY_DATA: ScoresBundleData = {
+  questions: [],
+  assignments: [],
+  submissions: [],
+  testScores: [],
+  students: [],
+  studentGrades: [],
+  sectionsList: [],
 }
 
 function ScoresContent() {
-  const router = useRouter();
-  const params = useParams();
-  const nav = (path: string) => router.push(path);
-  const { data: session, status } = useSession();
+  const router = useRouter()
+  const params = useParams()
+  const { status } = useSession()
 
-  const rawId = params?.id;
-  const lessonId = Array.isArray(rawId) ? rawId[0] : rawId;
+  const rawId = params?.id
+  const lessonId = Array.isArray(rawId) ? rawId[0] : rawId
 
-  const [lesson, setLesson] = useState<LessonRow | null>(null);
-  const [course, setCourse] = useState<Partial<CourseAllRow> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"test" | "asg">("test"); // test | asg
-  
-  const [data, setData] = useState<ScoresBundleData>({
-    questions: [],
-    assignments: [],
-    submissions: [],
-    testScores: [],
-    students: [],
-    studentGrades: [],
-    sectionsList: []
-  });
-
-  const [selectedSubmission, setSelectedSubmission] = useState<SelectedSubmissionModal | null>(null); // { student, record, kind }
-
-  const loadData = async () => {
-    if (!lessonId) return;
-
-    let redirected = false;
-    try {
-      const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single();
-      if (!lData) {
-        setLoading(false);
-        return;
-      }
-
-      // courses_all, not the `courses` view: the view hides tutor sets.
-      const { data: cData } = lData.course_id
-        ? await supabase.from("courses_all").select("*").eq("id", lData.course_id).single()
-        : { data: null };
-      // tutor lessons have no pre/post scores: back to the tutor workspace
-      if (cData?.kind === "tutor") { redirected = true; router.replace("/i/tutor/" + cData.id + "?lesson=" + lessonId); return; }
-
-      const [qRes, aRes, subRes, tsRes, stRes, sgRes, secRes] = await Promise.all([
-        supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),
-        supabase.from("assignments").select("*").eq("lesson_id", lessonId),
-        supabase.from("submissions").select("*"),
-        supabase.from("test_scores").select("*").eq("lesson_id", lessonId),
-        supabase.from("users").select("*").eq("role", "student"),
-        supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
-        supabase.from("sections").select("*")
-      ]);
-
-      let finalSubmissions = subRes.data || [];
-      const assignmentIds = aRes.data?.map(a => a.id) || [];
-      finalSubmissions = finalSubmissions.filter(sub => Boolean(sub.assignment_id && assignmentIds.includes(sub.assignment_id)));
-
-      setLesson(lData);
-      setCourse(cData || { code: "", title: "" });
-      setData({
-        questions: qRes.data || [],
-        assignments: aRes.data || [],
-        submissions: finalSubmissions,
-        testScores: tsRes.data || [],
-        students: stRes.data || [],
-        studentGrades: sgRes.data || [],
-        sectionsList: secRes?.data || []
-      });
-    } catch (error: unknown) {
-      console.error(error);
-      toast("เกิดข้อผิดพลาดในการดึงข้อมูล: " + (error instanceof Error ? error.message : String(error)), "error");
-    } finally {
-      if (!redirected) setLoading(false);
-    }
-  };
+  const [lesson, setLesson] = useState<LessonRow | null>(null)
+  const [course, setCourse] = useState<Partial<CourseAllRow> | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<"test" | "asg">("test")
+  const [data, setData] = useState<ScoresBundleData>(EMPTY_DATA)
+  const [selectedSubmission, setSelectedSubmission] = useState<SelectedSubmission | null>(null)
 
   useEffect(() => {
-    if (status === "loading") return;
-    loadData();
-  }, [lessonId, status]);
+    if (status === "loading" || !lessonId) return
+    const load = async () => {
+      let redirected = false
+      try {
+        const { data: lData } = await supabase.from("lessons").select("*").eq("id", lessonId).single()
+        if (!lData) {
+          setLoading(false)
+          return
+        }
 
-  if (loading) return <Loading className="container p-5 text-center muted" />;
+        // courses_all, not the `courses` view: the view hides tutor sets.
+        const { data: cData } = lData.course_id ? await supabase.from("courses_all").select("*").eq("id", lData.course_id).single() : { data: null }
+        // tutor lessons have no pre/post scores: back to the tutor workspace
+        if (cData?.kind === "tutor") {
+          redirected = true
+          router.replace("/i/tutor/" + cData.id + "?lesson=" + lessonId)
+          return
+        }
+
+        const [qRes, aRes, subRes, tsRes, stRes, sgRes, secRes] = await Promise.all([
+          supabase.from("questions").select("*").eq("lesson_id", lessonId).order("no", { ascending: true }),
+          supabase.from("assignments").select("*").eq("lesson_id", lessonId),
+          supabase.from("submissions").select("*"),
+          supabase.from("test_scores").select("*").eq("lesson_id", lessonId),
+          supabase.from("users").select("*").eq("role", "student"),
+          supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
+          supabase.from("sections").select("*"),
+        ])
+
+        const assignmentIds = aRes.data?.map((a) => a.id) || []
+        const finalSubmissions = (subRes.data || []).filter((sub) => Boolean(sub.assignment_id && assignmentIds.includes(sub.assignment_id)))
+
+        setLesson(lData)
+        setCourse(cData || { code: "", title: "" })
+        setData({
+          questions: qRes.data || [],
+          assignments: aRes.data || [],
+          submissions: finalSubmissions,
+          testScores: tsRes.data || [],
+          students: stRes.data || [],
+          studentGrades: sgRes.data || [],
+          sectionsList: secRes?.data || [],
+        })
+      } catch (error: unknown) {
+        console.error(error)
+        toast.error("เกิดข้อผิดพลาดในการดึงข้อมูล: " + (error instanceof Error ? error.message : String(error)))
+      } finally {
+        if (!redirected) setLoading(false)
+      }
+    }
+    load()
+  }, [lessonId, status, router])
+
+  const enrolledStudents = useMemo(() => (course ? filterEnrolledStudents(data, course) : []), [data, course])
+  const enrolledScores = useMemo(() => {
+    const ids = enrolledStudents.map((s) => s.id)
+    return data.testScores.filter((ts) => Boolean(ts.student_id && ids.includes(ts.student_id)))
+  }, [data.testScores, enrolledStudents])
+
+  const testRows = useMemo<TestScoreItem[]>(
+    () =>
+      enrolledScores.map((r) => {
+        const s: StudentFallback = enrolledStudents.find((student) => student.id === r.student_id) || { name: "Unknown", student_no: "-", section: "-" }
+        return {
+          id: r.student_id ?? r.id,
+          name: s.name,
+          studentNo: s.student_no,
+          section: s.section || "-",
+          student: s,
+          record: r,
+          pre: r.pre,
+          post: r.post,
+          total: r.total,
+          diff: r.post != null && r.pre != null ? r.post - r.pre : null,
+        }
+      }),
+    [enrolledScores, enrolledStudents],
+  )
+
+  const asgRows = useMemo<AsgScoreItem[]>(
+    () =>
+      data.submissions.map((sub) => {
+        const s: StudentFallback = enrolledStudents.find((student) => student.id === sub.student_id) || { name: "Unknown", student_no: "-" }
+        const asg = data.assignments.find((a) => a.id === sub.assignment_id) || { title: "ใบงานประกอบบทเรียน" }
+        return { id: sub.id, name: s.name, studentNo: s.student_no, assignmentTitle: asg.title, status: sub.status, submittedAt: sub.submitted_at, sub }
+      }),
+    [data.submissions, data.assignments, enrolledStudents],
+  )
+
+  const testColumns = useMemo(() => testScoreColumns((item, kind) => setSelectedSubmission({ student: item.student, record: item.record, kind })), [])
+
+  if (loading) return <PageContainer><LoadingState /></PageContainer>
   if (!lesson || !course) {
     return (
-      <div className="container p-5">
-        <div className="card">
-          <div className="empty">
-            <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
-            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบบทเรียน</div>
-            <div className="t-sm muted">ไม่พบบทเรียนตามรหัสที่ระบุ หรือไม่มีอยู่ในฐานข้อมูลของบทเรียนนี้</div>
-          </div>
-        </div>
-      </div>
-    );
+      <PageContainer>
+        <EmptyState icon={<TriangleAlertIcon />} title="ไม่พบบทเรียน" description="ไม่พบบทเรียนตามรหัสที่ระบุ หรือไม่มีอยู่ในฐานข้อมูลของบทเรียนนี้" />
+      </PageContainer>
+    )
   }
 
-  // Filter students based on course restrictions
-  const courseSection = course.section;
-  const allowedYears = (course.year_level || []) as Array<number | string>;
-  const allowedEmails = parseCourseAccess(course.access).allowedEmails || [];
-  const gradesList = data.studentGrades || [];
-  const sectionsList = data.sectionsList || [];
-  
-  const enrolledStudents = data.students.filter(s => {
-    if (s.email && allowedEmails.includes(s.email)) {
-      return true;
-    }
-    if (courseSection && courseSection !== "ไม่ระบุ Section") {
-      const rangeMatch = sectionRangeMatch(s.student_no, courseSection, sectionsList);
-      if (rangeMatch === null) {
-        if (s.section !== courseSection) return false;
-      } else if (!rangeMatch) {
-        return false;
-      }
-    }
-    if (allowedYears.length > 0) {
-      const prefix = s.student_no ? s.student_no.substring(0, 2) : "";
-      const mapping = gradesList.find(g => g.prefix === prefix);
-      const studentLabel = mapping ? mapping.year_label : null;
-      const studentFallback = s.study_year ? Number(s.study_year) : null;
-      
-      const hasMatch = allowedYears.some(ay => {
-        if (typeof ay === 'number' || !isNaN(Number(ay))) {
-           return Number(ay) === studentFallback || ay == studentFallback;
-        }
-        return ay === studentLabel;
-      });
-
-      if (!hasMatch) {
-        return false;
-      }
-    }
-    return true;
-  });
-
-  const enrolledStudentIds = enrolledStudents.map(s => s.id);
-  const enrolledScores = data.testScores.filter(ts => Boolean(ts.student_id && enrolledStudentIds.includes(ts.student_id)));
-
-  const preTaken = enrolledScores.filter(ts => ts.pre !== null && ts.pre !== undefined).length;
-  const postTaken = enrolledScores.filter(ts => ts.post !== null && ts.post !== undefined).length;
-
-  const preVals = enrolledScores.map(ts => ts.pre).filter((v): v is number => v !== null && v !== undefined);
-  const avgPre = preVals.length > 0 ? (preVals.reduce((a, b) => a + b, 0) / preVals.length).toFixed(1) : "—";
-
-  const postVals = enrolledScores.map(ts => ts.post).filter((v): v is number => v !== null && v !== undefined);
-  const avgPost = postVals.length > 0 ? (postVals.reduce((a, b) => a + b, 0) / postVals.length).toFixed(1) : "—";
-
-  const statCards: Array<[string, string, string]> = [
-    ["ทำ Pre-test แล้ว", `${preTaken}/${enrolledStudents.length} คน`, "clipboard"],
-    ["ทำ Post-test แล้ว", `${postTaken}/${enrolledStudents.length} คน`, "checkC"],
-    ["คะแนนเฉลี่ย Pre-test", `${avgPre} คะแนน`, "chart"],
-    ["คะแนนเฉลี่ย Post-test", `${avgPost} คะแนน`, "chart"]
-  ];
-
-  // Export to Excel handler
-  const handleExportExcel = () => {
-    const exportData = enrolledStudents.map(s => {
-      const ts: Partial<TestScoreRow> = enrolledScores.find(ts => ts.student_id === s.id) || {};
-      const subList = data.submissions.filter(sub => sub.student_id === s.id);
-      
-      const row: Record<string, string | number> = {
-        "รหัสนักศึกษา": s.student_no || "-",
-        "ชื่อ-นามสกุล": s.name || "-",
-        "อีเมล": s.email || "-",
-        "Section": s.section || "-",
-        "Pre-test Score": ts.pre !== undefined && ts.pre !== null ? `${ts.pre}/${ts.total || 0}` : "ยังไม่ทำ",
-        "Post-test Score": ts.post !== undefined && ts.post !== null ? `${ts.post}/${ts.total || 0}` : "ยังไม่ทำ",
-        "พัฒนาการ": ts.post != null && ts.pre != null ? ts.post - ts.pre : "—"
-      };
-
-      // Add assignment scores dynamic columns
-      data.assignments.forEach((asg, idx) => {
-        const sub = subList.find(sub => sub.assignment_id === asg.id);
-        row[`ใบงาน: ${asg.title}`] = sub ? (sub.score !== null ? `${sub.score}/${sub.total}` : "ยังไม่ได้ตรวจ") : "ยังไม่ส่ง";
-      });
-
-      return row;
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "คะแนนนักศึกษา");
-    XLSX.writeFile(workbook, `คะแนน_${course.code}_บทที่_${lesson.index}.xlsx`);
-    toast("ส่งออกไฟล์คะแนนสำเร็จ", "success");
-  };
+  const total = enrolledStudents.length
+  const statCards = [
+    { label: "ทำ Pre-test แล้ว", value: `${enrolledScores.filter((ts) => ts.pre != null).length}/${total} คน`, icon: <ClipboardListIcon /> },
+    { label: "ทำ Post-test แล้ว", value: `${enrolledScores.filter((ts) => ts.post != null).length}/${total} คน`, icon: <CircleCheckIcon /> },
+    { label: "คะแนนเฉลี่ย Pre-test", value: `${average(enrolledScores.map((ts) => ts.pre))} คะแนน`, icon: <ChartColumnIcon /> },
+    { label: "คะแนนเฉลี่ย Post-test", value: `${average(enrolledScores.map((ts) => ts.post))} คะแนน`, icon: <ChartColumnIcon /> },
+  ]
 
   return (
-    <div className="container-wide">
-      <Crumb nav={nav} items={[
-        course.kind === "tutor" ? { label: "ชุดติว", to: "/i/tutor" } : { label: "รายวิชา", to: "/i/courses" },
-        { label: course.code || "", to: "/i/course/" + course.id },
-        { label: "บทที่ " + lesson.index, to: "/i/lesson/" + lesson.id },
-        { label: "คะแนนนักศึกษา" }
-      ]} />
-      
-      <PageHead 
-        kicker={`${course.code} · บทที่ ${lesson.index}`} 
-        title={`รายงานคะแนนนักศึกษา: ${lesson.title}`} 
-        right={
-          <div className="flex gap-2">
-            <button className="btn btn-outline" onClick={() => nav("/i/lesson/" + lesson.id)}>
-              <Icon name="arrL" size={16} />กลับสู่บทเรียน
-            </button>
-            <button className="btn btn-primary" onClick={handleExportExcel}>
-              <Icon name="download" size={16} />ส่งออกเป็น Excel
-            </button>
-          </div>
+    <PageContainer>
+      <PageHeader
+        kicker={`${course.code} · บทที่ ${lesson.index}`}
+        title={`รายงานคะแนนนักศึกษา: ${lesson.title}`}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => router.push("/i/lesson/" + lesson.id)}>
+              <ArrowLeftIcon />
+              กลับสู่บทเรียน
+            </Button>
+            <Button
+              onClick={() => {
+                exportScoresExcel({ enrolledStudents, enrolledScores, data, courseCode: course.code, lessonIndex: lesson.index })
+                toast.success("ส่งออกไฟล์คะแนนสำเร็จ")
+              }}
+            >
+              <DownloadIcon />
+              ส่งออกเป็น Excel
+            </Button>
+          </>
         }
       />
 
-      <div className="flex items-center justify-between mb-4 wrap gap-2">
-        <div className="tabs pill">
-          <button className={view === "test" ? "on" : ""} onClick={() => setView("test")}><Icon name="clipboard" size={15} /> คะแนน Pre/Post-test</button>
-          <button className={view === "asg" ? "on" : ""} onClick={() => setView("asg")}><Icon name="file" size={15} /> คะแนนใบงาน</button>
-        </div>
-      </div>
+      <Tabs value={view} onValueChange={(v) => setView(v as "test" | "asg")}>
+        <TabsList>
+          <TabsTrigger value="test">
+            <ClipboardListIcon />
+            คะแนน Pre/Post-test
+          </TabsTrigger>
+          <TabsTrigger value="asg">
+            <FileTextIcon />
+            คะแนนใบงาน
+          </TabsTrigger>
+        </TabsList>
 
-      {view === "test" ? (
-        <>
-          <div className="grid grid-4 gap-3 mb-4">
-            {statCards.map((s, i) => (
-              <div key={i} className="card card-p" style={{ padding: "16px 20px" }}>
-                <div className="t-xs muted flex items-center gap-1"><Icon name={s[2]} size={14} className="c-primary" />{s[0]}</div>
-                <div className="t-2xl fw-7 tnum mt-1">{s[1]}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="card">
-            <div className="card-h flex items-center justify-between">
-              <div className="title">ตารางคะแนนแบบทดสอบ</div>
-              <div className="desc">แสดงคะแนนการทำแบบทดสอบก่อนเรียนและหลังเรียนของนักศึกษาที่มีสิทธิ์ในรายวิชา</div>
-            </div>
-            <Table<TestScoreRow>
-              className="table"
-              headers={[
-                "นักศึกษา",
-                <span className="hide-m" key="sec">Section</span>,
-                "Pre-test",
-                "Post-test",
-                "พัฒนาการ"
-              ]}
-              data={enrolledScores}
-              colSpan={5}
-              renderRow={(r) => {
-                const s: StudentFallback = enrolledStudents.find(student => student.id === r.student_id) || { name: "Unknown", student_no: "-", section: "-" };
-                const diff = r.post != null && r.pre != null ? r.post - r.pre : null;
-                return (
-                  <tr key={r.student_id ?? r.id}>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <Avatar name={s.name} size={28} />
-                        <div>
-                          <div className="fw-6 t-sm">{s.name}</div>
-                          <div className="t-xs muted">{s.student_no}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="hide-m"><Badge tone="outline">{s.section || "-"}</Badge></td>
-                    <td>
-                      {r.pre != null ? (
-                        <button
-                          onClick={() => setSelectedSubmission({ student: s, record: r, kind: "pre" })}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            padding: 0,
-                            font: "inherit",
-                            cursor: "pointer",
-                            color: "var(--primary)",
-                            fontWeight: 600,
-                            textDecoration: "underline"
-                          }}
-                        >
-                          {r.pre}/{r.total}
-                        </button>
-                      ) : (
-                        <span className="muted t-sm">ยังไม่ทำ</span>
-                      )}
-                    </td>
-                    <td>
-                      {r.post != null ? (
-                        <button
-                          onClick={() => setSelectedSubmission({ student: s, record: r, kind: "post" })}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            padding: 0,
-                            font: "inherit",
-                            cursor: "pointer",
-                            color: "var(--primary)",
-                            fontWeight: 600,
-                            textDecoration: "underline"
-                          }}
-                        >
-                          {r.post}/{r.total}
-                        </button>
-                      ) : (
-                        <span className="muted t-sm">ยังไม่ทำ</span>
-                      )}
-                    </td>
-                    <td>{diff != null ? <Badge tone={diff > 0 ? "success" : "muted"} dot>{diff > 0 ? "+" : ""}{diff}</Badge> : <span className="muted t-sm">—</span>}</td>
-                  </tr>
-                );
-              }}
-            />
-          </div>
-
+        <TabsContent value="test">
+          <ScoreStatCards items={statCards} />
+          <h2 className="text-base font-bold">ตารางคะแนนแบบทดสอบ</h2>
+          <p className="mb-3 text-sm text-muted-foreground">แสดงคะแนนการทำแบบทดสอบก่อนเรียนและหลังเรียนของนักศึกษาที่มีสิทธิ์ในรายวิชา</p>
+          <DataTable.Root data={testRows} columns={testColumns} getRowId={(r: TestScoreItem) => r.id} searchKeys={["name", "studentNo"]}>
+            <DataTable.Toolbar>
+              <DataTable.Search placeholder="ค้นหานักศึกษา..." />
+            </DataTable.Toolbar>
+            <DataTable.Content empty={<EmptyState title="ยังไม่มีข้อมูลคะแนน" />} />
+            <DataTable.Pagination />
+          </DataTable.Root>
           {selectedSubmission && (
-            <Dialog
-              title={`รายละเอียดคำตอบ: ${selectedSubmission.student.name}`}
-              desc={`แบบทดสอบ${selectedSubmission.kind === "pre" ? "ก่อนเรียน (Pre-test)" : "หลังเรียน (Post-test)"} · บทที่ ${lesson.index}`}
-              onClose={() => setSelectedSubmission(null)}
-              lg
-            >
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {/* Header info */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--muted)", padding: "12px 18px", borderRadius: 12, border: "1px solid var(--border)" }}>
-                  <div>
-                    <div style={{ fontSize: 13, color: "var(--subtle)" }}>รหัสนักศึกษา</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--fg)" }}>{selectedSubmission.student.student_no}</div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 13, color: "var(--subtle)" }}>คะแนนที่ได้</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "var(--primary)" }}>
-                      {selectedSubmission.kind === "pre" ? selectedSubmission.record.pre : selectedSubmission.record.post} / {selectedSubmission.record.total}
-                    </div>
-                  </div>
-                </div>
-
-                {/* List of answers */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 16, maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}>
-                  {(() => {
-                    const rawAnswers = selectedSubmission.kind === "pre" ? selectedSubmission.record.pre_answers : selectedSubmission.record.post_answers;
-                    const studentAnswers = (rawAnswers && typeof rawAnswers === "object" && !Array.isArray(rawAnswers) ? rawAnswers : null) as Record<string, string | undefined> | null;
-                    const filteredQs = data.questions.filter(q => q.kind === selectedSubmission.kind);
-
-                    if (!studentAnswers || Object.keys(studentAnswers).length === 0) {
-                      return (
-                        <div style={{ padding: "32px 16px", textBreak: "pretty", textAlign: "center", color: "var(--muted-fg)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 } as React.CSSProperties}>
-                          <Icon name="alert" size={32} style={{ color: "var(--warning)" }} />
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 14.5, color: "var(--fg)" }}>ไม่พบประวัติการเลือกคำตอบรายข้อ</div>
-                            <div style={{ fontSize: 12.5, marginTop: 4 }}>นักศึกษาอาจจะทำแบบทดสอบก่อนที่จะมีการอัปเดตระบบบันทบัติ หรือข้อมูลไม่ได้ถูกจัดเก็บแบบละเอียด</div>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    return filteredQs.map((q, idx) => {
-                      const studentChoiceId = studentAnswers[q.id];
-                      const isCorrect = studentChoiceId === q.answer;
-
-                      return (
-                        <div key={q.id} style={{ padding: 16, border: "1px solid var(--border)", borderRadius: 12, background: "var(--card)" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
-                            <div style={{ display: "flex", gap: 8, fontSize: 14, fontWeight: 700, color: "var(--fg)" }}>
-                              <span>{idx + 1}.</span>
-                              <span style={{ lineHeight: 1.5 }}>{q.text}</span>
-                            </div>
-                            <Badge tone={isCorrect ? "success" : "danger"} dot>
-                              {isCorrect ? "ถูกต้อง" : "ไม่ถูกต้อง"}
-                            </Badge>
-                          </div>
-
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 16 }}>
-                            {(Array.isArray(q.choices) ? (q.choices as unknown as ChoiceItem[]) : []).map((choice) => {
-                              const isSelected = studentChoiceId === choice.id;
-                              const isAnswerKey = q.answer === choice.id;
-
-                              const choiceStyle: React.CSSProperties = {
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 10,
-                                padding: "8px 12px",
-                                borderRadius: 8,
-                                fontSize: 13,
-                                border: "1px solid var(--border)",
-                                background: "transparent"
-                              };
-
-                              if (isAnswerKey) {
-                                choiceStyle.background = "var(--success-soft)";
-                                choiceStyle.borderColor = "var(--success)";
-                              } else if (isSelected && !isCorrect) {
-                                choiceStyle.background = "var(--danger-soft)";
-                                choiceStyle.borderColor = "var(--danger)";
-                              }
-
-                              return (
-                                <div key={choice.id} style={choiceStyle}>
-                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", border: "2px solid " + (isSelected ? "var(--primary)" : "var(--subtle)"), background: isSelected ? "var(--primary)" : "transparent" }}>
-                                    {isSelected && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
-                                  </div>
-                                  <span style={{ color: isAnswerKey ? "var(--success-dark)" : (isSelected && !isCorrect) ? "var(--danger-dark)" : "var(--fg)" }}>
-                                    {choice.text}
-                                  </span>
-                                  {isAnswerKey && (
-                                    <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#10b981", display: "flex", alignItems: "center", gap: 3 }}>
-                                      <Icon name="check" size={10} /> คำตอบที่ถูกต้อง
-                                    </span>
-                                  )}
-                                  {isSelected && !isCorrect && (
-                                    <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#ef4444", display: "flex", alignItems: "center", gap: 3 }}>
-                                      <Icon name="x" size={10} /> คำตอบของนักศึกษา
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-            </Dialog>
+            <AnswerReviewDialog {...selectedSubmission} questions={data.questions} lessonIndex={lesson.index} onClose={() => setSelectedSubmission(null)} />
           )}
-        </>
-      ) : (
-        <div className="card">
-          <div className="card-h flex items-center justify-between">
-            <div className="title">รายการส่งใบงานนักศึกษา</div>
-            <div className="desc">แสดงรายการส่งใบงานและคะแนนของนักศึกษาที่มีสิทธิ์ในรายวิชา</div>
-          </div>
-          <Table<SubmissionRow>
-            className="table"
-            headers={[
-              "นักศึกษา",
-              "ใบงาน",
-              "สถานะ",
-              <span className="hide-m" key="sentAt">ส่งเมื่อ</span>,
-              "คะแนน"
-            ]}
-            data={data.submissions}
-            colSpan={5}
-            renderRow={(sub) => {
-              const s: StudentFallback = enrolledStudents.find(student => student.id === sub.student_id) || { name: "Unknown", student_no: "-" };
-              const asg = data.assignments.find(a => a.id === sub.assignment_id) || { title: "ใบงานประกอบบทเรียน" };
-              return (
-                <tr key={sub.id}>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <Avatar name={s.name} size={26} />
-                      <div>
-                        <div className="fw-6 t-sm">{s.name}</div>
-                        <div className="t-xs muted">{s.student_no}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span className="t-sm fw-5">{asg.title}</span></td>
-                  <td>{statusBadge(sub.status)}</td>
-                  <td className="hide-m muted t-sm">{sub.submitted_at || "—"}</td>
-                  <td>{sub.score != null ? <span className="num fw-6">{sub.score}/{sub.total}</span> : <span className="muted t-sm">—</span>}</td>
-                </tr>
-              );
-            }}
-          />
-        </div>
-      )}
-    </div>
-  );
+        </TabsContent>
+
+        <TabsContent value="asg">
+          <h2 className="text-base font-bold">รายการส่งใบงานนักศึกษา</h2>
+          <p className="mb-3 text-sm text-muted-foreground">แสดงรายการส่งใบงานและคะแนนของนักศึกษาที่มีสิทธิ์ในรายวิชา</p>
+          <DataTable.Root data={asgRows} columns={asgScoreColumns} getRowId={(r: AsgScoreItem) => r.id} searchKeys={["name", "studentNo", "assignmentTitle"]}>
+            <DataTable.Toolbar>
+              <DataTable.Search placeholder="ค้นหานักศึกษา หรือใบงาน..." />
+            </DataTable.Toolbar>
+            <DataTable.Content empty={<EmptyState title="ยังไม่มีการส่งใบงาน" />} />
+            <DataTable.Pagination />
+          </DataTable.Root>
+        </TabsContent>
+      </Tabs>
+    </PageContainer>
+  )
 }
 
 export default function LessonScoresPage() {
   return (
-    <Suspense fallback={<Loading className="container p-5 text-center muted" />}>
+    <Suspense fallback={<PageContainer><LoadingState /></PageContainer>}>
       <ScoresContent />
     </Suspense>
-  );
+  )
 }

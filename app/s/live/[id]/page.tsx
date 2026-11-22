@@ -5,10 +5,10 @@ import { createPortal } from "react-dom";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useLiveSession } from "@/lib/hooks";
-import { PlayerQuestion, type PlayerQuestionState } from "@/components/live/PlayerQuestion";
-import { PlayerReveal, type PlayerRevealState } from "@/components/live/PlayerReveal";
-import { PlayerLeaderboard, type PlayerLeaderboardState } from "@/components/live/PlayerLeaderboard";
-import { PlayerEnded, type PlayerEndedState } from "@/components/live/PlayerEnded";
+import { PlayerQuestion, type PlayerQuestionState } from "@/components/live/player-question";
+import { PlayerReveal, type PlayerRevealState } from "@/components/live/player-reveal";
+import { PlayerLeaderboard, type PlayerLeaderboardState } from "@/components/live/player-leaderboard";
+import { PlayerEnded, type PlayerEndedState } from "@/components/live/player-ended";
 import * as sound from "@/lib/live-sound";
 import { bg, assetExists } from "@/lib/live-assets";
 

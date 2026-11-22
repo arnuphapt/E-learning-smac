@@ -1,16 +1,14 @@
 "use client"
 
-import { InfoIcon } from "lucide-react"
 import { FormField } from "@/components/common/form-field"
 import { ManagerSelect, type UserRow } from "@/components/common/manager-select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
 import type { CourseDraft, SectionRow, SubjectGroupRow, TermRow } from "./draft"
+import { SectionSelect } from "./section-select"
+import { YearLevelPicker } from "./year-level-picker"
 
 const NONE = "__none__"
 
@@ -37,15 +35,6 @@ export function CourseInfoCard({
   instructors: UserRow[]
   yearLabels: string[]
 }) {
-  const sectionsByYear = Object.entries(
-    sections.reduce<Record<string, SectionRow[]>>((acc, s) => {
-      const y = s.year_level || "ไม่ระบุชั้นปี"
-      if (!acc[y]) acc[y] = []
-      acc[y].push(s)
-      return acc
-    }, {}),
-  ).sort(([a], [b]) => a.localeCompare(b, "th"))
-
   return (
     <Card>
       <CardHeader>
@@ -119,24 +108,7 @@ export function CourseInfoCard({
                 </SelectTrigger>
               </Select>
             ) : (
-              <Select value={draft.section || NONE} onValueChange={(v) => onChange({ section: v === NONE ? "" : v })}>
-                <SelectTrigger id="course-section" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>ไม่ระบุ Section</SelectItem>
-                  {sectionsByYear.map(([year, secs]) => (
-                    <SelectGroup key={year}>
-                      <SelectLabel>{year}</SelectLabel>
-                      {secs.map((s) => (
-                        <SelectItem key={s.id} value={s.name ?? ""}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SectionSelect id="course-section" value={draft.section} onChange={(v) => onChange({ section: v })} sections={sections} />
             )}
           </FormField>
         </div>
@@ -166,41 +138,12 @@ export function CourseInfoCard({
             placeholder="เลือกอาจารย์ผู้สอนร่วม..."
           />
         </FormField>
-        <fieldset className="grid gap-2">
-          <legend className="mb-2 text-sm font-medium">
-            ชั้นปีที่เข้าถึงได้ <span className="font-normal text-muted-foreground">(ไม่เลือก = ทุกชั้นปี)</span>
-          </legend>
-          <div className="flex flex-wrap items-center gap-3">
-            {yearLabels.length === 0 ? (
-              <span className="text-sm text-muted-foreground">กำลังโหลดข้อมูลชั้นปี... หรือไม่มีข้อมูลชั้นปีในระบบ</span>
-            ) : (
-              yearLabels.map((yrLabel) => {
-                const checked = draft.yearLevels.includes(yrLabel)
-                const inputId = "year-level-" + String(yrLabel).replace(/\s+/g, "-")
-                return (
-                  <Label
-                    key={yrLabel}
-                    htmlFor={inputId}
-                    className={cn("min-h-10 cursor-pointer rounded-lg border px-3.5 py-2", checked ? "border-primary bg-primary-soft font-bold text-primary-soft-foreground" : "font-normal")}
-                  >
-                    <Checkbox
-                      id={inputId}
-                      checked={checked}
-                      onCheckedChange={() => onChange({ yearLevels: checked ? draft.yearLevels.filter((y) => y !== yrLabel) : [...draft.yearLevels, yrLabel].sort() })}
-                    />
-                    {yrLabel}
-                  </Label>
-                )
-              })
-            )}
-          </div>
-          {draft.yearLevels.length === 0 && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <InfoIcon className="size-3.5" />
-              นักศึกษาทุกชั้นปีจะมองเห็นรายวิชานี้
-            </p>
-          )}
-        </fieldset>
+        <YearLevelPicker
+          labels={yearLabels}
+          isChecked={(l) => draft.yearLevels.includes(l)}
+          anyChecked={draft.yearLevels.length > 0}
+          onToggle={(l) => onChange({ yearLevels: draft.yearLevels.includes(l) ? draft.yearLevels.filter((y) => y !== l) : [...draft.yearLevels, l].sort() })}
+        />
       </CardContent>
     </Card>
   )

@@ -6,7 +6,7 @@ import RawIcon from "@/components/ui/Icon";
 import { Crumb as RawCrumb } from "@/components/ui/Shared";
 import Loading from "@/components/ui/Loading";
 import { STATUS_LABEL, PASS_PERCENT, STRONG_PERCENT, type AnalysisStatus, type AnalysisSummary } from "@/lib/tutor-analysis";
-import AskAi from "@/components/tutor/AskAi";
+import { AskAi } from "@/components/tutor/ask-ai";
 
 interface TutorSummary {
   overview: string;

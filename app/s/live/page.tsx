@@ -3,7 +3,7 @@
 import React, { useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { PageHead as RawPageHead } from "@/components/ui/Shared";
-import StudentQuizHistory from "@/components/live/StudentQuizHistory";
+import StudentQuizHistory from "@/components/live/student-quiz-history";
 
 const PageHead = RawPageHead as unknown as ComponentType<{
   kicker?: string;

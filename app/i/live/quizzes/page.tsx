@@ -1,48 +1,19 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
-import type { Database } from "@/lib/database.types";
+import { Loader2Icon, LibraryBigIcon, PlusIcon } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { validateQuiz, type QuizValidationResult } from "@/lib/live";
-import RawIcon from "@/components/ui/Icon";
-import RawLoading from "@/components/ui/Loading";
-import { toast } from "@/components/ui/Toast";
-
-interface IconProps {
-  name: string;
-  size?: number;
-  sw?: number;
-  fill?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
-interface LoadingProps {
-  text?: string;
-  fullHeight?: boolean;
-  className?: string;
-}
-
-const Icon = RawIcon as unknown as React.ComponentType<IconProps>;
-const Loading = RawLoading as unknown as React.ComponentType<LoadingProps>;
-
-type LiveQuizRow = Pick<
-  Database["public"]["Tables"]["live_quizzes"]["Row"],
-  "id" | "title" | "created_at" | "updated_at"
->;
-
-type LiveQuizQuestionRow = Pick<
-  Database["public"]["Tables"]["live_quiz_questions"]["Row"],
-  "id" | "no" | "text" | "choices" | "answer" | "time_limit_sec"
->;
-
-interface FormattedLiveQuiz extends LiveQuizRow {
-  questions: LiveQuizQuestionRow[];
-  validation: QuizValidationResult;
-}
+import { validateQuiz } from "@/lib/live";
+import { PageContainer } from "@/components/common/page-container";
+import { PageHeader } from "@/components/common/page-header";
+import { DataTable } from "@/components/common/data-table";
+import { EmptyState } from "@/components/common/states";
+import { useConfirm } from "@/components/common/confirm";
+import { Button } from "@/components/ui/button";
+import { quizColumns, type FormattedLiveQuiz } from "@/components/live/quiz-columns";
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -55,13 +26,14 @@ function getErrorMessage(err: unknown): string {
 
 export default function InstructorLiveQuizzesPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const { data: session, status } = useSession();
   const user = session?.user;
+  const userId = user?.id;
 
-  const [quizzes, setQuizzes] = useState<FormattedLiveQuiz[] | null>(null);
+  const [quizzes, setQuizzes] = useState<FormattedLiveQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [quizToDelete, setQuizToDelete] = useState<FormattedLiveQuiz | null>(null);
 
   const fetchQuizzes = useCallback(async () => {
     if (!user?.id) return;
@@ -99,7 +71,7 @@ export default function InstructorLiveQuizzesPage() {
       setQuizzes(formatted);
     } catch (err: unknown) {
       console.error("Error fetching live quizzes:", err);
-      toast("เกิดข้อผิดพลาดในการโหลดชุดควิซ: " + getErrorMessage(err), "error");
+      toast.error("เกิดข้อผิดพลาดในการโหลดชุดควิซ: " + getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -107,10 +79,7 @@ export default function InstructorLiveQuizzesPage() {
 
   useEffect(() => {
     if (status === "loading") return;
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
     fetchQuizzes();
   }, [user, status, fetchQuizzes]);
 
@@ -126,17 +95,17 @@ export default function InstructorLiveQuizzesPage() {
 
       if (error) throw error;
 
-      toast("สร้างชุดควิซใหม่แล้ว", "success");
+      toast.success("สร้างชุดควิซใหม่แล้ว");
       router.push(`/i/live/quizzes/${data.id}`);
     } catch (err: unknown) {
       console.error("Error creating quiz:", err);
-      toast("ไม่สามารถสร้างชุดควิซได้: " + getErrorMessage(err), "error");
+      toast.error("ไม่สามารถสร้างชุดควิซได้: " + getErrorMessage(err));
       setActionLoading(false);
     }
   };
 
-  const handleDuplicate = async (quiz: FormattedLiveQuiz) => {
-    if (!user?.id || actionLoading) return;
+  const handleDuplicate = useCallback(async (quiz: FormattedLiveQuiz) => {
+    if (!userId || actionLoading) return;
     setActionLoading(true);
     try {
       const { data: newQuiz, error: insertError } = await supabase
@@ -144,7 +113,7 @@ export default function InstructorLiveQuizzesPage() {
         .insert([
           {
             title: `${quiz.title} (สำเนา)`,
-            owner_id: user.id,
+            owner_id: userId,
           },
         ])
         .select("id")
@@ -170,244 +139,73 @@ export default function InstructorLiveQuizzesPage() {
         if (qError) throw qError;
       }
 
-      toast("คัดลอกชุดควิซสำเร็จ", "success");
+      toast.success("คัดลอกชุดควิซสำเร็จ");
       await fetchQuizzes();
     } catch (err: unknown) {
       console.error("Error duplicating quiz:", err);
-      toast("ไม่สามารถคัดลอกชุดควิซได้: " + getErrorMessage(err), "error");
+      toast.error("ไม่สามารถคัดลอกชุดควิซได้: " + getErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
-  };
+  }, [userId, actionLoading, fetchQuizzes]);
 
-  const confirmDelete = async () => {
-    if (!quizToDelete || actionLoading) return;
+  const handleDelete = useCallback(async (quiz: FormattedLiveQuiz) => {
+    if (actionLoading) return;
+    const ok = await confirm({
+      danger: true,
+      title: "ยืนยันการลบชุดควิซ",
+      message: `คุณต้องการลบชุดควิซ “${quiz.title}” ใช่หรือไม่? คำถามทั้งหมดในชุดนี้จะถูกลบด้วยและไม่สามารถกู้คืนได้`,
+      confirmText: "ลบชุดควิซ",
+    });
+    if (!ok) return;
     setActionLoading(true);
     try {
       const { error } = await supabase
         .from("live_quizzes")
         .delete()
-        .eq("id", quizToDelete.id);
+        .eq("id", quiz.id);
 
       if (error) throw error;
 
-      toast("ลบชุดควิซสำเร็จ", "success");
-      setQuizToDelete(null);
+      toast.success("ลบชุดควิซสำเร็จ");
       await fetchQuizzes();
     } catch (err: unknown) {
       console.error("Error deleting quiz:", err);
-      toast("ไม่สามารถลบชุดควิซได้: " + getErrorMessage(err), "error");
+      toast.error("ไม่สามารถลบชุดควิซได้: " + getErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
-  };
+  }, [actionLoading, confirm, fetchQuizzes]);
 
-  if (loading || status === "loading") {
-    return <Loading className="container p-5 text-center muted" />;
-  }
+  const columns = useMemo(() => quizColumns(handleDuplicate, handleDelete, actionLoading), [handleDuplicate, handleDelete, actionLoading]);
+
+  const createButton = (
+    <Button onClick={handleCreate} disabled={actionLoading}>
+      {actionLoading ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
+      สร้างชุดควิซ
+    </Button>
+  );
 
   return (
-    <div className="container">
-      {/* Header section */}
-      <div className="flex wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="t-2xl fw-7 fg mb-1">ควิซสด</h1>
-          <p className="t-sm muted">
-            จัดการชุดคำถามสำหรับเปิดห้องแข่งขันสดในห้องเรียน
-          </p>
-        </div>
-        <div>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleCreate}
-            disabled={actionLoading}
-          >
-            <Icon name={actionLoading ? "loader" : "plus"} size={16} className={actionLoading ? "spin" : ""} />
-            <span>สร้างชุดควิซ</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      {quizzes && quizzes.length === 0 ? (
-        <div className="card">
-          <div className="empty">
-            <div className="ec">
-              <Icon name="help" size={26} />
-            </div>
-            <div className="t-lg fw-6 fg">ยังไม่มีชุดควิซ</div>
-            <p className="t-sm muted pretty" style={{ maxWidth: 420, margin: 0 }}>
-              สร้างชุดควิซใหม่เพื่อเริ่มเพิ่มคำถาม ตัวเลือก และกำหนดเวลาสำหรับการเปิดห้องแข่งขันสด
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary mt-2"
-              onClick={handleCreate}
-              disabled={actionLoading}
-            >
-              <Icon name={actionLoading ? "loader" : "plus"} size={16} className={actionLoading ? "spin" : ""} />
-              <span>สร้างชุดควิซใหม่</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex col gap-3">
-          {quizzes?.map((quiz) => {
-            const isReady = quiz.validation?.ok;
-            const notReadyReason = quiz.validation?.problems?.[0]?.reason;
-            const questionCount = quiz.questions?.length || 0;
-
-            return (
-              <div
-                key={quiz.id}
-                className="card card-p flex wrap items-center justify-between gap-4"
-              >
-                {/* Quiz Info */}
-                <div className="flex-1" style={{ minWidth: 260 }}>
-                  <div className="flex wrap items-center gap-2 mb-2">
-                    <h2 className="t-base fw-6 fg truncate" style={{ margin: 0 }}>
-                      {quiz.title}
-                    </h2>
-                    {isReady ? (
-                      <span className="badge badge-success">
-                        <Icon name="check" size={12} />
-                        พร้อม
-                      </span>
-                    ) : (
-                      <span
-                        className="badge badge-warning"
-                        title={notReadyReason}
-                      >
-                        <Icon name="alert" size={12} />
-                        ยังไม่พร้อม{notReadyReason ? `: ${notReadyReason}` : ""}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex wrap items-center gap-3 t-xs muted">
-                    <span className="flex items-center gap-1">
-                      <Icon name="list" size={13} />
-                      {questionCount} คำถาม
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Icon name="clock" size={13} />
-                      แก้ไขเมื่อ {new Date(quiz.updated_at).toLocaleDateString("th-TH", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex wrap items-center gap-2">
-                  {isReady && (
-                    <Link
-                      href={`/i/live?quiz=${quiz.id}`}
-                      className="btn btn-primary btn-sm"
-                    >
-                      <Icon name="play" size={14} />
-                      <span>เปิดห้อง</span>
-                    </Link>
-                  )}
-
-                  <Link
-                    href={`/i/live/quizzes/${quiz.id}`}
-                    className="btn btn-outline btn-sm"
-                  >
-                    <Icon name="edit" size={14} />
-                    <span>แก้ไข</span>
-                  </Link>
-
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => handleDuplicate(quiz)}
-                    disabled={actionLoading}
-                    title="คัดลอกชุดควิซนี้"
-                  >
-                    <Icon name="copy" size={14} />
-                    <span>คัดลอก</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm c-danger"
-                    onClick={() => setQuizToDelete(quiz)}
-                    disabled={actionLoading}
-                    title="ลบชุดควิซ"
-                  >
-                    <Icon name="trash" size={14} />
-                    <span>ลบ</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Confirm Delete Dialog */}
-      {quizToDelete && (
-        <div
-          className="overlay"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => !actionLoading && setQuizToDelete(null)}
-        >
-          <div
-            className="dialog card-p"
-            style={{ maxWidth: 440 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "var(--radius-sm)",
-                  background: "var(--danger-soft)",
-                  color: "var(--danger)",
-                  display: "grid",
-                  placeItems: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <Icon name="trash" size={20} />
-              </div>
-              <h3 className="t-lg fw-6 fg" style={{ margin: 0 }}>ยืนยันการลบชุดควิซ</h3>
-            </div>
-
-            <p className="t-sm muted lead mb-6" style={{ margin: "0 0 24px" }}>
-              คุณต้องการลบชุดควิซ <span className="fw-6 fg">“{quizToDelete.title}”</span> ใช่หรือไม่? คำถามทั้งหมดในชุดนี้จะถูกลบด้วยและไม่สามารถกู้คืนได้
-            </p>
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => setQuizToDelete(null)}
-                disabled={actionLoading}
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={confirmDelete}
-                disabled={actionLoading}
-              >
-                <Icon name={actionLoading ? "loader" : "trash"} size={15} className={actionLoading ? "spin" : ""} />
-                <span>ลบชุดควิซ</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <PageContainer>
+      <PageHeader title="ควิซสด" description="จัดการชุดคำถามสำหรับเปิดห้องแข่งขันสดในห้องเรียน" />
+      <DataTable.Root data={quizzes} columns={columns} getRowId={(r: FormattedLiveQuiz) => r.id} searchKeys={["title"]}>
+        <DataTable.Toolbar>
+          <DataTable.Search placeholder="ค้นหาชื่อชุดควิซ" />
+          <DataTable.Actions>{createButton}</DataTable.Actions>
+        </DataTable.Toolbar>
+        <DataTable.Content
+          loading={(loading && !!user) || status === "loading"}
+          empty={
+            <EmptyState
+              icon={<LibraryBigIcon />}
+              title="ยังไม่มีชุดควิซ"
+              description="สร้างชุดควิซใหม่เพื่อเริ่มเพิ่มคำถาม ตัวเลือก และกำหนดเวลาสำหรับการเปิดห้องแข่งขันสด"
+            />
+          }
+        />
+        <DataTable.Pagination />
+      </DataTable.Root>
+    </PageContainer>
   );
 }

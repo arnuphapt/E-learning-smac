@@ -1,179 +1,50 @@
-"use client";
+"use client"
 
-import React, { useState, useEffect, useCallback, type ComponentType } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { normalizeTopic, findTopic, bankWarning, parseDrawCount } from "@/lib/tutor-bank";
-import { uniqueChoiceId } from "@/lib/questions";
-import type { Database, Json } from "@/lib/database.types";
-import type { ImportedQuestionRow } from "@/lib/tutor-import";
-import RawIcon from "@/components/ui/Icon";
-import { Badge as RawBadge, Dialog as RawDialog } from "@/components/ui/Primitives";
-import { Crumb as RawCrumb } from "@/components/ui/Shared";
-import Loading from "@/components/ui/Loading";
-import { toast } from "@/components/ui/Toast";
-import { useConfirm as rawUseConfirm } from "@/components/ui/ConfirmDialog";
-import BankImport from "@/components/tutor/BankImport";
+import { useCallback, useEffect, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { ArrowLeftIcon, ClipboardListIcon, FileSpreadsheetIcon, PlusIcon, TriangleAlertIcon } from "lucide-react"
+import { supabase } from "@/lib/supabase"
+import { normalizeTopic, findTopic, bankWarning, parseDrawCount } from "@/lib/tutor-bank"
+import type { Database, Json } from "@/lib/database.types"
+import type { ImportedQuestionRow } from "@/lib/tutor-import"
+import { PageContainer } from "@/components/common/page-container"
+import { PageHeader } from "@/components/common/page-header"
+import { EmptyState, LoadingState } from "@/components/common/states"
+import { useConfirm } from "@/components/common/confirm"
+import { Button } from "@/components/ui/button"
+import { BankImport } from "@/components/tutor/bank-import"
+import { BankDrawCard } from "@/components/tutor/bank-draw-card"
+import { BankQuestionCard, parseBankChoices } from "@/components/tutor/bank-question-card"
+import { BankQuestionDialog, blankQuestion, type QuestionForm } from "@/components/tutor/bank-question-dialog"
 
-type LessonRow = Database["public"]["Tables"]["lessons"]["Row"];
-type CourseAllRow = Database["public"]["Tables"]["courses_all"]["Row"];
-type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
-type TutorTopicRow = Database["public"]["Tables"]["tutor_topics"]["Row"];
-
-interface ChoiceItem {
-  id: string;
-  text: string;
-}
-
-interface QuestionForm {
-  id: string | null;
-  text: string;
-  choices: ChoiceItem[];
-  answer: string;
-  explanation: string;
-  topicName: string;
-}
+type LessonRow = Database["public"]["Tables"]["lessons"]["Row"]
+type CourseAllRow = Database["public"]["Tables"]["courses_all"]["Row"]
+type QuestionRow = Database["public"]["Tables"]["questions"]["Row"]
+type TutorTopicRow = Database["public"]["Tables"]["tutor_topics"]["Row"]
 
 interface BankState {
-  loading: boolean;
-  lesson: LessonRow | null;
-  course: CourseAllRow | null;
-  questions: QuestionRow[];
-  topics: TutorTopicRow[];
+  loading: boolean
+  lesson: LessonRow | null
+  course: CourseAllRow | null
+  questions: QuestionRow[]
+  topics: TutorTopicRow[]
 }
 
-type ConfirmFn = (opts: {
-  title?: string;
-  desc?: string;
-  message?: string;
-  danger?: boolean;
-  cancelText?: string;
-  confirmText?: string;
-}) => Promise<boolean>;
-
-const Icon = RawIcon as unknown as ComponentType<{
-  name: string;
-  size?: number;
-  sw?: number;
-  fill?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}>;
-const Badge = RawBadge as unknown as ComponentType<{
-  children?: React.ReactNode;
-  tone?: string;
-  dot?: boolean;
-}>;
-const Dialog = RawDialog as unknown as ComponentType<{
-  open?: boolean;
-  title?: string;
-  desc?: string;
-  children?: React.ReactNode;
-  footer?: React.ReactNode;
-  onClose?: () => void;
-  lg?: boolean;
-}>;
-const Crumb = RawCrumb as unknown as ComponentType<{
-  items?: Array<{ label: string; to?: string; onClick?: () => void }>;
-  nav?: (path: string) => void;
-}>;
-const useConfirm = rawUseConfirm as unknown as () => ConfirmFn;
-
-const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
-
-function parseChoices(raw: Json | null | undefined): ChoiceItem[] {
-  if (!Array.isArray(raw)) return [];
-  return raw as unknown as ChoiceItem[];
-}
-
-const blankQuestion = (): QuestionForm => ({
-  id: null,
-  text: "",
-  choices: [{ id: "a", text: "" }, { id: "b", text: "" }],
-  answer: "a",
-  explanation: "",
-  topicName: "",
-});
-
-function QuestionEditor({
-  q,
-  topics,
-  onClose,
-  onSave,
-}: {
-  q: QuestionForm;
-  topics: TutorTopicRow[];
-  onClose: () => void;
-  onSave: (q: QuestionForm) => Promise<void>;
-}) {
-  const [text, setText] = useState(q.text);
-  const [choices, setChoices] = useState(q.choices);
-  const [answer, setAnswer] = useState(q.answer);
-  const [explanation, setExplanation] = useState(q.explanation);
-  const [topicName, setTopicName] = useState(q.topicName);
-  const [saving, setSaving] = useState(false);
-
-  const setC = (id: string, v: string) => setChoices((cs) => cs.map((c) => (c.id === id ? { ...c, text: v } : c)));
-  const addC = () => setChoices((cs) => [...cs, { id: uniqueChoiceId(), text: "" }]);
-  // Ids are never re-lettered and never reused (uniqueChoiceId): tutor_answers.chosen and the settled result store them and
-  // the review reads the choices live. Labels A, B, C... below are by position. Deleting the current answer leaves none
-  // selected (submit asks for a new pick).
-  const removeC = (id: string) => {
-    setChoices(choices.filter((c) => c.id !== id));
-    if (answer === id) setAnswer("");
-  };
-
-  const submit = async () => {
-    if (!text.trim()) return toast("กรุณาพิมพ์โจทย์คำถาม", "error");
-    if (choices.some((c) => !c.text.trim())) return toast("กรุณากรอกตัวเลือกให้ครบทุกข้อ", "error");
-    if (!choices.some((c) => c.id === answer)) return toast("กรุณาเลือกคำตอบที่ถูกต้อง", "error");
-    setSaving(true);
-    await onSave({ ...q, text: text.trim(), choices, answer, explanation: explanation.trim(), topicName });
-    setSaving(false);
-  };
-
-  return (
-    <Dialog title={q.id ? "แก้ไขข้อสอบในคลัง" : "เพิ่มข้อสอบเข้าคลัง"} desc="ข้อสอบปรนัย เลือกคำตอบที่ถูกต้อง 1 ข้อ" onClose={onClose} lg
-      footer={<><button className="btn btn-outline" onClick={onClose}>ยกเลิก</button><button className="btn btn-primary" onClick={submit} disabled={saving}><Icon name="check" size={15} />บันทึกข้อสอบ</button></>}>
-      <div className="field"><label className="label">โจทย์คำถาม</label><textarea className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โจทย์คำถาม…" /></div>
-      <label className="label">ตัวเลือก <span className="muted fw-4">— เลือกวงกลมเพื่อกำหนดคำตอบที่ถูกต้อง</span></label>
-      <div className="flex col gap-2 mb-2">
-        {choices.map((c, i) => (
-          <div key={c.id} className="flex items-center gap-2">
-            <button onClick={() => setAnswer(c.id)} style={{ width: 24, height: 24, borderRadius: 99, border: "2px solid " + (answer === c.id ? "var(--success)" : "#cbd5e1"), background: "#fff", cursor: "pointer", display: "grid", placeItems: "center", flex: "0 0 24px" }}>
-              {answer === c.id && <span style={{ width: 11, height: 11, borderRadius: 99, background: "var(--success)" }} />}
-            </button>
-            <input className="input" value={c.text} onChange={(e) => setC(c.id, e.target.value)} placeholder={"ตัวเลือก " + String.fromCharCode(65 + i)} />
-            {choices.length > 2 && <button className="iconbtn ghost c-danger" onClick={() => removeC(c.id)}><Icon name="trash" size={15} /></button>}
-          </div>
-        ))}
-      </div>
-      <button className="btn btn-ghost btn-sm c-primary mb-3" onClick={addC}><Icon name="plus" size={15} />เพิ่มตัวเลือก</button>
-      <div className="field">
-        <label className="label">คำอธิบายเฉลย <span className="muted fw-4">— นักศึกษาเห็นหลังส่งชุดข้อสอบเท่านั้น</span></label>
-        <textarea className="input" rows={3} value={explanation} onChange={(e) => setExplanation(e.target.value)} placeholder="อธิบายว่าทำไมข้อนี้ถึงเป็นคำตอบที่ถูก…" />
-      </div>
-      <div className="field">
-        <label className="label">หัวข้อ <span className="muted fw-4">— พิมพ์เองหรือเลือกจากหัวข้อที่ใช้แล้วในบทนี้ (เว้นว่างได้)</span></label>
-        <input className="input" list="tutor-topics" value={topicName} onChange={(e) => setTopicName(e.target.value)} placeholder="เช่น ภาวะหัวใจล้มเหลว" />
-        <datalist id="tutor-topics">{topics.map((t) => <option key={t.id} value={t.name} />)}</datalist>
-      </div>
-    </Dialog>
-  );
-}
+const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
 export default function TutorBank() {
-  const router = useRouter();
-  const nav = (path: string) => router.push(path);
-  const confirm = useConfirm();
-  const rawId = useParams()?.id;
-  const lessonId = Array.isArray(rawId) ? rawId[0] : rawId;
+  const router = useRouter()
+  const nav = (path: string) => router.push(path)
+  const confirm = useConfirm()
+  const rawId = useParams()?.id
+  const lessonId = Array.isArray(rawId) ? rawId[0] : rawId
 
-  const [state, setState] = useState<BankState>({ loading: true, lesson: null, course: null, questions: [], topics: [] });
-  const [editing, setEditing] = useState<QuestionForm | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [whole, setWhole] = useState(true);
-  const [drawInput, setDrawInput] = useState("");
+  const [state, setState] = useState<BankState>({ loading: true, lesson: null, course: null, questions: [], topics: [] })
+  const [editing, setEditing] = useState<QuestionForm | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [whole, setWhole] = useState(true)
+  const [drawInput, setDrawInput] = useState("")
 
   const fetchAll = useCallback(async () => {
     if (!lessonId) return { questions: [], topics: [] };
@@ -203,7 +74,7 @@ export default function TutorBank() {
       setState({ loading: false, lesson, course, ...rest });
       setWhole(lesson.tutor_draw_count == null);
       setDrawInput(lesson.tutor_draw_count == null ? "" : String(lesson.tutor_draw_count));
-    })().catch((e: unknown) => { toast("โหลดข้อมูลไม่สำเร็จ: " + errMsg(e), "error"); setState((s) => ({ ...s, loading: false })); });
+    })().catch((e: unknown) => { toast.error("โหลดข้อมูลไม่สำเร็จ: " + errMsg(e)); setState((s) => ({ ...s, loading: false })); });
     return () => { cancelled = true; };
   }, [lessonId, fetchAll]);
 
@@ -257,11 +128,11 @@ export default function TutorBank() {
         ? await supabase.from("questions").update(row).eq("id", q.id)
         : await supabase.from("questions").insert([{ ...row, id: "q_" + Date.now(), no: Math.max(0, ...state.questions.map((x) => x.no || 0)) + 1 }]);
       if (error) throw error;
-      toast(q.id ? "บันทึกข้อสอบแล้ว" : "เพิ่มข้อสอบเข้าคลังแล้ว");
+      toast.success(q.id ? "บันทึกข้อสอบแล้ว" : "เพิ่มข้อสอบเข้าคลังแล้ว");
       setEditing(null);
       await refresh();
     } catch (e: unknown) {
-      toast("เกิดข้อผิดพลาด: " + errMsg(e), "error");
+      toast.error("เกิดข้อผิดพลาด: " + errMsg(e));
     }
   };
 
@@ -309,9 +180,9 @@ export default function TutorBank() {
       else imported += chunk.length;
     }
     failed.sort((a, b) => a.row - b.row);
-    if (failed.length) toast(`นำเข้าสำเร็จ ${imported} ข้อ ไม่สำเร็จ ${failed.length} ข้อ (แถว ${failed.map((f) => f.row).join(", ")})`, "error");
-    else toast(`นำเข้าข้อสอบ ${imported} ข้อแล้ว`);
-    await refresh().catch((e: unknown) => toast("โหลดคลังไม่สำเร็จ: " + errMsg(e), "error"));
+    if (failed.length) toast.error(`นำเข้าสำเร็จ ${imported} ข้อ ไม่สำเร็จ ${failed.length} ข้อ (แถว ${failed.map((f) => f.row).join(", ")})`);
+    else toast.success(`นำเข้าข้อสอบ ${imported} ข้อแล้ว`);
+    await refresh().catch((e: unknown) => toast.error("โหลดคลังไม่สำเร็จ: " + errMsg(e)));
     return { imported, failed };
   };
 
@@ -319,125 +190,130 @@ export default function TutorBank() {
     const ok = await confirm({ title: "ลบข้อสอบ", message: "ลบข้อสอบนี้ออกจากคลังใช่หรือไม่?", danger: true, confirmText: "ลบ", cancelText: "ยกเลิก" });
     if (!ok) return;
     const { error } = await supabase.from("questions").delete().eq("id", q.id);
-    if (error) return toast("เกิดข้อผิดพลาด: " + error.message, "error");
-    toast("ลบข้อสอบเรียบร้อยแล้ว");
-    await refresh().catch((e: unknown) => toast("โหลดคลังไม่สำเร็จ: " + errMsg(e), "error"));
+    if (error) return toast.error("เกิดข้อผิดพลาด: " + error.message);
+    toast.success("ลบข้อสอบเรียบร้อยแล้ว");
+    await refresh().catch((e: unknown) => toast.error("โหลดคลังไม่สำเร็จ: " + errMsg(e)));
   };
 
   const saveDraw = async () => {
     if (!lessonId) return;
     const value = whole ? null : parseDrawCount(drawInput);
     // unchecking "ใช้ทั้งคลัง" needs a real number: blank/invalid must not silently save NULL (= whole bank)
-    if (!whole && !value) return toast("กรุณากรอกจำนวนข้อต่อรอบเป็นเลขจำนวนเต็มมากกว่า 0 หรือเลือก \"ใช้ทั้งคลัง\"", "error");
+    if (!whole && !value) return toast.error("กรุณากรอกจำนวนข้อต่อรอบเป็นเลขจำนวนเต็มมากกว่า 0 หรือเลือก \"ใช้ทั้งคลัง\"");
     const { error } = await supabase.from("lessons").update({ tutor_draw_count: value }).eq("id", lessonId);
-    if (error) return toast("เกิดข้อผิดพลาด: " + error.message, "error");
+    if (error) return toast.error("เกิดข้อผิดพลาด: " + error.message);
     setState((s) => ({ ...s, lesson: s.lesson ? { ...s.lesson, tutor_draw_count: value ?? null } : null }));
-    toast("บันทึกการตั้งค่าแล้ว");
+    toast.success("บันทึกการตั้งค่าแล้ว");
   };
 
-  const { loading, lesson, course, questions, topics } = state;
-  if (loading) return <Loading className="container p-5 text-center muted" />;
+  const { loading, lesson, course, questions, topics } = state
+  if (loading) return <PageContainer><LoadingState /></PageContainer>
   if (!lesson || !course) {
-    return <div className="container p-5"><div className="card"><div className="empty"><div className="fw-6 fg">ไม่พบบทเรียน</div></div></div></div>;
+    return (
+      <PageContainer>
+        <EmptyState icon={<TriangleAlertIcon />} title="ไม่พบบทเรียน" />
+      </PageContainer>
+    )
   }
   if (course.kind !== "tutor") {
     return (
-      <div className="container p-5"><div className="card"><div className="empty">
-        <div className="fw-6 fg">บทนี้ไม่ได้อยู่ในชุดติว</div>
-        <div className="t-sm muted">คลังข้อสอบใช้ได้เฉพาะบทของชุดติว ข้อสอบ Pre/Post ของรายวิชาจัดการที่หน้าแก้ไขบทเรียน</div>
-        <button className="btn btn-outline btn-sm" onClick={() => nav("/i/lesson/" + lesson.id)}>ไปหน้าแก้ไขบทเรียน</button>
-      </div></div></div>
-    );
+      <PageContainer>
+        <EmptyState
+          icon={<TriangleAlertIcon />}
+          title="บทนี้ไม่ได้อยู่ในชุดติว"
+          description="คลังข้อสอบใช้ได้เฉพาะบทของชุดติว ข้อสอบ Pre/Post ของรายวิชาจัดการที่หน้าแก้ไขบทเรียน"
+          action={
+            <Button variant="outline" onClick={() => nav("/i/lesson/" + lesson.id)}>
+              ไปหน้าแก้ไขบทเรียน
+            </Button>
+          }
+        />
+      </PageContainer>
+    )
   }
 
-  const topicName = (id: string | null) => topics.find((t) => t.id === id)?.name;
-  const draftValue = whole ? null : parseDrawCount(drawInput);
-  const warning = bankWarning(questions.length, draftValue ?? null);
-  const workspace = "/i/tutor/" + course.id + "?lesson=" + lesson.id;
+  const topicName = (id: string | null) => topics.find((t) => t.id === id)?.name
+  const draftValue = whole ? null : parseDrawCount(drawInput)
+  const warning = bankWarning(questions.length, draftValue ?? null)
+  const workspace = "/i/tutor/" + course.id + "?lesson=" + lesson.id
 
   return (
-    <div className="tutor">
-      <div className="container-wide">
-        <Crumb nav={nav} items={[{ label: "ชุดติว", to: "/i/tutor" }, { label: course.code, to: workspace }, { label: "บทที่ " + lesson.index + " · คลังข้อสอบ" }]} />
-        <div className="tw-head">
-          <div style={{ minWidth: 0 }}>
-            <div className="flex items-center gap-2"><span className="tw-tag">คลังข้อสอบ</span><span className="tw-tag mono">{course.code}</span></div>
-            <h1>{lesson.title}</h1>
-            <div className="tw-stats">
-              <span><b>{questions.length}</b>ข้อ</span>
-              <span><b>{topics.length}</b>หัวข้อ</span>
+    <PageContainer>
+      <PageHeader
+        kicker={`คลังข้อสอบ · ${course.code}`}
+        title={lesson.title}
+        description={
+          <>
+            <span className="font-semibold text-foreground">{questions.length}</span> ข้อ · <span className="font-semibold text-foreground">{topics.length}</span> หัวข้อ
+            <br />
+            นักศึกษาเห็นข้อสอบผ่านหน้าทำข้อสอบของชุดติวเท่านั้น และเห็นเฉลยหลังส่งชุด
+          </>
+        }
+        actions={
+          <Button variant="outline" onClick={() => nav(workspace)}>
+            <ArrowLeftIcon />
+            กลับไปที่บทเรียน
+          </Button>
+        }
+      />
+
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="grid min-w-0 gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-bold">
+              คลังข้อสอบ ({questions.length} ข้อ · {topics.length} หัวข้อ)
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
+                <FileSpreadsheetIcon />
+                นำเข้าจาก Excel
+              </Button>
+              <Button size="sm" onClick={() => setEditing(blankQuestion())}>
+                <PlusIcon />
+                เพิ่มข้อสอบ
+              </Button>
             </div>
-            <div className="t-sm mt-2 pretty" style={{ color: "#d3cff5" }}>นักศึกษาเห็นข้อสอบผ่านหน้าทำข้อสอบของชุดติวเท่านั้น และเห็นเฉลยหลังส่งชุด</div>
           </div>
-          <button className="btn btn-ghost" onClick={() => nav(workspace)}><Icon name="arrL" size={15} />กลับไปที่บทเรียน</button>
-        </div>
+          {questions.length === 0 ? (
+            <EmptyState
+              className="border border-dashed"
+              icon={<ClipboardListIcon />}
+              title="ยังไม่มีข้อสอบในคลัง"
+              action={
+                <Button onClick={() => setEditing(blankQuestion())}>
+                  <PlusIcon />
+                  เพิ่มข้อแรก
+                </Button>
+              }
+            />
+          ) : (
+            questions.map((q, i) => (
+              <BankQuestionCard
+                key={q.id}
+                q={q}
+                no={i + 1}
+                topicName={topicName(q.topic_id)}
+                onEdit={() =>
+                  setEditing({
+                    id: q.id,
+                    text: q.text || "",
+                    choices: q.choices ? parseBankChoices(q.choices) : blankQuestion().choices,
+                    answer: q.answer || "a",
+                    explanation: q.explanation || "",
+                    topicName: topicName(q.topic_id) || "",
+                  })
+                }
+                onDelete={() => deleteQuestion(q)}
+              />
+            ))
+          )}
+        </section>
 
-        <div className="flex gap-5 items-start wrap">
-          <div className="flex-1" style={{ minWidth: 300 }}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="t-base fw-7">คลังข้อสอบ ({questions.length} ข้อ · {topics.length} หัวข้อ)</div>
-              <div className="flex items-center gap-2 wrap">
-                <button className="btn btn-outline btn-sm" onClick={() => setImporting(true)}><Icon name="excel" size={15} />นำเข้าจาก Excel</button>
-                <button className="btn btn-primary btn-sm" onClick={() => setEditing(blankQuestion())}><Icon name="plus" size={15} />เพิ่มข้อสอบ</button>
-              </div>
-            </div>
-            {questions.length === 0 ? (
-              <button className="tw-rail empty pointer" onClick={() => setEditing(blankQuestion())} style={{ borderStyle: "dashed", width: "100%", padding: "40px 0" }}>
-                <div className="ec"><Icon name="clipboard" size={22} style={{ color: "var(--subtle)" }} /></div>
-                <div className="t-sm muted">ยังไม่มีข้อสอบในคลัง คลิกเพื่อเพิ่มข้อแรก</div>
-              </button>
-            ) : (
-              <div className="tw-rail">
-                {questions.map((q, i) => (
-                  <div key={q.id} id={"q-" + q.id} className="tw-q">
-                    <div className="tw-q-no">{String(i + 1).padStart(2, "0")}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2 wrap">
-                        {topicName(q.topic_id) ? <Badge tone="primary">{topicName(q.topic_id)}</Badge> : <Badge tone="muted">ไม่มีหัวข้อ</Badge>}
-                        {!q.explanation && <Badge tone="warning">ยังไม่มีคำอธิบาย</Badge>}
-                      </div>
-                      <div className="t-sm fw-6 pretty mb-2">{q.text}</div>
-                      <div className="flex col gap-1">
-                        {parseChoices(q.choices).map((c) => (
-                          <div key={c.id} className="flex items-center gap-2 t-sm" style={{ color: c.id === q.answer ? "var(--success)" : "var(--muted-fg)", fontWeight: c.id === q.answer ? 600 : 400 }}>
-                            <Icon name={c.id === q.answer ? "checkC" : "circle"} size={14} />{c.text}
-                          </div>
-                        ))}
-                      </div>
-                      {q.explanation && <div className="t-xs muted mt-2 pretty" style={{ whiteSpace: "pre-line" }}>คำอธิบาย: {q.explanation}</div>}
-                    </div>
-                    <div className="flex col gap-1">
-                      <button className="iconbtn ghost" aria-label="แก้ไขข้อสอบ" onClick={() => setEditing({ id: q.id, text: q.text || "", choices: q.choices ? parseChoices(q.choices) : blankQuestion().choices, answer: q.answer || "a", explanation: q.explanation || "", topicName: topicName(q.topic_id) || "" })}><Icon name="pencil" size={15} /></button>
-                      <button className="iconbtn ghost c-danger" aria-label="ลบข้อสอบ" onClick={() => deleteQuestion(q)}><Icon name="trash" size={15} /></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div style={{ flex: "1 1 280px", maxWidth: 360 }}>
-            <div className="tw-panel"><div className="tw-sec">
-              <div className="tw-sec-t">จำนวนข้อต่อรอบ</div>
-              <p className="tw-sec-d">นักศึกษาแต่ละรอบได้ข้อที่สุ่มจากคลังนี้</p>
-              <label className="flex items-center gap-2 t-sm mb-3" style={{ cursor: "pointer" }}>
-                <input type="checkbox" checked={whole} onChange={(e) => setWhole(e.target.checked)} />ใช้ทั้งคลัง
-              </label>
-              <div className="field">
-                <label className="label">หรือกำหนดจำนวนข้อต่อรอบ</label>
-                <input className="input" inputMode="numeric" value={drawInput} disabled={whole} onChange={(e) => setDrawInput(e.target.value.replace(/[^0-9]/g, ""))} placeholder="เช่น 20" />
-              </div>
-              {warning && (
-                <div className="tw-warn mb-3"><Icon name="alert" size={14} style={{ flex: "0 0 14px", marginTop: 3 }} /><span className="pretty">{warning}</span></div>
-              )}
-              <button className="btn btn-primary btn-block" onClick={saveDraw}><Icon name="check" size={15} />บันทึกการตั้งค่า</button>
-            </div></div>
-          </div>
-        </div>
-
-        {importing && <BankImport topics={topics} onClose={() => setImporting(false)} onImport={importQuestions} />}
-        {editing && <QuestionEditor q={editing} topics={topics} onClose={() => setEditing(null)} onSave={saveQuestion} />}
+        <BankDrawCard whole={whole} onWhole={setWhole} drawInput={drawInput} onDrawInput={setDrawInput} warning={warning} onSave={saveDraw} />
       </div>
-    </div>
-  );
+
+      {importing && <BankImport topics={topics} onClose={() => setImporting(false)} onImport={importQuestions} />}
+      {editing && <BankQuestionDialog q={editing} topics={topics} onClose={() => setEditing(null)} onSave={saveQuestion} />}
+    </PageContainer>
+  )
 }

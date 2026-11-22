@@ -1,89 +1,21 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeftIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
 import { useLiveSession } from "@/lib/hooks";
-import { HostQuestion, type HostQuestionState } from "@/components/live/HostQuestion";
-import { HostReveal, type HostRevealState } from "@/components/live/HostReveal";
-import { HostLeaderboard, type HostLeaderboardState } from "@/components/live/HostLeaderboard";
-import { HostEnded, type HostEndedState } from "@/components/live/HostEnded";
-import { ConfirmDialog as RawConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Select as RawSelect } from "@/components/ui/Primitives";
+import { HostQuestion, type HostQuestionState } from "@/components/live/host-question";
+import { HostReveal, type HostRevealState } from "@/components/live/host-reveal";
+import { HostLeaderboard, type HostLeaderboardState } from "@/components/live/host-leaderboard";
+import { HostEnded, type HostEndedState } from "@/components/live/host-ended";
+import { HostLobby, type LobbyPlayer, type LobbyTeam } from "@/components/live/host-lobby";
+import { useConfirm } from "@/components/common/confirm";
+import { ErrorState, LoadingState } from "@/components/common/states";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import * as sound from "@/lib/live-sound";
 import { bg, assetExists } from "@/lib/live-assets";
-
-interface ConfirmDialogProps {
-  open?: boolean;
-  title?: React.ReactNode;
-  desc?: React.ReactNode;
-  message?: React.ReactNode;
-  danger?: boolean;
-  cancelText?: string;
-  confirmText?: string;
-  onClose?: () => void;
-  onCancel?: () => void;
-  onConfirm?: () => void;
-}
-
-interface SelectProps {
-  value?: string | number;
-  onChange?: (e: { target: { value: string } }) => void;
-  children?: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
-  disabled?: boolean;
-  id?: string;
-  "aria-label"?: string;
-  "aria-labelledby"?: string;
-}
-
-const ConfirmDialog = RawConfirmDialog as unknown as React.ComponentType<ConfirmDialogProps>;
-const Select = RawSelect as unknown as React.ComponentType<SelectProps>;
-
-interface TeamColorStyle {
-  name: string;
-  bg: string;
-  text: string;
-  border: string;
-  badge: string;
-}
-
-interface LobbyPlayer {
-  userId?: string;
-  name: string;
-  joinedAt?: string;
-}
-
-interface LobbyTeam {
-  id: string;
-  name: string;
-  colorNo: number;
-  players?: LobbyPlayer[];
-}
-
-const TEAM_COLORS: Record<number, TeamColorStyle> = {
-  1: { name: "แดง", bg: "bg-red-500", text: "text-red-600", border: "border-red-300", badge: "bg-red-50 text-red-700 border-red-200" },
-  2: { name: "ฟ้า", bg: "bg-sky-500", text: "text-sky-600", border: "border-sky-300", badge: "bg-sky-50 text-sky-700 border-sky-200" },
-  3: { name: "เหลือง", bg: "bg-amber-500", text: "text-amber-600", border: "border-amber-300", badge: "bg-amber-50 text-amber-800 border-amber-200" },
-  4: { name: "เขียว", bg: "bg-emerald-500", text: "text-emerald-600", border: "border-emerald-300", badge: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  5: { name: "ม่วง", bg: "bg-purple-500", text: "text-purple-600", border: "border-purple-300", badge: "bg-purple-50 text-purple-700 border-purple-200" },
-  6: { name: "ส้ม", bg: "bg-orange-500", text: "text-orange-600", border: "border-orange-300", badge: "bg-orange-50 text-orange-800 border-orange-200" },
-  7: { name: "ชมพู", bg: "bg-pink-500", text: "text-pink-600", border: "border-pink-300", badge: "bg-pink-50 text-pink-700 border-pink-200" },
-  8: { name: "เทา", bg: "bg-slate-500", text: "text-slate-600", border: "border-slate-300", badge: "bg-slate-100 text-slate-700 border-slate-200" },
-};
-
-function getTeamStyle(colorNo: number): TeamColorStyle {
-  return (
-    TEAM_COLORS[colorNo] || {
-      name: "ทีม",
-      bg: "bg-slate-500",
-      text: "text-slate-600",
-      border: "border-slate-300",
-      badge: "bg-slate-100 text-slate-700 border-slate-200",
-    }
-  );
-}
 
 function getErrorField(data: unknown): string | undefined {
   if (typeof data === "object" && data !== null && "error" in data) {
@@ -95,6 +27,7 @@ function getErrorField(data: unknown): string | undefined {
 
 export default function HostLiveSessionPage() {
   const params = useParams();
+  const confirm = useConfirm();
   const rawId = params?.id;
   const id = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : undefined;
 
@@ -104,7 +37,6 @@ export default function HostLiveSessionPage() {
   const [movingPlayerId, setMovingPlayerId] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
   const [bgUrl, setBgUrl] = useState<string | null>(null);
-  const [confirmEndOpen, setConfirmEndOpen] = useState(false);
 
   const lastPhaseKeyRef = useRef<string | null>(null);
   const prevPlayerCountRef = useRef<number | null>(null);
@@ -273,301 +205,115 @@ export default function HostLiveSessionPage() {
     [id, advancing, refresh]
   );
 
-  const handleEndGame = () => {
-    setConfirmEndOpen(true);
+  const handleEndGame = async () => {
+    const ok = await confirm({
+      danger: true,
+      title: "จบการแข่งขัน",
+      message: "ต้องการจบเกมทันทีหรือไม่?",
+      confirmText: "จบเกม",
+      cancelText: "ยกเลิก",
+    });
+    if (ok) handleAdvance("end");
   };
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#f1f5f9] flex items-center justify-center p-6 text-[#0f172a]">
-        <div className="max-w-md w-full bg-white rounded-[20px] p-8 shadow-sm border border-red-200 text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto text-xl font-bold">
-            !
-          </div>
-          <h1 className="text-xl font-bold text-slate-800">เกิดข้อผิดพลาดในการโหลดห้อง</h1>
-          <p className="text-sm text-slate-500">{error.message || "ไม่สามารถเชื่อมต่อห้องควิซได้"}</p>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => refresh()}
-              className="px-4 py-2 rounded-[12px] bg-[#0d6e8c] text-white text-sm font-semibold hover:bg-[#0a5063] transition"
-            >
-              ลองใหม่อีกครั้ง
-            </button>
-            <Link
-              href="/i/live"
-              className="px-4 py-2 rounded-[12px] bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 transition"
-            >
-              กลับหน้ารายการห้อง
-            </Link>
-          </div>
-        </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6">
+        <ErrorState
+          title="เกิดข้อผิดพลาดในการโหลดห้อง"
+          description={error.message || "ไม่สามารถเชื่อมต่อห้องควิซได้"}
+          onRetry={() => refresh()}
+          className="max-w-md"
+        />
+        <Button asChild variant="outline" className="absolute bottom-10">
+          <Link href="/i/live">กลับหน้ารายการห้อง</Link>
+        </Button>
       </div>
     );
   }
 
   if (!state) {
     return (
-      <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center p-6 text-[var(--muted-fg)]">
-        <div className="w-10 h-10 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium">กำลังเชื่อมต่อห้องควิซสด...</p>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6">
+        <LoadingState label="กำลังเชื่อมต่อห้องควิซสด..." />
       </div>
     );
   }
 
   const players: LobbyPlayer[] = Array.isArray(state.players) ? (state.players as LobbyPlayer[]) : [];
-  const playerCount = players.length;
   const teams: LobbyTeam[] = Array.isArray(state.teams) ? (state.teams as LobbyTeam[]) : [];
 
-  const teamsWithMembers = teams.map((t) => ({
-    ...t,
-    members: t.players || [],
-  }));
-
   return (
-    <div className="fixed inset-0 z-50 bg-[var(--bg)] text-[var(--fg)] flex flex-col justify-between p-4 sm:p-8 select-none font-sans overflow-y-auto overflow-x-hidden">
-      {/* Dynamic Background Image with Light Contrast Overlay or Solid House Background */}
-      {bgUrl ? (
+    <div className="fixed inset-0 z-50 flex flex-col justify-between overflow-x-hidden overflow-y-auto bg-background p-4 text-foreground select-none sm:p-8">
+      {/* Phase background image (computed url) with a light overlay keeping text contrast >= 4.5:1 */}
+      {bgUrl && (
         <div
           aria-hidden="true"
-          className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center transition-all duration-700"
+          className="pointer-events-none fixed inset-0 z-0 bg-cover bg-center transition-all duration-700"
           style={{ backgroundImage: `url(${bgUrl})` }}
         >
-          {/* Light overlay guaranteeing text contrast >= 4.5:1 */}
-          <div className="absolute inset-0 bg-[#f1f5f9]/88 backdrop-blur-[1px]" />
+          <div className="absolute inset-0 bg-background/90 backdrop-blur-[1px]" />
         </div>
-      ) : (
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 pointer-events-none z-0 bg-[var(--bg)]"
-        />
       )}
 
-      {/* Top Bar for Projector */}
-      <header className="relative z-10 flex items-center justify-between border-b border-[var(--border)] pb-3 gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href="/i/live"
-            className="btn btn-outline btn-sm text-sm font-semibold shrink-0"
-          >
-            ← หน้ารายการห้อง
-          </Link>
-          <span className="text-base sm:text-lg font-bold text-[var(--fg)] truncate max-w-sm sm:max-w-md">
-            {state.title}
-          </span>
+      <header className="relative z-10 flex items-center justify-between gap-4 border-b pb-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link href="/i/live">
+              <ArrowLeftIcon />
+              หน้ารายการห้อง
+            </Link>
+          </Button>
+          <span className="max-w-sm truncate text-base font-bold text-foreground sm:max-w-md sm:text-lg">{state.title}</span>
           {state.phase !== "lobby" && (
-            <span className="card px-3 py-1 rounded-full text-sm font-semibold border border-[var(--border)] text-[var(--muted-fg)] shadow-xs">
+            <Badge variant="outline" className="bg-card px-3 py-1 text-sm text-muted-foreground">
               ข้อ {state.current_index + 1}/{state.total}
-            </span>
+            </Badge>
           )}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Mute Toggle Button (aria-pressed, keyboard operable) */}
-          <button
+        <div className="flex shrink-0 items-center gap-3">
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={handleToggleMute}
             aria-pressed={muted}
             aria-label={muted ? "เปิดเสียง" : "ปิดเสียง"}
-            className="btn btn-outline btn-sm flex items-center gap-2 px-3.5 py-2 rounded-full text-sm sm:text-base font-semibold cursor-pointer"
             title={muted ? "เปิดเสียง" : "ปิดเสียง"}
+            className="rounded-full"
           >
-            {muted ? (
-              <>
-                <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                </svg>
-                <span>ปิดเสียงอยู่</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-                <span>เปิดเสียง</span>
-              </>
-            )}
-          </button>
+            {muted ? <VolumeXIcon className="text-destructive" /> : <Volume2Icon className="text-success" />}
+            {muted ? "ปิดเสียงอยู่" : "เปิดเสียง"}
+          </Button>
 
           {state.phase !== "ended" && (
-            <button
-              onClick={handleEndGame}
-              disabled={advancing}
-              className="btn btn-danger btn-sm text-sm sm:text-base font-semibold cursor-pointer"
-              title="จบการแข่งขันทันที"
-            >
+            <Button variant="destructive" size="sm" onClick={handleEndGame} disabled={advancing} title="จบการแข่งขันทันที">
               จบเกม
-            </button>
+            </Button>
           )}
 
-          <div className="hidden sm:flex items-center gap-2 card bg-white px-3.5 py-1.5 rounded-full border border-[var(--border)] shadow-xs">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-sm sm:text-base font-bold text-[var(--fg)] font-mono">PIN: {state.pin}</span>
-          </div>
+          <Badge variant="outline" className="hidden gap-2 bg-card px-3.5 py-1.5 font-mono text-sm font-bold sm:inline-flex sm:text-base">
+            <span aria-hidden className="size-2.5 animate-pulse rounded-full bg-emerald-500" />
+            PIN: {state.pin}
+          </Badge>
         </div>
       </header>
 
-      {/* Main Phase Content */}
-      <div className="relative z-10 flex-1 flex flex-col justify-center my-2 sm:my-4">
+      <div className="relative z-10 my-2 flex flex-1 flex-col justify-center sm:my-4">
         {state.phase === "lobby" && (
-          <div className="my-auto py-6 text-center max-w-4xl mx-auto w-full">
-            {/* Join Instruction */}
-            <div className="card inline-block border border-[var(--border)] px-6 py-3 rounded-full mb-6 shadow-sm">
-              <p className="text-base sm:text-xl text-[var(--fg)] font-medium">
-                เข้า <span className="text-[var(--primary)] font-bold underline underline-offset-4">{siteUrl || "/s/live"}</span> แล้วกรอก PIN
-              </p>
-            </div>
-
-            {/* Large PIN Billboard */}
-            <div className="card border-2 border-[var(--primary)]/30 rounded-[28px] p-6 sm:p-10 shadow-sm max-w-2xl mx-auto">
-              <div className="text-sm sm:text-base font-bold text-[var(--primary)] uppercase tracking-widest mb-2">
-                GAME PIN
-              </div>
-              <div className="text-6xl sm:text-7xl md:text-8xl font-black font-mono tracking-widest text-[var(--fg)] py-2">
-                {state.pin || "------"}
-              </div>
-              <div className="text-sm text-[var(--muted-fg)] mt-2">
-                จำนวน {state.total} ข้อ · ระบบคำถามแสดงพร้อมกันเมื่อเริ่มเกม
-              </div>
-            </div>
-
-            {/* Player Count & Start Action */}
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <div className="card flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--border)] shadow-xs">
-                <svg
-                  className="w-5 h-5 text-emerald-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-                <span className="text-base font-bold text-[var(--fg)]">{playerCount}</span>
-                <span className="text-sm sm:text-base text-[var(--muted-fg)]">คนเข้าร่วมแล้ว</span>
-              </div>
-
-              <button
-                onClick={() => handleAdvance("start")}
-                disabled={playerCount === 0 || advancing}
-                className="btn btn-primary px-8 py-3 rounded-full font-bold text-base sm:text-lg shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                title={playerCount === 0 ? "รอนักศึกษาเข้าร่วมก่อนเริ่ม" : "เริ่มเล่นควิซ"}
-              >
-                เริ่มเกม ({playerCount})
-              </button>
-            </div>
-
-            {/* Players Live Grid */}
-            <div className="card mt-8 max-w-6xl mx-auto w-full rounded-[20px] p-6 shadow-sm border border-[var(--border)]">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-sm sm:text-base font-bold text-[var(--fg)] flex items-center gap-2">
-                  <span>รายชื่อผู้เล่นในห้อง ({playerCount})</span>
-                  {state.team_mode && (
-                    <span className="badge badge-info text-xs font-semibold">
-                      โหมดทีม ({teams.length} ทีม)
-                    </span>
-                  )}
-                </div>
-                {playerCount > 0 && (
-                  <span className="text-xs sm:text-sm text-[var(--muted-fg)]">อัปเดตแบบเรียลไทม์</span>
-                )}
-              </div>
-
-              {playerCount === 0 ? (
-                <div className="py-8 text-center text-[var(--muted-fg)] text-sm sm:text-base">
-                  กำลังรอนักศึกษาเข้าห้อง...
-                </div>
-              ) : state.team_mode ? (
-                /* One column per team */
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {teamsWithMembers.map((team) => {
-                    const style = getTeamStyle(team.colorNo);
-                    return (
-                      <div
-                        key={team.id}
-                        className={`card rounded-[16px] border ${style.border} p-4 flex flex-col justify-between shadow-xs`}
-                      >
-                        {/* Team Column Header */}
-                        <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] mb-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-3.5 h-3.5 rounded-full ${style.bg} shrink-0`} />
-                            <span className="text-sm sm:text-base font-bold text-[var(--fg)]">
-                              ทีม{team.name}
-                            </span>
-                          </div>
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${style.badge}`}>
-                            {team.members.length} คน
-                          </span>
-                        </div>
-
-                        {/* Players inside this team */}
-                        <div className="space-y-2 flex-1 min-h-[60px] max-h-64 overflow-y-auto pr-1">
-                          {team.members.length === 0 ? (
-                            <div className="text-center py-4 text-xs text-[var(--muted-fg)] italic">
-                              ยังไม่มีสมาชิก
-                            </div>
-                          ) : (
-                            team.members.map((member, mIdx) => (
-                              <div
-                                key={member.userId || `${team.id}_${mIdx}`}
-                                className="p-2.5 rounded-[10px] bg-[var(--muted)] border border-[var(--border)] flex items-center justify-between gap-2"
-                              >
-                                <span className="text-xs sm:text-sm font-medium text-[var(--fg)] truncate" title={member.name}>
-                                  {member.name}
-                                </span>
-
-                                {/* Select to move to another team */}
-                                {member.userId ? (
-                                  <Select
-                                    value={team.id}
-                                    disabled={movingPlayerId === member.userId}
-                                    onChange={(e) => {
-                                      if (member.userId) {
-                                        handleMoveTeam(member.userId, e.target.value);
-                                      }
-                                    }}
-                                    className="input shrink-0"
-                                    style={{ minWidth: 140 }}
-                                    aria-label={`ย้ายทีมสำหรับ ${member.name}`}
-                                  >
-                                    {teams.map((t) => (
-                                      <option key={t.id} value={t.id}>
-                                        ย้ายไป: ทีม{t.name}
-                                      </option>
-                                    ))}
-                                  </Select>
-                                ) : (
-                                  <span className="text-xs text-[var(--muted-fg)]">ทีม{team.name}</span>
-                                )}
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                /* Individual Mode Grid */
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-56 overflow-y-auto pr-1">
-                  {players.map((p) => (
-                    <div
-                      key={p.userId}
-                      className="px-3 py-2 rounded-[12px] bg-white border border-[var(--border)] text-center truncate shadow-xs transition hover:border-[var(--primary)]"
-                    >
-                      <span className="text-xs sm:text-sm font-semibold text-[var(--fg)] truncate block">
-                        {p.name}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <HostLobby
+            pin={state.pin}
+            total={state.total}
+            teamMode={!!state.team_mode}
+            players={players}
+            teams={teams}
+            siteUrl={siteUrl}
+            advancing={advancing}
+            movingPlayerId={movingPlayerId}
+            onStart={() => handleAdvance("start")}
+            onMoveTeam={handleMoveTeam}
+          />
         )}
 
         {state.phase === "question" && (
@@ -586,22 +332,6 @@ export default function HostLiveSessionPage() {
           <HostEnded state={state as unknown as HostEndedState} />
         )}
       </div>
-
-      {confirmEndOpen && (
-        <ConfirmDialog
-          open={confirmEndOpen}
-          danger
-          title="จบการแข่งขัน"
-          message="ต้องการจบเกมทันทีหรือไม่?"
-          confirmText="จบเกม"
-          cancelText="ยกเลิก"
-          onClose={() => setConfirmEndOpen(false)}
-          onConfirm={() => {
-            setConfirmEndOpen(false);
-            handleAdvance("end");
-          }}
-        />
-      )}
     </div>
   );
 }
