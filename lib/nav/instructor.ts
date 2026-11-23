@@ -1,11 +1,15 @@
 import {
   Award, BarChart3, Bell, BookOpen, Bot, CalendarDays, ClipboardList, FileCheck, Folder, GraduationCap,
-  LayoutGrid, Layers, Library, ListChecks, PlusCircle, Radio, ShieldCheck, Sparkles, Target, UserCog, Users,
+  LayoutGrid, Layers, Library, ListChecks, Plus, PlusCircle, Radio, ShieldCheck, Sparkles, Target, UserCog, Users,
 } from "lucide-react"
 import { PERMISSIONS } from "../rbac.ts"
 import type { NavConfig } from "./types.ts"
 
 export const instructorNav: NavConfig = {
+  subtitle: "พื้นที่อาจารย์ผู้สอน",
+  homeHref: "/i/courses",
+  quickAction: { title: "สร้างรายวิชา", href: "/i/course/new", icon: Plus, permission: PERMISSIONS.COURSES_CREATE },
+  userLinks: [{ title: "มุมมองนักศึกษา", href: "/s/courses", icon: GraduationCap }],
   redirects: ["/i"],
   groups: [
     {

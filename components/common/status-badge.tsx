@@ -14,7 +14,7 @@ const toneClass: Record<StatusTone, string> = {
   outline: "text-muted-foreground",
 }
 
-// Same map as the old Primitives.jsx StatusBadge.
+// Status keys (Thai and English) mapped to a tone and label.
 const STATUS: Record<string, [StatusTone, string]> = {
   // Lesson & course publish status
   active: ["success", "เผยแพร่แล้ว"],

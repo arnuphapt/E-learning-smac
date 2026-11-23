@@ -24,7 +24,7 @@ export function DocsManage({ lesson, onSave }: { lesson: LessonRow; onSave: OnSa
     try {
       const key = await uploadToStorage(file, `lessons/${lesson.id}/${field}`)
       const updated = [...docsByField[field], { name: file.name, size: formatBytes(file.size), path: key, url: key }]
-      await onSave({ [field]: updated as unknown as Json })
+      await onSave({ [field]: updated })
       toast.success(successText)
     } catch (error: unknown) {
       console.error(error)
@@ -39,7 +39,7 @@ export function DocsManage({ lesson, onSave }: { lesson: LessonRow; onSave: OnSa
     if (!confirmed) return
     try {
       const updated = docsByField[field].filter((d) => d.path !== doc.path || d.name !== doc.name)
-      await onSave({ [field]: updated as unknown as Json })
+      await onSave({ [field]: updated })
       toast.success(successText)
     } catch (error: unknown) {
       console.error(error)

@@ -68,7 +68,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       if (!stored) return tutorNotFound();
       target = await settleAttempt(db, stored, nowMs); // fills `result` of a round that ended before it existed
     }
-    const result = target.result as unknown as TutorResult | null;
+    const result = target.result as TutorResult | null;
     if (!result) throw new Error("ended attempt without a stored result");
 
     const { data: live, error: qErr } = await db

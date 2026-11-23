@@ -14,7 +14,7 @@ import {
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-/** Same options as the old components/ui/ConfirmDialog.jsx `useConfirm`. */
+/** Options for `useConfirm`. */
 export type ConfirmOptions = {
   title?: string
   /** Short line under the title. */

@@ -98,7 +98,7 @@ export function TestBuilder({ lesson, questions, onLoad, onSaveSettings }: { les
       show_answers: form.showAnswers,
       due: form.due || null,
       due_time: form.dueTime || null,
-    } as unknown as Json
+    } as Json
     await onSaveSettings(which === "pre" ? { pretest: config } : { posttest: config })
   }
 

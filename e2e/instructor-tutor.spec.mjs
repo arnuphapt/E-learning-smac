@@ -38,9 +38,10 @@ test("create a tutor set, add a lesson, lock it, add a bank question with a topi
   await expect(page.getByRole("button", { name: "ยังไม่ได้ล็อค ไม่มีนักศึกษาเห็นชุดนี้" })).toBeVisible();
 
   // ---- add a lesson (in the workspace, no navigation) ----
-  await page.locator(".tw-rail").getByRole("button", { name: "เพิ่มบทเรียน" }).click();
-  await expect(page.locator(".tw-item")).toHaveCount(1);
-  await expect(page.locator(".tw-item").getByText("คลังไม่พอ")).toBeVisible(); // empty bank
+  await page.getByRole("button", { name: "เพิ่มบทเรียน" }).first().click(); // the rail header (the empty-state panel has its own)
+  const lessonItem = page.getByRole("button").filter({ hasText: /คลัง \d+ ข้อ/ }); // one rail entry per lesson
+  await expect(lessonItem).toHaveCount(1);
+  await expect(lessonItem.getByText("คลังไม่พอ")).toBeVisible(); // empty bank
   const { data: lessons } = await db.from("lessons").select("id").eq("course_id", courseId);
   expect(lessons).toHaveLength(1);
   const lessonId = lessons[0].id;
@@ -58,10 +59,10 @@ test("create a tutor set, add a lesson, lock it, add a bank question with a topi
   await expect.poll(async () => (await db.from("lessons").select("tutor_draw_count").eq("id", lessonId).single()).data.tutor_draw_count).toBe(5);
 
   // ---- lock the set to the fixture student by email ----
-  await page.getByRole("button", { name: "ตั้งค่าและการเข้าถึง" }).click();
+  await page.getByRole("tab", { name: "ตั้งค่าและการเข้าถึง" }).click();
   await expect(page.getByText("จะไม่มีนักศึกษาเห็นชุดนี้")).toBeVisible(); // the "empty = nobody" wording
   await page.getByRole("button", { name: "เพิ่มนักศึกษา" }).click();
-  const picker = page.locator(".dialog");
+  const picker = page.getByRole("dialog");
   await picker.getByPlaceholder("ค้นหา…").fill(FX.student.email);
   await picker.getByText(FX.student.name).click();
   await picker.getByRole("button", { name: "ตกลง" }).click();
@@ -71,7 +72,7 @@ test("create a tutor set, add a lesson, lock it, add a bank question with a topi
 
   // ---- the set is on the tutor list (not the course list) ----
   await page.goto("/i/tutor");
-  const row = page.locator(".tw-sets-row", { hasText: title });
+  const row = page.getByRole("row").filter({ hasText: title });
   await expect(row).toContainText(code);
   await expect(row).toContainText("1 บท");
   await expect(row).toContainText("1 บทคลังไม่พอ");
@@ -85,7 +86,7 @@ test("create a tutor set, add a lesson, lock it, add a bank question with a topi
   // ---- add a bank question with a topic ----
   await expect(page.getByText("คลังข้อสอบ (0 ข้อ · 0 หัวข้อ)")).toBeVisible();
   await page.getByRole("button", { name: "เพิ่มข้อสอบ", exact: true }).click();
-  const dialog = page.locator(".dialog");
+  const dialog = page.getByRole("dialog");
   await dialog.getByPlaceholder("พิมพ์โจทย์คำถาม…").fill("E2E ข้อสอบที่เพิ่มโดยอาจารย์");
   await dialog.getByPlaceholder("ตัวเลือก A").fill("E2E คำตอบถูก");
   await dialog.getByPlaceholder("ตัวเลือก B").fill("E2E คำตอบผิด");
@@ -144,7 +145,7 @@ test("import bank questions from an Excel file: preview, errors, untick, topics 
     await page.goto(`/i/lesson/${lessonId}/bank`);
     await expect(page.getByText("คลังข้อสอบ (0 ข้อ · 1 หัวข้อ)")).toBeVisible();
     await page.getByRole("button", { name: "นำเข้าจาก Excel" }).click();
-    const dialog = page.locator(".dialog");
+    const dialog = page.getByRole("dialog");
 
     // the template downloads as .xlsx
     const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "ดาวน์โหลดไฟล์ตัวอย่าง" }).click()]);
@@ -153,7 +154,7 @@ test("import bank questions from an Excel file: preview, errors, untick, topics 
     await dialog.locator("input[type=file]").setInputFiles({ name: "e2e-import.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: file });
     await expect(dialog.getByText("อ่านได้")).toContainText("4");
     await expect(dialog.getByRole("alert")).toContainText("แถว 5: เฉลยชี้ไปที่ตัวเลือก ค ซึ่งว่างอยู่");
-    await expect(dialog.locator(".tw-imp-row[data-row]")).toHaveCount(4);
+    await expect(dialog.getByRole("checkbox", { name: /^นำเข้าแถว/ })).toHaveCount(4);
 
     await dialog.getByLabel("นำเข้าแถว 6").uncheck();
     await dialog.getByRole("button", { name: "นำเข้า 3 ข้อ" }).click();
@@ -187,13 +188,13 @@ test("import bank questions from an Excel file: preview, errors, untick, topics 
 test("question bank list: fixture questions, lesson filter and search narrow it, row deep-links to the lesson bank", async ({ page }) => {
   await page.goto("/i/tutor/bank");
   await expect(page.getByRole("heading", { name: "คลังข้อสอบ" })).toBeVisible();
-  const rows = page.locator("a.tw-q");
+  const rows = page.getByRole("link").filter({ has: page.getByText(/^เฉลย: / ) });
   await expect(rows.first()).toBeVisible();
   await expect(page.getByText(/^แสดง \d+ จาก \d+ ข้อ$/)).toBeVisible(); // the count; a long bank is capped at 200 rows
 
   // lesson filter (custom Select): only the fixture lesson's questions
-  await page.locator(".field", { hasText: "บทเรียน" }).getByRole("button").click();
-  await page.getByRole("button", { name: FX.lesson.title }).click();
+  await page.getByRole("combobox", { name: "บทเรียน" }).click();
+  await page.getByRole("option", { name: FX.lesson.title }).click();
   await expect(rows).toHaveCount(4);
   await expect(page.getByText("แสดง 4 จาก 4 ข้อ")).toBeVisible();
 

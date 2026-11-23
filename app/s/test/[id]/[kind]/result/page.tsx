@@ -1,279 +1,58 @@
 "use client";
 
-import React, { useState, useEffect, type ComponentType } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { isStaffRole } from "@/lib/roles";
-import { supabase } from "@/lib/supabase";
-import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
-import { loadStudentQuestions } from "@/lib/questions";
-import type { Database, Json } from "@/lib/database.types";
-import RawIcon from "@/components/ui/Icon";
-import { Ring as RawRing } from "@/components/ui/Primitives";
-import Loading from "@/components/ui/Loading";
-import { useIsMobile } from "@/lib/hooks";
-
-type LessonRow = Pick<
-  Database["public"]["Tables"]["lessons"]["Row"],
-  | "id"
-  | "course_id"
-  | "index"
-  | "title"
-  | "duration"
-  | "description"
-  | "video"
-  | "pretest"
-  | "posttest"
-  | "assignment"
-  | "status"
-  | "progress"
-  | "watch_limit"
-  | "allow_download"
-  | "documents"
-  | "video_url"
-  | "video_path"
-  | "allow_ai"
-  | "has_docs"
-  | "has_pretest"
-  | "has_posttest"
-  | "has_assignment"
->;
-type StudentQuestionRow = Pick<
-  Database["public"]["Views"]["questions_student"]["Row"],
-  "id" | "no" | "type" | "text" | "choices" | "lesson_id" | "kind"
->;
-type QuestionWithAnswer = StudentQuestionRow & { answer?: string };
-type TestScoreRow = Database["public"]["Tables"]["test_scores"]["Row"];
-
-interface QuestionChoiceItem {
-  id: string;
-  text?: string;
-}
-
-interface LessonTestConfig {
-  show_answers?: boolean | null;
-}
-
-const Icon = RawIcon as unknown as ComponentType<{
-  name: string;
-  size?: number;
-  sw?: number;
-  fill?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}>;
-const Ring = RawRing as unknown as ComponentType<{
-  value: number;
-  total: number;
-  size?: number;
-  label?: string;
-}>;
-
-function parseTestConfig(raw: Json | null | undefined): LessonTestConfig | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  return raw as LessonTestConfig;
-}
-
-function parseChoices(raw: Json | null | undefined): QuestionChoiceItem[] {
-  if (!Array.isArray(raw)) return [];
-  return raw as unknown as QuestionChoiceItem[];
-}
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { ArrowLeftIcon, ArrowRightIcon, PlayCircleIcon } from "lucide-react";
+import { PageContainer } from "@/components/common/page-container";
+import { EmptyState, LoadingState } from "@/components/common/states";
+import { parseTestConfig } from "@/components/student/lesson/types";
+import { AnswerReview } from "@/components/student/test/answer-review";
+import { ResultSummary } from "@/components/student/test/result-summary";
+import { useTestResult } from "@/components/student/test/use-test-result";
+import { Button } from "@/components/ui/button";
 
 export default function TestResult() {
-  const mobile = useIsMobile();
-  const router = useRouter();
   const params = useParams();
-  const { data: session, status: authStatus } = useSession();
-  const nav = (path: string) => router.push(path);
-
   const rawId = params?.id;
   const lessonId = Array.isArray(rawId) ? rawId[0] : rawId;
   const rawKind = params?.kind;
   const kind = (Array.isArray(rawKind) ? rawKind[0] : rawKind) || "pre";
 
-  const studentId = session?.user?.id || session?.dbId;
-  const role = session?.user?.role;
+  const { lesson, questions, testScore, loading } = useTestResult(lessonId, kind);
 
-  const [lesson, setLesson] = useState<LessonRow | null>(null);
-  const [questions, setQuestions] = useState<QuestionWithAnswer[]>([]);
-  const [testScore, setTestScore] = useState<TestScoreRow | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
-    if (authStatus !== "authenticated") return;
-    let cancelled = false;
-    async function load() {
-      if (!lessonId) return;
-
-      const [lRes, qRes] = await Promise.all([
-        supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("id", lessonId).single(),
-        loadStudentQuestions(supabase, lessonId, kind)
-      ]);
-
-      if (cancelled) return;
-      const isStaff = isStaffRole(role);
-      if (lRes.data && lRes.data.status === "draft" && !isStaff) {
-        setLesson(null);
-        setQuestions([]);
-        setLoading(false);
-        return;
-      }
-
-      if (lRes.data) setLesson(lRes.data);
-      if (qRes.data) {
-        // answer key comes from the server, only for this student's completed attempt (and if the lesson shows answers)
-        let key: Record<string, string> | null = null;
-        try {
-          const r = await fetch(`/api/tests/result?lessonId=${encodeURIComponent(lessonId)}&kind=${kind}`, { cache: "no-store" });
-          if (r.ok) {
-            const payload = (await r.json()) as { answers?: Record<string, string> };
-            key = payload.answers ?? null;
-          }
-        } catch {}
-        if (cancelled) return;
-        setQuestions(key ? qRes.data.map((q) => ({ ...q, answer: q.id ? key[q.id] : undefined })) : qRes.data);
-      }
-
-      if (studentId && lessonId) {
-        const { data: tsRes } = await supabase
-          .from("test_scores")
-          .select("*")
-          .eq("student_id", studentId)
-          .eq("lesson_id", lessonId)
-          .maybeSingle();
-        if (cancelled) return;
-        if (tsRes) setTestScore(tsRes);
-      }
-
-      setLoading(false);
-    }
-    load();
-    return () => { cancelled = true; };
-  }, [lessonId, studentId, role, authStatus]);
-
-  if (loading) return <Loading className="container p-5 text-center muted" />;
-  if (!lesson) {
-    return (
-      <div className="container p-5 text-center">
-        <div className="card card-p">ไม่พบข้อมูลบทเรียน</div>
-      </div>
-    );
-  }
+  if (loading) return <PageContainer><LoadingState /></PageContainer>;
+  if (!lesson) return <PageContainer><EmptyState title="ไม่พบข้อมูลบทเรียน" /></PageContainer>;
 
   const total = questions.length || 10;
-  const score = kind === "pre"
-    ? (testScore ? testScore.pre : null) ?? Math.round(total * 0.7)
-    : (testScore ? testScore.post : null) ?? Math.round(total * 0.9);
-
-  const correct = score;
-  const wrong = total - correct;
-
   const preScore = testScore?.pre ?? Math.round(total * 0.7);
   const postScore = testScore?.post ?? Math.round(total * 0.9);
-  const diff = postScore - preScore;
-
-  const preCfg = parseTestConfig(lesson?.pretest);
-  const postCfg = parseTestConfig(lesson?.posttest);
-  const showAnswers = kind === "pre"
-    ? preCfg?.show_answers !== false
-    : postCfg?.show_answers !== false;
+  const score = kind === "pre" ? preScore : postScore;
+  const showAnswers = parseTestConfig(kind === "pre" ? lesson.pretest : lesson.posttest)?.show_answers !== false;
 
   return (
-    <div style={{ background: "#f7f9fb", minHeight: '100vh' }}>
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: mobile ? "20px 16px 64px" : "40px 24px 80px" }}>
-        <div className="card mb-5">
-          <div className="card-p" style={{ padding: mobile ? "20px 18px" : "28px 32px", borderBottom: "1px solid var(--border)" }}>
-            <div className="flex items-center gap-2 t-sm c-primary fw-6">
-              <Icon name="checkC" size={16} />ส่งคำตอบเรียบร้อยแล้ว
-            </div>
-            <div className="t-2xl fw-7 mt-1 serif">{kind === "pre" ? "ผลแบบทดสอบก่อนเรียน" : "ผลแบบทดสอบหลังเรียน"}</div>
-            <div className="t-sm muted mt-1">บทที่ {lesson.index} · {lesson.title}</div>
-          </div>
-          <div className="card-p flex items-center gap-6 wrap" style={{ padding: mobile ? 20 : 28 }}>
-            <Ring value={score} total={total} size={mobile ? 116 : 140} label={"จาก " + total + " คะแนน"} />
-            <div className="flex-1" style={{ minWidth: 220 }}>
-              <div className="grid grid-2 gap-3">
-                <div className="clay-well" style={{ padding: 14 }}>
-                  <div className="flex items-center gap-2 c-success"><Icon name="checkC" size={16} /><span className="t-xs fw-6">ตอบถูก</span></div>
-                  <div className="t-2xl fw-7 mt-1 tnum">{correct} <span className="muted t-sm fw-5">ข้อ</span></div>
-                </div>
-                <div className="clay-well" style={{ padding: 14 }}>
-                  <div className="flex items-center gap-2 c-danger"><Icon name="xC" size={16} /><span className="t-xs fw-6">ตอบผิด</span></div>
-                  <div className="t-2xl fw-7 mt-1 tnum">{wrong} <span className="muted t-sm fw-5">ข้อ</span></div>
-                </div>
-              </div>
-              {kind === "post"
-                ? <div className="flex items-center gap-2 mt-3 t-sm" style={{ padding: "10px 13px", borderRadius: 10, background: "var(--success-soft)", color: "var(--success)" }}>
-                    <Icon name="chart" size={16} />พัฒนาการจาก Pre-test: <b>{diff >= 0 ? `+${diff}` : diff} คะแนน</b> ({preScore} → {postScore})
-                  </div>
-                : <div className="flex items-center gap-2 mt-3 t-sm muted pretty">
-                    <Icon name="sparkle" size={16} className="c-primary" />คะแนนนี้ใช้เพื่อประเมินความรู้พื้นฐานก่อนเรียน ระบบได้ปลดล็อกวิดีโอบทเรียนให้แล้ว
-                  </div>}
-            </div>
-          </div>
-        </div>
+    <PageContainer className="max-w-4xl">
+      <ResultSummary kind={kind} lesson={lesson} total={total} score={score} preScore={preScore} postScore={postScore} />
 
-        {/* review */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="t-md fw-7">เฉลยและคำอธิบาย</div>
-          <span className="t-xs muted">{questions.length} ข้อ</span>
-        </div>
-
-        {showAnswers ? (
-          <div className="flex col gap-3">
-            {questions.map((q, i) => {
-              const isCorrect = i < correct;
-              const qChoices = parseChoices(q.choices);
-              const chosen = isCorrect ? q.answer : (qChoices.find((c) => c.id !== q.answer) || ({} as Partial<QuestionChoiceItem>)).id;
-              return (
-                <div key={q.id} className="card card-p">
-                  <div className="flex items-start gap-3">
-                    <div style={{ flex: "0 0 26px", width: 26, height: 26, borderRadius: 8, display: "grid", placeItems: "center",
-                      background: isCorrect ? "var(--success-soft)" : "var(--danger-soft)", color: isCorrect ? "var(--success)" : "var(--danger)" }}>
-                      <Icon name={isCorrect ? "check" : "x"} size={15} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="t-sm fw-6 pretty">{q.no}. {q.text}</div>
-                      <div className="flex col gap-1 mt-2">
-                         {qChoices.map((ch) => {
-                          const right = ch.id === q.answer; const picked = ch.id === chosen;
-                          const wrongPick = picked && !right;
-                          return (
-                            <div key={ch.id} className="flex items-center gap-2 t-sm" style={{ padding: "6px 10px", borderRadius: 8,
-                              background: right ? "var(--success-soft)" : wrongPick ? "var(--danger-soft)" : "transparent",
-                              color: right ? "var(--success)" : wrongPick ? "var(--danger)" : "var(--muted-fg)", fontWeight: right || wrongPick ? 600 : 400 }}>
-                              {right ? <Icon name="check" size={14} /> : wrongPick ? <Icon name="x" size={14} /> : <span style={{ width: 14 }} />}
-                              {ch.text}{picked && <span className="t-xs" style={{ opacity: .7 }}>· คำตอบของคุณ</span>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="card card-p text-center py-5" style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 99, background: "var(--muted)", color: "var(--muted-fg)", display: "grid", placeItems: "center" }}>
-              <Icon name="lock" size={18} />
-            </div>
-            <div>
-              <div className="fw-6 fg" style={{ fontSize: "15px" }}>ผู้สอนปิดการแสดงเฉลยคำตอบ</div>
-              <div className="t-xs muted mt-1">คะแนนสอบของคุณถูกบันทึกเข้าระบบเรียบร้อยแล้ว แต่การแสดงเฉลยข้อสอบถูกระงับไว้โดยผู้สอน</div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between mt-6 gap-3 wrap">
-          <button className="btn btn-outline" onClick={() => nav("/s/lesson/" + lesson.id)}><Icon name="arrL" size={16} />กลับสู่บทเรียน</button>
-          {kind === "pre"
-            ? <button className="btn btn-primary btn-lg" onClick={() => nav("/s/lesson/" + lesson.id)}><Icon name="playC" size={17} />เริ่มชมวิดีโอบทเรียน</button>
-            : <button className="btn btn-primary btn-lg" onClick={() => nav("/s/course/" + lesson.course_id)}>ไปบทเรียนถัดไป<Icon name="arrR" size={16} /></button>}
-        </div>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-bold">เฉลยและคำอธิบาย</h2>
+        <span className="text-xs text-muted-foreground">{questions.length} ข้อ</span>
       </div>
-    </div>
+      <AnswerReview questions={questions} correct={score} showAnswers={showAnswers} />
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <Button asChild variant="outline">
+          <Link href={"/s/lesson/" + lesson.id}><ArrowLeftIcon />กลับสู่บทเรียน</Link>
+        </Button>
+        {kind === "pre" ? (
+          <Button asChild size="lg">
+            <Link href={"/s/lesson/" + lesson.id}><PlayCircleIcon />เริ่มชมวิดีโอบทเรียน</Link>
+          </Button>
+        ) : (
+          <Button asChild size="lg">
+            <Link href={"/s/course/" + lesson.course_id}>ไปบทเรียนถัดไป<ArrowRightIcon /></Link>
+          </Button>
+        )}
+      </div>
+    </PageContainer>
   );
 }

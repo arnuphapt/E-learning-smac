@@ -78,7 +78,7 @@ const authOptions: AuthOptions = {
           req: {
             cookies: Object.fromEntries((await cookies()).getAll().map((c) => [c.name, c.value])),
             headers: {},
-          } as unknown as GetTokenParams["req"],
+          } as GetTokenParams["req"],
           secret: process.env.NEXTAUTH_SECRET,
         });
         const kind = switchKind(token, targetId);

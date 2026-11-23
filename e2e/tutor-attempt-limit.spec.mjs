@@ -65,7 +65,7 @@ test("student screens: badge on the set, 'ทำไปแล้ว' (disabled) o
   await expect(page.getByText("ทำได้ครั้งเดียว").first()).toBeVisible();
   await page.goto(`/s/tutor/lesson/${ONCE.id}`);
   await expect(page.getByRole("button", { name: "ทำไปแล้ว" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "ดูผลของฉัน" })).toBeEnabled();
+  await expect(page.getByRole("link", { name: "ดูผลของฉัน" })).toBeVisible();
   await page.goto(`/s/tutor/lesson/${ONCE.id}/exam`);
   await expect(page.getByRole("button", { name: "ทำไปแล้ว" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "เริ่มทำข้อสอบ" })).toHaveCount(0);

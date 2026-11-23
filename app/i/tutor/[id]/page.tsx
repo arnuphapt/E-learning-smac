@@ -108,7 +108,7 @@ function Workspace() {
   const patchLesson = (id: string, fields: Partial<WorkspaceLesson>) => setLessons((ls) => ls.map((l) => (l.id === id ? { ...l, ...fields } : l)))
 
   const saveLesson = (id: string) => async (fields: Partial<TutorLessonItem>) => {
-    const updatePayload = fields as unknown as Database["public"]["Tables"]["lessons"]["Update"]
+    const updatePayload = fields as Database["public"]["Tables"]["lessons"]["Update"]
     const { error } = await supabase.from("lessons").update(updatePayload).eq("id", id)
     if (error) {
       toast.error("บันทึกไม่สำเร็จ: " + error.message)

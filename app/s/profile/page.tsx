@@ -1,51 +1,26 @@
 "use client";
 
-import React, { useState, useEffect, type ComponentType } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { CheckIcon } from "lucide-react";
+import { toast } from "sonner";
+import { FormField } from "@/components/common/form-field";
+import { PageContainer } from "@/components/common/page-container";
+import { PageHeader } from "@/components/common/page-header";
+import { LoadingState } from "@/components/common/states";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { initials } from "@/components/layout/user-info";
 import { supabase } from "@/lib/supabase";
-import type { Database } from "@/lib/database.types";
-import RawIcon from "@/components/ui/Icon";
-import { PageHead as RawPageHead } from "@/components/ui/Shared";
-import { Avatar as RawAvatar } from "@/components/ui/Primitives";
-import Loading from "@/components/ui/Loading";
-
-type UserRow = Database["public"]["Tables"]["users"]["Row"];
-
-const Icon = RawIcon as unknown as ComponentType<{
-  name: string;
-  size?: number;
-  sw?: number;
-  fill?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}>;
-const PageHead = RawPageHead as unknown as ComponentType<{
-  kicker?: string;
-  title?: string;
-  desc?: string;
-  right?: React.ReactNode;
-}>;
-const Avatar = RawAvatar as unknown as ComponentType<{
-  name?: string;
-  size?: number;
-  color?: string;
-  src?: string;
-}>;
 
 export default function StudentProfile() {
   const { data: session, status: authStatus } = useSession();
-  const router = useRouter();
-
-  const [profile, setProfile] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  const [form, setForm] = useState({
-    name: "",
-    student_no: ""
-  });
+  const [form, setForm] = useState({ name: "", student_no: "" });
 
   useEffect(() => {
     // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
@@ -55,13 +30,7 @@ export default function StudentProfile() {
       if (session?.dbId) {
         const { data } = await supabase.from("users").select("*").eq("id", session.dbId).single();
         if (cancelled) return;
-        if (data) {
-          setProfile(data);
-          setForm({
-            name: data.name || "",
-            student_no: data.student_no || ""
-          });
-        }
+        if (data) setForm({ name: data.name || "", student_no: data.student_no || "" });
       }
       setLoading(false);
     }
@@ -72,78 +41,53 @@ export default function StudentProfile() {
   const saveProfile = async () => {
     if (!session?.dbId) return;
     setSaving(true);
-    const { error } = await supabase.from("users").update({
-      name: form.name,
-      student_no: form.student_no
-    }).eq("id", session.dbId);
-
-    if (error) {
-      setMsg("เกิดข้อผิดพลาด: " + error.message);
-    } else {
-      setMsg("บันทึกข้อมูลเรียบร้อยแล้ว");
-      setTimeout(() => setMsg(""), 3000);
-    }
+    const { error } = await supabase.from("users").update({ name: form.name, student_no: form.student_no }).eq("id", session.dbId);
+    if (error) toast.error("เกิดข้อผิดพลาด: " + error.message);
+    else toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
     setSaving(false);
   };
 
-  if (loading) return <Loading className="container p-5 text-center muted" />;
-  if (!session) return <div className="container p-5 text-center muted">กรุณาเข้าสู่ระบบ</div>;
+  if (loading) return <PageContainer><LoadingState /></PageContainer>;
+  if (!session) return <PageContainer><p className="p-8 text-center text-muted-foreground">กรุณาเข้าสู่ระบบ</p></PageContainer>;
 
   return (
-    <div className="container" style={{ maxWidth: 640 }}>
-      <PageHead title="โปรไฟล์ส่วนตัว" desc="จัดการข้อมูลส่วนตัวและตั้งค่าบัญชีของคุณ" />
+    <PageContainer className="max-w-2xl">
+      <PageHeader title="โปรไฟล์ส่วนตัว" description="จัดการข้อมูลส่วนตัวและตั้งค่าบัญชีของคุณ" />
 
-      <div className="card card-p mb-5 flex items-center gap-4">
-        <Avatar name={form.name || "นักศึกษา"} size={64} />
-        <div className="flex-1">
-          <div className="t-lg fw-7">{form.name || "นักศึกษา"}</div>
-          <div className="muted">{session?.user?.email}</div>
-        </div>
-      </div>
+      <Card className="mb-5 py-0">
+        <CardContent className="flex items-center gap-4 p-6">
+          <Avatar className="size-16">
+            <AvatarFallback className="text-xl">{initials(form.name || "นักศึกษา")}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <div className="text-lg font-bold">{form.name || "นักศึกษา"}</div>
+            <div className="truncate text-muted-foreground">{session.user?.email}</div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="card card-p">
-        <div className="t-md fw-6 mb-4">ข้อมูลส่วนตัว</div>
-        
-        <div className="flex col gap-3">
-          <div className="field">
-            <label className="label" htmlFor="profile-name">ชื่อ-นามสกุล</label>
-            <input 
-              id="profile-name"
-              type="text" 
-              className="input" 
-              value={form.name} 
-              onChange={(e) => setForm({...form, name: e.target.value})} 
-            />
+      <Card>
+        <CardHeader>
+          <CardTitle>ข้อมูลส่วนตัว</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <FormField label="ชื่อ-นามสกุล" htmlFor="profile-name">
+            <Input id="profile-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </FormField>
+          <FormField label="รหัสนักศึกษา" htmlFor="profile-student-no">
+            <Input id="profile-student-no" value={form.student_no} onChange={(e) => setForm({ ...form, student_no: e.target.value })} />
+          </FormField>
+          <FormField label="อีเมล" htmlFor="profile-email" description="ไม่สามารถเปลี่ยนอีเมลได้ เนื่องจากล็อกอินผ่าน Google">
+            <Input id="profile-email" value={session.user?.email ?? ""} disabled />
+          </FormField>
+          <div className="flex justify-end">
+            <Button onClick={saveProfile} disabled={saving}>
+              {saving ? <Spinner /> : <CheckIcon />}
+              {saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+            </Button>
           </div>
-          
-          <div className="field">
-            <label className="label" htmlFor="profile-student-no">รหัสนักศึกษา</label>
-            <input 
-              id="profile-student-no"
-              type="text" 
-              className="input" 
-              value={form.student_no} 
-              onChange={(e) => setForm({...form, student_no: e.target.value})} 
-            />
-          </div>
-          
-          <div className="field">
-            <label className="label" htmlFor="profile-email">อีเมล</label>
-            <input id="profile-email" type="text" className="input" value={session?.user?.email ?? ""} disabled aria-describedby="profile-email-hint" />
-            <div className="t-xs muted mt-1" id="profile-email-hint">ไม่สามารถเปลี่ยนอีเมลได้ เนื่องจากล็อกอินผ่าน Google</div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between mt-5">
-          <div className="t-sm" role="status" aria-live="polite" style={{ color: msg.includes("ผิดพลาด") ? "var(--danger)" : "var(--success)" }}>
-            {msg}
-          </div>
-          <button className="btn btn-primary" onClick={saveProfile} disabled={saving}>
-            {saving ? <Icon name="loader" className="spin" size={16} /> : <Icon name="check" size={16} />}
-            {saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
-          </button>
-        </div>
-      </div>
-    </div>
+        </CardContent>
+      </Card>
+    </PageContainer>
   );
 }

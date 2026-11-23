@@ -63,21 +63,22 @@ test("results tab: overview, student table, side panel with a round's review, Ex
     ]));
 
     await page.goto("/i/tutor/" + ID.course);
-    await page.getByRole("button", { name: "ผลการทำข้อสอบ" }).click();
+    await page.getByRole("tab", { name: "ผลการทำข้อสอบ" }).click();
 
     // ---- overview: 2 students, 3 ended rounds, mean of BEST percents (75 + 50) / 2 = 63, 1 running round ----
-    const fig = (label) => page.locator(".tw-figs > div", { hasText: label }).locator("dd");
+    const fig = (label) => page.locator("dl > div", { hasText: label }).locator("dd");
     await expect(fig("นักศึกษาที่ทำแล้ว")).toHaveText(/^2/);
     await expect(fig("จำนวนรอบทั้งหมด")).toHaveText(/^3/);
     await expect(fig("เฉลี่ยคะแนนดีที่สุด")).toHaveText(/^63/);
     await expect(fig("กำลังทำอยู่")).toHaveText(/^1/);
 
     // ---- class topics from the best rounds: A 3/4, B 1/2, untagged 1/2 ----
-    await expect(page.locator(".tw-bar-row", { hasText: "E2E หัวใจ" })).toContainText("75%");
-    await expect(page.locator(".tw-bar-row", { hasText: "E2E ไต" })).toContainText("50%");
+    await expect(page.getByRole("progressbar", { name: "E2E หัวใจ 75%" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "E2E ไต 50%" })).toBeVisible();
 
     // ---- student table: weakest best score first; the in-progress student is not listed ----
-    const rows = page.locator("button.tw-res-row");
+    const openBtn = (r) => r.getByRole("button", { name: /^ดูผลของ/ });
+    const rows = page.getByRole("row").filter({ has: openBtn(page) });
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0)).toContainText(NAME.s2);
     await expect(rows.nth(0)).toContainText("2/4 · 50%");
@@ -87,18 +88,19 @@ test("results tab: overview, student table, side panel with a round's review, Ex
     await expect(page.getByText("E2E นักศึกษา ค")).toHaveCount(0);
 
     // ---- side panel: rounds, best marked, review of the chosen round, a deleted question ----
-    await rows.nth(1).click();
+    await openBtn(rows.nth(1)).click();
     const panel = page.getByRole("dialog");
     await expect(panel).toContainText(NAME.s1);
-    await expect(panel.locator(".tw-rounds button")).toHaveCount(2);
-    await expect(panel.locator(".tw-rounds button.on")).toContainText("รอบที่ 2");
-    await expect(panel.locator(".tw-rounds button.on")).toContainText("ดีที่สุด");
+    const roundBtns = panel.getByRole("button", { name: /^รอบที่ \d/ });
+    await expect(roundBtns).toHaveCount(2);
+    await expect(roundBtns.and(panel.getByRole("button", { pressed: true }))).toContainText("รอบที่ 2");
+    await expect(roundBtns.and(panel.getByRole("button", { pressed: true }))).toContainText("ดีที่สุด");
     await expect(panel.getByText("E2E-RES-1 โจทย์")).toBeVisible();
     await expect(panel.getByText("ข้อนี้ถูกลบแล้ว")).toBeVisible();
-    await expect(panel.locator(".tw-q")).toHaveCount(4);
-    await expect(panel.locator(".badge-danger", { hasText: "ตอบผิด" })).toHaveCount(1); // round 2: only q3 is wrong
-    await panel.locator(".tw-rounds button", { hasText: "รอบที่ 1" }).click();
-    await expect(panel.locator(".badge-danger", { hasText: "ตอบผิด" })).toHaveCount(3); // round 1: q2, q3 and the deleted question are wrong
+    await expect(panel.getByText(/^(ตอบถูก|ตอบผิด|ไม่ได้ตอบ)$/)).toHaveCount(4); // one result badge per reviewed question
+    await expect(panel.getByText("ตอบผิด", { exact: true })).toHaveCount(1); // round 2: only q3 is wrong
+    await roundBtns.filter({ hasText: "รอบที่ 1" }).click();
+    await expect(panel.getByText("ตอบผิด", { exact: true })).toHaveCount(3); // round 1: q2, q3 and the deleted question are wrong
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 

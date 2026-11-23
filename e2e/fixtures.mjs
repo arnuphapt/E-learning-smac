@@ -1,5 +1,5 @@
 // Fixture seeding, auth minting and cleanup for the tutor-mode E2E suite.
-// The ONLY database is production (Supabase qsvwabaxqtbrxrwrqtih), so every write here is limited to rows whose id
+// The database is the dev Supabase project (nznvvtjvldroynmqhnkf), shared with other dev work, so every write here is limited to rows whose id
 // starts with FX_PREFIX, plus rows the app itself creates for the fixture users (found through those users / courses).
 // Real data is only ever read (roles table for the instructor's permission claim).
 import fs from "node:fs";

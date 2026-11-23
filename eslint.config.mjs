@@ -15,14 +15,13 @@ const eslintConfig = defineConfig([
   ]),
 
   // UI architecture guards (.claude/rules/ui-architecture.md).
-  // All three are "warn" while pages are being migrated; flip them to "error" when the migration ends.
   {
     files: ["app/**/*.{js,jsx,ts,tsx}", "components/**/*.{js,jsx,ts,tsx}"],
-    // components/ui/*.tsx are the stock shadcn primitives; the old PascalCase .jsx there stay checked.
+    // components/ui/*.tsx are the stock shadcn primitives.
     ignores: ["components/ui/*.tsx"],
     rules: {
       "no-restricted-syntax": [
-        "warn",
+        "error",
         ...["button", "input", "select", "textarea", "table", "dialog", "progress"].map((tag) => ({
           selector: `JSXOpeningElement[name.name='${tag}']`,
           message: `Native <${tag}> is not allowed outside components/ui. Use the shadcn primitive or a components/common block (.claude/rules/ui-architecture.md).`,
@@ -34,7 +33,7 @@ const eslintConfig = defineConfig([
     files: ["app/**/*.{js,jsx,ts,tsx}", "components/**/*.{js,jsx,ts,tsx}"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           patterns: [
             {
@@ -44,7 +43,7 @@ const eslintConfig = defineConfig([
                 "**/ui/Toast", "**/ui/dialog-focus",
               ],
               caseSensitive: true, // ui/table (shadcn) must not match ui/Table (old)
-              message: "Old hand-written UI is being deleted. Use shadcn components/ui/* or components/common/* (.claude/rules/ui-architecture.md).",
+              message: "Old hand-written UI is deleted and must not return. Use shadcn components/ui/* or components/common/* (.claude/rules/ui-architecture.md).",
             },
           ],
         },
@@ -53,7 +52,7 @@ const eslintConfig = defineConfig([
   },
   {
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
-    rules: { "max-lines": ["warn", { max: 1000, skipBlankLines: false, skipComments: false }] },
+    rules: { "max-lines": ["error", { max: 1000, skipBlankLines: false, skipComments: false }] },
   },
 ]);
 

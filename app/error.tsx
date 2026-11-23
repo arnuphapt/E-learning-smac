@@ -1,17 +1,10 @@
 "use client";
 
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
-import RawIcon from "@/components/ui/Icon";
-
-const Icon = RawIcon as unknown as React.ComponentType<{
-  name: string;
-  size?: number;
-  sw?: number;
-  fill?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}>;
+import { AlertTriangleIcon, HomeIcon, RefreshCwIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function ErrorBoundary({
   error,
@@ -25,34 +18,30 @@ export default function ErrorBoundary({
   }, [error]);
 
   return (
-    <main className="flex items-center justify-center min-h-[70vh] p-4" role="main">
-      <div className="card w-full" style={{ maxWidth: 480 }}>
-        <div className="empty">
-          <div className="ec" aria-hidden="true" style={{ color: "var(--danger)" }}>
-            <Icon name="alert-triangle" size={26} />
+    <main className="flex min-h-[70vh] items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex flex-col items-center gap-3 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive" aria-hidden="true">
+            <AlertTriangleIcon className="size-6" />
           </div>
-          <h1 className="t-2xl fw-7" style={{ margin: 0, color: "var(--fg)" }}>
-            เกิดข้อผิดพลาด
-          </h1>
-          <p className="muted t-sm center" style={{ margin: 0, maxWidth: 360 }}>
+          <h1 className="text-2xl font-bold">เกิดข้อผิดพลาด</h1>
+          <p className="max-w-sm text-sm text-muted-foreground">
             ระบบพบปัญหาในการโหลดหรือแสดงผลข้อมูล กรุณาลองใหม่อีกครั้ง…
           </p>
-          <div className="mt-4 flex gap-3 wrap justify-center">
-            <button
-              type="button"
-              onClick={() => reset()}
-              className="btn btn-primary"
-            >
-              <Icon name="refresh" size={16} />
-              <span>ลองใหม่</span>
-            </button>
-            <Link href="/" className="btn btn-outline">
-              <Icon name="home" size={16} />
-              <span>หน้าหลัก</span>
-            </Link>
+          <div className="mt-2 flex flex-wrap justify-center gap-3">
+            <Button onClick={() => reset()}>
+              <RefreshCwIcon />
+              ลองใหม่
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/">
+                <HomeIcon />
+                หน้าหลัก
+              </Link>
+            </Button>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </main>
   );
 }

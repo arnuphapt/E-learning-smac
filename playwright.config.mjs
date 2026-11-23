@@ -1,5 +1,5 @@
 // Tutor-mode E2E. Runs against `next start` of the PRODUCTION build on a free port, with the real .env.local
-// (the only database is production: see e2e/fixtures.mjs for the fx_e2e_ row rules).
+// (the database is the dev project: see e2e/fixtures.mjs for the fx_e2e_ row rules).
 //   npm run build && npm run test:e2e
 import fs from "node:fs";
 import net from "node:net";
@@ -34,7 +34,7 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.mjs",
   globalTeardown: "./e2e/global-teardown.mjs",
   use: { baseURL, trace: "retain-on-failure", locale: "th-TH" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], channel: process.env.E2E_CHANNEL || undefined } }], // E2E_CHANNEL=chrome uses the installed Chrome
   webServer: {
     command: `npx next start -H 127.0.0.1 -p ${port}`,
     url: baseURL,

@@ -262,7 +262,7 @@ export default function InstructorCourse() {
 
       const updatedAccess = { ...parseCourseAccess(course.access) };
       delete updatedAccess.sectionRanges;
-      const updatedAccessJson = updatedAccess as unknown as Json;
+      const updatedAccessJson = updatedAccess as Json;
       const finalYearLevels = toYearNumbers(yearLevels);
 
       const { error } = await supabase
@@ -291,7 +291,7 @@ export default function InstructorCourse() {
   const handleUpdateAllowedEmails = async (newEmails: string[]) => {
     if (!course?.id) return;
     try {
-      const updatedAccess = { ...parseCourseAccess(course.access), allowedEmails: newEmails } as unknown as Json;
+      const updatedAccess = { ...parseCourseAccess(course.access), allowedEmails: newEmails } as Json;
       const { error } = await supabase.from("courses_all").update({ access: updatedAccess }).eq("id", course.id);
       if (error) throw error;
       toast.success("อัปเดตรายชื่อนักศึกษาเพิ่มเติมเรียบร้อยแล้ว");

@@ -19,7 +19,7 @@ const labelFor = (q) => choiceText(numberOf(q), numberOf(q) !== 4);
 
 async function pick(page, q) {
   const saved = page.waitForResponse(isAnswerPost);
-  await page.getByRole("button", { name: labelFor(q), exact: true }).click();
+  await page.getByRole("radio", { name: labelFor(q), exact: true }).click();
   const res = await saved;
   expect(res.status()).toBe(200);
   expect(await res.json()).toEqual({ ok: true, applied: true });
@@ -69,7 +69,7 @@ test("start, answer, lose the connection, resume the same round, submit", async 
 
   // ---- connection lost: the click is not saved, the page says so ----
   await context.setOffline(true);
-  await page.getByRole("button", { name: labelFor(qs[2]), exact: true }).click();
+  await page.getByRole("radio", { name: labelFor(qs[2]), exact: true }).click();
   await expect(page.getByText("บันทึกคำตอบไม่สำเร็จ")).toBeVisible();
   await expect(page.getByText("ตอบแล้ว 2/4")).toBeVisible(); // rolled back to what the server confirmed
   await page.close();
@@ -99,7 +99,7 @@ test("start, answer, lose the connection, resume the same round, submit", async 
   await pick(page2, qs[3]);
   await expect(page2.getByText("ตอบแล้ว 4/4")).toBeVisible();
   await page2.getByRole("button", { name: "ส่งคำตอบ", exact: true }).click();
-  await page2.locator(".dialog").getByRole("button", { name: "ส่งคำตอบ", exact: true }).click();
+  await page2.getByRole("alertdialog").getByRole("button", { name: "ส่งคำตอบ", exact: true }).click();
   await expect(page2.getByText("ส่งคำตอบแล้ว")).toBeVisible();
   await expect(page2.getByLabel("คะแนนรวม")).toHaveText(/3\s*\/\s*4/);
   await page2.close();
@@ -159,7 +159,7 @@ test("explain gate after submit: unknown question refused, ถาม AI answers 
   expect(foreign.status()).toBe(404);
 
   await page.goto(resultUrl);
-  const item = page.locator(".clay-card", { has: page.getByText(questionText(4), { exact: true }) }).last();
+  const item = page.locator("[data-slot=card]", { has: page.getByText(questionText(4), { exact: true }) }).last();
   await item.getByRole("button", { name: "ถาม AI" }).click();
   const answered = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith(`/api/tutor/attempts/${attemptId}/explain`));
   await item.getByRole("button", { name: "ส่ง", exact: true }).click();

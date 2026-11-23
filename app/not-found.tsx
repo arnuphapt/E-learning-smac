@@ -1,38 +1,28 @@
-import React from "react";
 import Link from "next/link";
-import RawIcon from "@/components/ui/Icon";
-
-const Icon = RawIcon as unknown as React.ComponentType<{
-  name: string;
-  size?: number;
-  sw?: number;
-  fill?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}>;
+import { HomeIcon, SearchIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function NotFound() {
   return (
-    <main className="flex items-center justify-center min-h-[70vh] p-4" role="main">
-      <div className="card w-full" style={{ maxWidth: 480 }}>
-        <div className="empty">
-          <div className="ec" aria-hidden="true">
-            <Icon name="search" size={26} />
+    <main className="flex min-h-[70vh] items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex flex-col items-center gap-3 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground" aria-hidden="true">
+            <SearchIcon className="size-6" />
           </div>
-          <h1 className="t-2xl fw-7" style={{ margin: 0, color: "var(--fg)" }}>
-            ไม่พบหน้าที่ต้องการ
-          </h1>
-          <p className="muted t-sm center" style={{ margin: 0, maxWidth: 360 }}>
+          <h1 className="text-2xl font-bold">ไม่พบหน้าที่ต้องการ</h1>
+          <p className="max-w-sm text-sm text-muted-foreground">
             หน้านี้อาจไม่มีอยู่ ถูกลบไปแล้ว หรือคุณอาจพิมพ์ที่อยู่ไม่ถูกต้อง กรุณาตรวจสอบที่อยู่อีกครั้ง…
           </p>
-          <div className="mt-4 flex gap-3 wrap justify-center">
-            <Link href="/" className="btn btn-primary">
-              <Icon name="home" size={16} />
-              <span>กลับหน้าหลัก</span>
+          <Button asChild className="mt-2">
+            <Link href="/">
+              <HomeIcon />
+              กลับหน้าหลัก
             </Link>
-          </div>
-        </div>
-      </div>
+          </Button>
+        </CardContent>
+      </Card>
     </main>
   );
 }

@@ -111,7 +111,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     const now = Date.now();
     const [bank, found, access] = await Promise.all([loadBank(db, lesson.id), loadOpenAttempt(db, studentId, lesson.id), loadAttemptAccess(db, studentId, lesson, now)]);
     const count = roundSize(bank.length, lesson.tutor_draw_count);
-    const open = found && (await settleAttempt(db, found as unknown as TutorAttemptEndRow, now)); // any access past the deadline ends and scores the round
+    const open = found && (await settleAttempt(db, found as TutorAttemptEndRow, now)); // any access past the deadline ends and scores the round
     return json({
       serverNow: new Date(now).toISOString(),
       count,
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     let attempt = await loadOpenAttempt(db, studentId, lesson.id);
     let resumed = !!attempt;
     if (attempt && isPastDeadline(attempt.deadline_at, nowMs)) {
-      await settleAttempt(db, attempt as unknown as TutorAttemptEndRow, nowMs);
+      await settleAttempt(db, attempt as TutorAttemptEndRow, nowMs);
       attempt = null;
       resumed = false;
       if (resumeOnly) return json({ error: "Attempt expired", state: "expired" }, 409);

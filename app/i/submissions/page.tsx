@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { PageContainer } from "@/components/common/page-container";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/states";
 import { ColumnHeader, DataTable, type DataTableColumnDef } from "@/components/common/data-table";
@@ -88,7 +89,7 @@ export default function SubmissionsIndexPage() {
   );
 
   return (
-    <div className="container">
+    <PageContainer>
       <PageHeader title="ตรวจใบงาน" description="เลือกใบงานเพื่อดูงานที่นักศึกษาส่งและให้คะแนน" />
       <DataTable.Root data={rows} columns={columns} getRowId={(r: AssignmentListRow) => r.id} searchKeys={["title", "courseCode"]}>
         <DataTable.Toolbar>
@@ -98,6 +99,6 @@ export default function SubmissionsIndexPage() {
         <DataTable.Content loading={loading} empty={<EmptyState title="ยังไม่มีใบงาน" description="สร้างใบงานในบทเรียนของรายวิชา แล้วจะแสดงที่นี่" />} />
         <DataTable.Pagination />
       </DataTable.Root>
-    </div>
+    </PageContainer>
   );
 }

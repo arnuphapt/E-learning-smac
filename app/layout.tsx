@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { IBM_Plex_Sans_Thai, IBM_Plex_Sans, IBM_Plex_Mono, Noto_Serif_Thai } from 'next/font/google';
 import SessionProvider from '@/components/SessionProvider';
-import ImpersonationBanner from '@/components/ui/ImpersonationBanner';
+import { ImpersonationBanner } from '@/components/layout/impersonation-banner';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 

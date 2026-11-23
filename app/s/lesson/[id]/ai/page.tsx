@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import Loading from "@/components/ui/Loading";
+import { PageContainer } from "@/components/common/page-container";
+import { LoadingState } from "@/components/common/states";
 
 export default function RedirectToAi() {
   const router = useRouter();
@@ -18,5 +19,5 @@ export default function RedirectToAi() {
     }
   }, [params, router]);
 
-  return <Loading text="กำลังนำทางไปยังห้องแชท AI..." fullHeight />;
+  return <PageContainer><LoadingState label="กำลังนำทางไปยังห้องแชท AI..." /></PageContainer>;
 }

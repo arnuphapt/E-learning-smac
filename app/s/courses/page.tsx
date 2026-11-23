@@ -1,349 +1,101 @@
 "use client";
 
-import React, { useState, useEffect, type ComponentType } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { isStaffRole } from "@/lib/roles";
-import { supabase } from "@/lib/supabase";
-import { DEFAULT_DOMAIN, sectionRangeMatch } from "@/lib/course-access";
-import type { Database } from "@/lib/database.types";
-import RawIcon from "@/components/ui/Icon";
-import { Badge as RawBadge, Progress, Select as RawSelect } from "@/components/ui/Primitives";
-import Loading from "@/components/ui/Loading";
+import { useState } from "react";
+import { BookOpenIcon, FilterIcon, LayoutGridIcon, ListIcon } from "lucide-react";
+import { PageContainer } from "@/components/common/page-container";
+import { PageHeader } from "@/components/common/page-header";
+import { EmptyState, LoadingState } from "@/components/common/states";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { CourseCard } from "@/components/student/course/course-card";
+import { useStudentCourses } from "@/components/student/course/use-student-courses";
 
-type CourseRow = Database["public"]["Views"]["courses"]["Row"];
-type AcademicYearRow = Database["public"]["Tables"]["academic_years"]["Row"];
-
-interface MappedCourse extends Omit<CourseRow, "lessons" | "progress"> {
-  lessons: number;
-  progress: number;
-}
-
-const Icon = RawIcon as unknown as ComponentType<{
-  name: string;
-  size?: number;
-  sw?: number;
-  fill?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}>;
-const Badge = RawBadge as unknown as ComponentType<{
-  children?: React.ReactNode;
-  tone?: string;
-  dot?: boolean;
-}>;
-const Select = RawSelect as unknown as ComponentType<{
-  value?: string;
-  onChange?: (e: { target: { value: string } }) => void;
-  children?: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
-  disabled?: boolean;
-  id?: string;
-}>;
-
-function PageHead({ kicker, title, desc, right }: { kicker?: string; title?: string; desc?: string; right?: React.ReactNode }) {
-  return (
-    <div className="flex items-end justify-between gap-4 mb-5 wrap">
-      <div>
-        {kicker && <div className="t-xs fw-6 uppercase c-primary mb-1">{kicker}</div>}
-        <h1 className="t-3xl fw-7 serif" style={{ color: "var(--fg)", letterSpacing: "-.01em", margin: 0 }}>{title}</h1>
-        {desc && <div className="muted mt-1 pretty" style={{ maxWidth: 620 }}>{desc}</div>}
-      </div>
-      {right}
-    </div>
-  );
-}
-
-function hexToRgba(hex: string | null | undefined, alpha = 1) {
-  if (!hex || typeof hex !== "string" || !hex.startsWith("#")) {
-    return alpha != null ? `rgba(13, 110, 140, ${alpha})` : "#0d6e8c";
-  }
-  let c = hex.slice(1);
-  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
-  const num = parseInt(c, 16);
-  if (isNaN(num)) return `rgba(13, 110, 140, ${alpha})`;
-  const r = (num >> 16) & 255;
-  const g = (num >> 8) & 255;
-  const b = num & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function CourseCard({ c, nav }: { c: MappedCourse; nav: (path: string) => void }) {
-  const hero = c.hero && c.hero.startsWith("#") ? c.hero : "#0d6e8c";
-  return (
-    <div className="card pointer" style={{ display: "flex", flexDirection: "column" }}>
-      <div className="card-p flex-1 flex col">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center" style={{ gap: 12 }}>
-            <div
-              className="clay-pod"
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                background: `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
-                border: `1.5px solid ${hexToRgba(hero, 0.28)}`,
-                color: hero,
-                boxShadow: `inset 1px 1px 2px rgba(255, 255, 255, 0.95), inset -1px -1px 2px ${hexToRgba(hero, 0.18)}, 0 3px 8px -2px ${hexToRgba(hero, 0.18)}`,
-              }}
-            >
-              <Icon name="book" size={18} />
-            </div>
-            <span
-              style={{
-                padding: "3px 10px",
-                borderRadius: 999,
-                fontSize: "11.5px",
-                fontWeight: 700,
-                background: hexToRgba(hero, 0.12),
-                color: hero,
-                border: `1px solid ${hexToRgba(hero, 0.25)}`,
-                boxShadow: "inset 1px 1px 2px rgba(255,255,255,.9)",
-              }}
-            >
-              {c.code}
-            </span>
-          </div>
-          <span className="t-xs muted">{c.term}</span>
-        </div>
-        <div className="t-md fw-7 serif" style={{ letterSpacing: "-.01em" }}>
-          <Link href={"/s/course/" + c.id} style={{ color: "inherit", textDecoration: "none" }}>
-            <span className="absolute inset-0" aria-hidden="true" />
-            {c.title}
-          </Link>
-        </div>
-        <div className="muted t-sm mt-1 pretty" style={{ minHeight: 36 }}>{c.subtitle}</div>
-        <div className="flex items-center gap-2 mt-3 t-xs muted"><Icon name="user" size={14} />{c.instructor}</div>
-        <div className="mt-4">
-          <div className="flex items-center justify-between t-xs mb-1"><span className="muted">ความคืบหน้า</span><span className="fw-6 tnum">{c.progress}%</span></div>
-          <Progress value={c.progress} />
-        </div>
-        <div className="flex items-center justify-between mt-4">
-          <div className="t-xs muted flex items-center gap-1"><Icon name="book" size={14} />{c.lessons} บทเรียน</div>
-          <span className="btn btn-soft btn-sm">{c.progress >= 100 ? "ทบทวน" : c.progress > 0 ? "เรียนต่อ" : "เริ่มเรียน"}<Icon name="arrR" size={15} /></span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CourseListItem({ c, nav }: { c: MappedCourse; nav: (path: string) => void }) {
-  const hero = c.hero && c.hero.startsWith("#") ? c.hero : "#0d6e8c";
-  return (
-    <div className="card pointer" style={{ display: "flex", alignItems: "stretch" }}>
-      <div className="card-p flex items-center gap-4 flex-1 course-list-item-p">
-        <div
-          className="clay-pod"
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 14,
-            background: `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
-            border: `1.5px solid ${hexToRgba(hero, 0.28)}`,
-            color: hero,
-            display: "grid",
-            placeItems: "center",
-            flex: "0 0 48px",
-            boxShadow: `inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.95), inset -1.5px -1.5px 3px ${hexToRgba(hero, 0.18)}, 0 4px 10px -2px ${hexToRgba(hero, 0.2)}`,
-          }}
-        >
-          <Icon name="book" size={22} />
-        </div>
-        <div className="flex-1" style={{ minWidth: 0 }}>
-          <div className="flex items-center gap-3 wrap mb-1">
-            <span className="fw-7 t-base">
-              <Link href={"/s/course/" + c.id} style={{ color: "inherit", textDecoration: "none" }}>
-                <span className="absolute inset-0" aria-hidden="true" />
-                {c.title}
-              </Link>
-            </span>
-            <span
-              style={{
-                padding: "3px 10px",
-                borderRadius: 999,
-                fontSize: "11px",
-                fontWeight: 700,
-                background: hexToRgba(hero, 0.12),
-                color: hero,
-                border: `1px solid ${hexToRgba(hero, 0.25)}`,
-                boxShadow: "inset 1px 1px 2px rgba(255,255,255,.9)",
-              }}
-            >
-              {c.code}
-            </span>
-          </div>
-          <div className="t-xs muted mt-1 truncate">{c.subtitle}</div>
-          <div className="flex items-center gap-2 mt-1 t-xs muted wrap"><span className="flex items-center gap-1"><Icon name="user" size={12} />{c.instructor}</span><i className="dot-sep" /><span className="flex items-center gap-1"><Icon name="book" size={12} />{c.lessons} บทเรียน</span><i className="dot-sep" /><span>{c.term}</span></div>
-        </div>
-        <div style={{ width: 140 }} className="hide-m">
-          <div className="flex items-center justify-between t-xs mb-1"><span className="muted">ความคืบหน้า</span><span className="fw-6 tnum">{c.progress}%</span></div>
-          <Progress value={c.progress} h={6} />
-        </div>
-        <span className="btn btn-soft btn-sm flex-0">{c.progress >= 100 ? "ทบทวน" : c.progress > 0 ? "เรียนต่อ" : "เริ่มเรียน"}<Icon name="arrR" size={15} /></span>
-      </div>
-    </div>
-  );
-}
+const VIEW_KEY = "nl_course_view";
+const ALL = "all";
 
 export default function StudentCourses() {
-  const router = useRouter();
-  const { data: session, status: authStatus } = useSession();
-  const studentId = session?.dbId;
-  const role = session?.user?.role;
-  const studentYear = session?.user?.study_year ? Number(session.user.study_year) : null;
-  const KEY = "nl_course_view";
-  
-  // Use a safe initialization for view
-  const [view, setView] = React.useState("grid");
-  const [year, setYear] = React.useState("all");
-  const [courses, setCourses] = React.useState<MappedCourse[]>([]);
-  const [years, setYears] = React.useState<AcademicYearRow[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const { courses, years, loading } = useStudentCourses();
+  const [year, setYear] = useState(ALL);
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [viewRestored, setViewRestored] = useState(false);
+  if (!viewRestored && typeof window !== "undefined") {
+    setViewRestored(true);
+    if (localStorage.getItem(VIEW_KEY) === "list") setView("list");
+  }
 
-  React.useEffect(() => {
-    // Wait for the session: role/year decide the filter, and a run started while it is still loading applies the
-    // student filter and can finish after the real run (intermittent "only 1 course" for staff).
-    if (authStatus !== "authenticated") return;
-    let cancelled = false;
-    setView(localStorage.getItem(KEY) || "grid");
-    
-    async function loadData() {
-      const [cRes, yRes, lRes, sgRes, uRes, secRes] = await Promise.all([
-        supabase.from("courses").select("*"),
-        supabase.from("academic_years").select("*").order("year", { ascending: false }),
-        supabase.from("lessons").select("id, course_id, status"),
-        supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
-        studentId ? supabase.from("users").select("*").eq("id", studentId).maybeSingle() : Promise.resolve({ data: null }),
-        supabase.from("sections").select("*")
-      ]);
-      
-      if (cancelled) return;
-      const cData = cRes.data;
-      const yData = yRes.data;
-      const lData = lRes.data;
-      const sgData = sgRes.data;
-      const studentProfile = uRes?.data;
-      const sectionsList = secRes?.data || [];
-      
-      if (cData) {
-        const isStaff = isStaffRole(role);
-        const visibleLessons = lData ? lData.filter(l => l.status !== "draft") : [];
+  const changeView = (v: string) => {
+    if (v !== "grid" && v !== "list") return; // ToggleGroup sends "" when the active item is clicked again
+    setView(v);
+    try { localStorage.setItem(VIEW_KEY, v); } catch {}
+  };
+  const list = courses.filter((c) => year === ALL || c.year === year);
 
-        const mappedCourses: MappedCourse[] = cData.map(c => {
-          const courseLessons = visibleLessons.filter(l => l.course_id === c.id);
-          const lessonsCount = courseLessons.length;
-          
-          let progress = 0;
-          if (studentId && lessonsCount > 0 && typeof window !== "undefined") {
-            const totalProgress = courseLessons.reduce((acc, l) => {
-              const saved = localStorage.getItem(`watch_progress_${studentId}_${l.id}`);
-              const val = saved ? parseInt(saved, 10) : 0;
-              return acc + val;
-            }, 0);
-            progress = Math.round(totalProgress / lessonsCount);
-          }
-
-          return {
-            ...c,
-            lessons: lessonsCount,
-            progress: progress
-          };
-        });
-
-        const gradesList = sgData || [];
-        const email = session?.user?.email || "";
-        const match = email.match(/^(\d+)@/);
-        const parsedStudentNo = match ? match[1] : "";
-        const finalStudentNo = studentProfile?.student_no || parsedStudentNo;
-        const finalStudentSec = studentProfile?.section || "";
-
-        const prefix = match ? match[1].substring(0, 2) : "";
-        const mapping = gradesList.find(g => g.prefix === prefix);
-        const studentLabel = mapping ? mapping.year_label : null;
-        const studentFallback = studentYear;
-
-        // Filter by year_level & master sectionRanges access control (staff sees all)
-        const filtered = isStaff ? mappedCourses : mappedCourses.filter(c => {
-          const accessObj = (c.access && typeof c.access === "object" && !Array.isArray(c.access) ? c.access : null) as { allowedEmails?: string[] } | null;
-          const allowedEmails = accessObj?.allowedEmails || [];
-          if (allowedEmails.includes(email)) return true;
-
-          // Check section ranges or fallback to profile section comparison
-          if (c.section && c.section !== "ไม่ระบุ Section") {
-            const rangeMatch = sectionRangeMatch(finalStudentNo, c.section, sectionsList);
-            if (rangeMatch === null) {
-              // Static fallback check
-              if (finalStudentSec !== c.section) return false;
-            } else if (!rangeMatch) {
-              return false;
-            }
-          }
-
-          const allowed = c.year_level as Array<number | string> | null;
-          if (!allowed || allowed.length === 0) return true; // no restriction
-          
-          const hasMatch = allowed.some(ay => {
-            if (typeof ay === 'number' || !isNaN(Number(ay))) {
-               return Number(ay) === studentFallback || ay == studentFallback;
-            }
-            return ay === studentLabel;
-          });
-          return hasMatch;
-        });
-
-        setCourses(filtered);
-      }
-      if (yData) setYears(yData);
-      setLoading(false);
-    }
-    loadData();
-    return () => { cancelled = true; };
-  }, [studentId, role, authStatus]);
-
-  const setV = (v: string) => { setView(v); try { localStorage.setItem(KEY, v); } catch (e) {} };
-  const list = courses.filter((c) => year === "all" || c.year === year);
-  
-  const nav = (path: string) => router.push(path);
-
-  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (loading) return <PageContainer><LoadingState /></PageContainer>;
 
   return (
-    <div className="container">
-      <PageHead
+    <PageContainer>
+      <PageHeader
         kicker="กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ"
         title="รายวิชาของฉัน"
-        desc="เลือกรายวิชาเพื่อเข้าเรียนบทเรียน ทำแบบทดสอบ และส่งใบงาน"
+        description="เลือกรายวิชาเพื่อเข้าเรียนบทเรียน ทำแบบทดสอบ และส่งใบงาน"
       />
 
-      {/* toolbar: year filter + view toggle */}
-      <div className="flex items-center justify-between gap-3 mb-4 wrap">
-        <div className="flex items-center gap-2">
-          <span className="t-sm muted flex items-center gap-1"><Icon name="filter" size={15} />ปีการศึกษา</span>
-          <Select className="input" style={{ width: 190, height: 36 }} value={year} onChange={(e) => setYear(e.target.value)}>
-            <option value="all">ทุกปีการศึกษา</option>
-            {years.map((y) => <option key={y.id} value={y.year ?? undefined}>{y.label}{y.status === "active" ? " (ปัจจุบัน)" : ""}</option>)}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Label htmlFor="course-year" className="text-muted-foreground">
+            <FilterIcon className="size-4" />
+            ปีการศึกษา
+          </Label>
+          <Select value={year} onValueChange={setYear}>
+            <SelectTrigger id="course-year" className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>ทุกปีการศึกษา</SelectItem>
+              {years.map((y) => (
+                <SelectItem key={y.id} value={y.year ?? y.id}>
+                  {y.label}
+                  {y.status === "active" ? " (ปัจจุบัน)" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-          <span className="t-sm muted ml-2">{list.length} รายวิชา</span>
+          <span className="ml-2 text-sm text-muted-foreground">{list.length} รายวิชา</span>
         </div>
-        <div className="proto-seg" style={{ background: "var(--muted)", border: "1px solid var(--border)" }}>
-          <button type="button" className={view === "grid" ? "on" : ""} onClick={() => setV("grid")} style={{ color: view === "grid" ? "#fff" : "var(--muted-fg)" }}><Icon name="grid" size={14} />ตาราง</button>
-          <button type="button" className={view === "list" ? "on" : ""} onClick={() => setV("list")} style={{ color: view === "list" ? "#fff" : "var(--muted-fg)" }}><Icon name="listChk" size={14} />รายการ</button>
-        </div>
+        <ToggleGroup type="single" variant="outline" value={view} onValueChange={changeView} aria-label="รูปแบบการแสดงผล">
+          <ToggleGroupItem value="grid" aria-label="ตาราง">
+            <LayoutGridIcon />
+            ตาราง
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label="รายการ">
+            <ListIcon />
+            รายการ
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {list.length === 0 ? (
-        <div className="card"><div className="empty">
-          <div className="ec"><Icon name="book" size={24} /></div>
-          <div><div className="fw-6 fg">ไม่มีรายวิชาในปีการศึกษานี้</div><div className="t-sm mt-1">ลองเลือกปีการศึกษาอื่น หรือดูทุกปีการศึกษา</div></div>
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => setYear("all")}>ดูทุกปีการศึกษา</button>
-        </div></div>
+        <EmptyState
+          icon={<BookOpenIcon />}
+          title="ไม่มีรายวิชาในปีการศึกษานี้"
+          description="ลองเลือกปีการศึกษาอื่น หรือดูทุกปีการศึกษา"
+          action={
+            <Button variant="outline" size="sm" onClick={() => setYear(ALL)}>
+              ดูทุกปีการศึกษา
+            </Button>
+          }
+        />
       ) : view === "grid" ? (
-        <div className="grid grid-3 gap-4">{list.map((c) => <CourseCard key={c.id} c={c} nav={nav} />)}</div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {list.map((c) => <CourseCard key={c.id} course={c} />)}
+        </div>
       ) : (
-        <div className="flex col gap-3">{list.map((c) => <CourseListItem key={c.id} c={c} nav={nav} />)}</div>
+        <div className="flex flex-col gap-3">
+          {list.map((c) => <CourseCard key={c.id} course={c} layout="list" />)}
+        </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

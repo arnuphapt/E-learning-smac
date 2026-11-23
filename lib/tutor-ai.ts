@@ -103,7 +103,7 @@ export async function ensureSummary(
   const release = () => db.from("tutor_attempts").update({ summary: null }).eq("id", attempt.id).eq("summary->>at", at);
   const quotaDb: AiQuotaRpcDb & AiQuotaTableDb = {
     rpc: (fn, args) =>
-      db.rpc(fn, args as unknown as Database["public"]["Functions"]["ai_quota_claim"]["Args"]),
+      db.rpc(fn, args as Database["public"]["Functions"]["ai_quota_claim"]["Args"]),
     from: (table) => db.from(table),
   };
   let quotaClaimId: string | null = null;

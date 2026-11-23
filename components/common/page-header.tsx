@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils"
 export type PageHeaderProps = {
   title: ReactNode
   description?: ReactNode
-  /** Small uppercase label above the title (old PageHead `kicker`). */
+  /** Small uppercase label above the title. */
   kicker?: ReactNode
-  /** Right-aligned buttons (old PageHead `right`). */
+  /** Right-aligned buttons. */
   actions?: ReactNode
   /** Rendered above the title, e.g. `<AppBreadcrumb />`. */
   breadcrumb?: ReactNode

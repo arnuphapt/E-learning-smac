@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
-import { ChevronRightIcon, GraduationCapIcon, LogOutIcon, PlusIcon } from "lucide-react"
+import { ChevronRightIcon, GraduationCapIcon, LogOutIcon } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -23,35 +23,40 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { hasPermission, PERMISSIONS } from "@/lib/rbac"
+import { isTutorOnlyRole } from "@/lib/roles"
+import { hasPermission } from "@/lib/rbac"
 import { resolveNav } from "@/lib/nav/match"
 import type { NavConfig, NavGroup, NavItem, NavLeaf } from "@/lib/nav/types"
 import { displayRole, initials } from "./user-info"
 
-type User = Parameters<typeof hasPermission>[0]
-
-const allowed = (user: User, permission?: string) => !permission || hasPermission(user, permission)
+type User = (Parameters<typeof hasPermission>[0] & { role?: string | null }) | undefined
 
 /** Drop entries the user may not see; empty submenus and groups go too. */
 function visibleGroups(config: NavConfig, user: User): NavGroup[] {
+  const tutorOnly = !!config.restrictTutorOnly && isTutorOnlyRole(user?.role)
+  const allowed = (e: { permission?: string; tutorOk?: boolean }) =>
+    (!e.permission || hasPermission(user, e.permission)) && (!tutorOnly || !!e.tutorOk)
   return config.groups
     .map((g) => ({
       ...g,
       items: g.items
-        .filter((i) => allowed(user, i.permission))
-        .map((i): NavItem => (i.items ? { ...i, items: i.items.filter((s) => allowed(user, s.permission)) } : i))
+        .filter(allowed)
+        .map((i): NavItem => (i.items ? { ...i, items: i.items.filter(allowed) } : i))
         .filter((i) => !i.items || i.items.length > 0),
     }))
     .filter((g) => g.items.length > 0)
 }
 
-export function AppSidebar({ config, subtitle = "พื้นที่อาจารย์ผู้สอน", homeHref = "/i/courses" }: { config: NavConfig; subtitle?: string; homeHref?: string }) {
+export function AppSidebar({ config }: { config: NavConfig }) {
   const { data: session } = useSession()
   const pathname = usePathname() || ""
   const { setOpenMobile } = useSidebar()
   const user = session?.user
   const activeHref = resolveNav(config, pathname)?.leaf.href
   const close = () => setOpenMobile(false)
+  const { subtitle, quickAction } = config
+  // tutor-only users have a single entry; the logo takes them straight there
+  const homeHref = config.restrictTutorOnly && isTutorOnlyRole(user?.role) ? "/s/tutor" : config.homeHref
 
   const leafLink = (leaf: NavLeaf) => (
     <Link href={leaf.href} onClick={close}>
@@ -78,11 +83,11 @@ export function AppSidebar({ config, subtitle = "พื้นที่อาจ�
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        {hasPermission(user, PERMISSIONS.COURSES_CREATE) && (
+        {quickAction && (!quickAction.permission || hasPermission(user, quickAction.permission)) && (
           <Button asChild className="group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0">
-            <Link href="/i/course/new" onClick={close} aria-label="สร้างรายวิชา">
-              <PlusIcon />
-              <span className="group-data-[collapsible=icon]:hidden">สร้างรายวิชา</span>
+            <Link href={quickAction.href} onClick={close} aria-label={quickAction.title}>
+              <quickAction.icon />
+              <span className="group-data-[collapsible=icon]:hidden">{quickAction.title}</span>
             </Link>
           </Button>
         )}
@@ -147,7 +152,7 @@ export function AppSidebar({ config, subtitle = "พื้นที่อาจ�
               </Avatar>
               <div className="grid min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-semibold">{user?.name || "กำลังโหลด..."}</span>
-                <span className="truncate text-xs text-muted-foreground">{displayRole(user?.role)}</span>
+                <span className="truncate text-xs text-muted-foreground">{displayRole(user?.role, config.roleFallback)}</span>
               </div>
               <Button
                 variant="ghost"

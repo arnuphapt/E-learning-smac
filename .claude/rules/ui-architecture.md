@@ -19,11 +19,11 @@ Promote a piece of JSX to a component the moment it appears twice. Shared by two
 
 Outside `components/ui/`, never render native `<button>`, `<input>`, `<select>`, `<textarea>`, `<table>`, `<dialog>`, `<progress>`. Use the shadcn primitive (`Button`, `Input`, `Select`, `Textarea`, `Table`, `Dialog`/`AlertDialog`/`Sheet`, `Progress`) or a `components/common/` block. ESLint enforces this (`no-restricted-syntax`).
 
-The old hand-written UI (`components/ui/*.jsx` in PascalCase, `components/ui/dialog-focus.js`, the `.btn` / `.card` / `.clay-*` classes in `app/globals.css`, `app/landing.css`) is being deleted. Never import or use it in new code.
+The old hand-written UI (PascalCase `components/ui/*.jsx`, `dialog-focus.js`, the legacy CSS layer in `app/globals.css`, `app/landing.css`) is deleted. ESLint (`no-restricted-imports`) blocks the old paths; never bring it back.
 
 ## Data tables
 
-Every list uses the compound `DataTable` from `@/components/common/data-table` (TanStack Table + shadcn Table):
+Every tabular list (rows × columns: search, filter, sort, paginate) uses the compound `DataTable`. Card grids and short stacked lists (course cards, lesson rows, announcement cards, tutor sets) map a shared card component from `components/<feature>/` instead from `@/components/common/data-table` (TanStack Table + shadcn Table):
 
 ```tsx
 <DataTable.Root data={rows} columns={columns}>

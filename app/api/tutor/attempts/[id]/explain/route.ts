@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     // Quota is claimed atomically (429 when none is left) for all roles.
     const quotaDb: AiQuotaRpcDb & AiQuotaTableDb = {
       rpc: (fn, args) =>
-        db.rpc(fn, args as unknown as Database["public"]["Functions"]["ai_quota_claim"]["Args"]),
+        db.rpc(fn, args as Database["public"]["Functions"]["ai_quota_claim"]["Args"]),
       from: (table) => db.from(table),
     };
     const sessionId = "tutor-" + attempt.id;

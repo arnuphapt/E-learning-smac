@@ -57,7 +57,7 @@ function getQuotaDb(): AiQuotaRpcDb & AiQuotaTableDb {
   const admin = supabaseAdmin();
   return {
     rpc: (fn, args) =>
-      admin.rpc(fn, args as unknown as Database["public"]["Functions"]["ai_quota_claim"]["Args"]),
+      admin.rpc(fn, args as Database["public"]["Functions"]["ai_quota_claim"]["Args"]),
     from: (table) => admin.from(table),
   };
 }

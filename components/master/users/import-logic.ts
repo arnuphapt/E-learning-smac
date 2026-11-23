@@ -42,7 +42,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const loadXlsx = async () => {
   const m = await import("xlsx");
-  return m.utils ? m : (m as unknown as { default: typeof m }).default;
+  return m.utils ? m : m.default;
 };
 
 export const cell = (v: unknown): string => String(v ?? "").trim();

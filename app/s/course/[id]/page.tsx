@@ -1,435 +1,47 @@
 "use client";
 
-import React, { useState, useEffect, type ComponentType } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { supabase } from "@/lib/supabase";
-import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
-import type { Database, Json } from "@/lib/database.types";
-import RawIcon from "@/components/ui/Icon";
-import { Badge as RawBadge, Progress, statusBadge } from "@/components/ui/Primitives";
-import { PageHead as RawPageHead, Crumb as RawCrumb } from "@/components/ui/Shared";
-import Loading from "@/components/ui/Loading";
-
-type CourseRow = Database["public"]["Views"]["courses"]["Row"];
-type ChipTone = "success" | "warning" | "info" | "muted";
-
-interface LessonTestStatus {
-  required?: boolean;
-  taken?: boolean;
-  score?: number | null;
-  total?: number | null;
-  [key: string]: unknown;
-}
-
-interface LessonAssignmentStatus {
-  id: string;
-  status: string | null;
-}
-
-interface CourseLessonItem {
-  id: string;
-  index: number | null;
-  title: string;
-  duration: string | null;
-  status: string | null;
-  progress: number | null;
-  video: boolean | null;
-  video_url: string | null;
-  pretest: LessonTestStatus | Json | null;
-  posttest: LessonTestStatus | Json | null;
-  assignments?: LessonAssignmentStatus[];
-}
-
-const Icon = RawIcon as unknown as ComponentType<{
-  name: string;
-  size?: number;
-  sw?: number;
-  fill?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}>;
-const Badge = RawBadge as unknown as ComponentType<{
-  children?: React.ReactNode;
-  tone?: string;
-  dot?: boolean;
-}>;
-const PageHead = RawPageHead as unknown as ComponentType<{
-  kicker?: string;
-  title?: string;
-  desc?: string;
-  right?: React.ReactNode;
-}>;
-const Crumb = RawCrumb as unknown as ComponentType<{
-  items?: Array<{ label: string; to?: string; onClick?: () => void }>;
-  nav?: (path: string) => void;
-}>;
-
-function asTestObj(raw: LessonTestStatus | Json | null): LessonTestStatus | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  return raw as LessonTestStatus;
-}
-
-function hexToRgba(hex: string | null | undefined, alpha = 1) {
-  if (!hex || typeof hex !== "string" || !hex.startsWith("#")) {
-    return alpha != null ? `rgba(13, 110, 140, ${alpha})` : "#0d6e8c";
-  }
-  let c = hex.slice(1);
-  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
-  const num = parseInt(c, 16);
-  if (isNaN(num)) return `rgba(13, 110, 140, ${alpha})`;
-  const r = (num >> 16) & 255;
-  const g = (num >> 8) & 255;
-  const b = num & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function LessonRow({ l, nav, heroColor }: { l: CourseLessonItem; nav: (path: string) => void; heroColor: string | null | undefined }) {
-  const hero = heroColor && heroColor.startsWith("#") ? heroColor : "#0d6e8c";
-  const locked = l.status === "locked-pretest";
-  
-  // Check if lesson actually has a video
-  const hasVideo = !!(l.video_url || l.video);
-  
-  const chips: Array<[string, ChipTone, string]> = [];
-  const pretest = asTestObj(l.pretest);
-  const posttest = asTestObj(l.posttest);
-  
-  // Pre-test status
-  if (pretest) {
-    if (pretest.required) {
-      if (pretest.taken) {
-        const scoreText = (pretest.score !== null && pretest.score !== undefined) 
-          ? ` (${pretest.score}/${pretest.total} คะแนน)` 
-          : " (ทำแล้ว)";
-        chips.push([`Pre-test${scoreText}`, "success", "checkC"]);
-      } else {
-        chips.push(["Pre-test (ต้องทำ)", "warning", "clipboard"]);
-      }
-    } else {
-      // Optional pre-test
-      if (pretest.taken) {
-        const scoreText = (pretest.score !== null && pretest.score !== undefined) 
-          ? ` (${pretest.score}/${pretest.total} คะแนน)` 
-          : " (ทำแล้ว)";
-        chips.push([`Pre-test${scoreText}`, "success", "checkC"]);
-      } else {
-        chips.push(["Pre-test (ไม่บังคับ)", "muted", "clipboard"]);
-      }
-    }
-  }
-
-  // Post-test status
-  if (posttest && posttest.required) {
-    if (posttest.taken) {
-      const scoreText = (posttest.score !== null && posttest.score !== undefined) 
-        ? ` (${posttest.score}/${posttest.total} คะแนน)` 
-        : " (ทำแล้ว)";
-      chips.push([`Post-test${scoreText}`, "success", "checkC"]);
-    } else {
-      chips.push(["Post-test (ยังไม่ได้ทำ)", "muted", "clipboard"]);
-    }
-  }
-
-  // Assignments status
-  if (l.assignments && l.assignments.length > 0) {
-    const completedCount = l.assignments.filter(a => a.status === "graded" || a.status === "submitted").length;
-    const allGraded = l.assignments.every(a => a.status === "graded");
-    const tone: ChipTone = allGraded ? "success" : (completedCount > 0 ? "info" : "muted");
-    chips.push([`ใบงาน (ส่งแล้ว ${completedCount}/${l.assignments.length})`, tone, "file"]);
-  }
-  
-  return (
-    <div
-      className="card pointer transition-all"
-      style={{ display: "flex", alignItems: "stretch" }}
-      onClick={() => nav("/s/lesson/" + l.id)}
-    >
-      <div className="card-p flex items-center justify-between gap-4 flex-1" style={{ padding: "16px 20px" }}>
-        <div className="flex items-center flex-1" style={{ minWidth: 0, gap: 16 }}>
-          <div
-            className="clay-pod"
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 14,
-              background: locked
-                ? "var(--muted)"
-                : `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
-              border: `1.5px solid ${locked ? "var(--border)" : hexToRgba(hero, 0.28)}`,
-              color: locked ? "var(--subtle)" : hero,
-              boxShadow: locked
-                ? "inset 1px 1px 2px rgba(255,255,255,.9), inset -1px -1px 2px rgba(0,0,0,.04)"
-                : `inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.95), inset -1.5px -1.5px 3px ${hexToRgba(hero, 0.18)}, 0 4px 10px -2px ${hexToRgba(hero, 0.18)}`,
-            }}
-          >
-            {locked ? (
-              <Icon name="lock" size={20} style={{ color: "var(--subtle)" }} />
-            ) : (
-              <span className="t-base fw-7 tnum">{String(l.index).padStart(2, "0")}</span>
-            )}
-          </div>
-
-          <div className="flex-1" style={{ minWidth: 0 }}>
-            <div className="flex items-center gap-2 wrap mb-1.5">
-              <span className="fw-7 t-base" style={{ color: "var(--fg)" }}>{l.title}</span>
-              {statusBadge(l.status)}
-            </div>
-            
-            {/* Descriptive badges layout */}
-            <div className="flex items-center gap-2 wrap t-xs">
-              {/* Video Badge */}
-              <span className="flex items-center gap-1.5" style={{ 
-                padding: "3px 10px", 
-                borderRadius: 999, 
-                background: hasVideo ? hexToRgba(hero, 0.12) : "var(--muted)", 
-                color: hasVideo ? hero : "var(--subtle)",
-                fontWeight: 600,
-                fontSize: "11.5px",
-                border: `1px solid ${hasVideo ? hexToRgba(hero, 0.25) : "transparent"}`,
-                boxShadow: "inset 1px 1px 2px rgba(255,255,255,.8)"
-              }}>
-                <Icon name={hasVideo ? "video" : "book"} size={12} />
-                {hasVideo ? `มีวิดีโอ (${l.duration || "ไม่ระบุ"})` : "ไม่มีวิดีโอ"}
-              </span>
-
-              {/* Status Chips */}
-              {chips.map(([txt, tone, ic], i) => {
-                const colorMap: Record<ChipTone, { bg: string; fg: string }> = {
-                  success: { bg: "var(--success-soft)", fg: "var(--success)" },
-                  warning: { bg: "var(--warning-soft)", fg: "var(--warning)" },
-                  info: { bg: hexToRgba(hero, 0.12), fg: hero },
-                  muted: { bg: "var(--muted)", fg: "var(--subtle)" }
-                };
-                const colors = colorMap[tone] || colorMap.muted;
-                return (
-                  <span key={i} className="flex items-center gap-1.5" style={{ 
-                    padding: "3px 10px", 
-                    borderRadius: 999, 
-                    background: colors.bg, 
-                    color: colors.fg,
-                    fontWeight: 600,
-                    fontSize: "11.5px",
-                    boxShadow: "inset 1px 1px 2px rgba(255,255,255,.8)"
-                  }}>
-                    <Icon name={ic} size={12} />
-                    {txt}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ width: 130 }} className="hide-m">
-          <div className="flex items-center justify-between t-xs mb-1.5"><span className="muted">ความคืบหน้า</span><span className="fw-6 tnum">{l.progress || 0}%</span></div>
-          <Progress value={l.progress || 0} h={6} />
-        </div>
-        <Icon name="chevR" size={18} style={{ color: "var(--subtle)" }} />
-      </div>
-    </div>
-  );
-}
+import { useParams } from "next/navigation";
+import { AlertCircleIcon } from "lucide-react";
+import { PageContainer } from "@/components/common/page-container";
+import { EmptyState, LoadingState } from "@/components/common/states";
+import { CourseHero } from "@/components/student/course/course-hero";
+import { LessonRow } from "@/components/student/course/lesson-row";
+import { asTestObj, useCourseDetail } from "@/components/student/course/use-course-detail";
 
 export default function StudentCourse() {
-  const router = useRouter();
-  const params = useParams();
-  const { data: session, status: authStatus } = useSession();
-  const nav = (path: string) => router.push(path);
+  const rawId = useParams()?.id;
+  const { course, lessons, loading } = useCourseDetail(Array.isArray(rawId) ? rawId[0] : rawId);
 
-  const rawId = params?.id;
-  const courseId = Array.isArray(rawId) ? rawId[0] : rawId;
-  const studentId = session?.dbId;
-  const role = session?.user?.role;
-
-  const [course, setCourse] = useState<CourseRow | null>(null);
-  const [lessons, setLessons] = useState<CourseLessonItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Wait for the session (role/id pick the filter/data); a run started while it loads can finish after the real run and overwrite it.
-    if (authStatus !== "authenticated") return;
-    let cancelled = false;
-    async function load() {
-      if (!courseId) return;
-      
-      const [cRes, lRes] = await Promise.all([
-        supabase.from("courses").select("*").eq("id", courseId).single(),
-        supabase.from("lessons").select(STUDENT_LESSON_COLUMNS).eq("course_id", courseId).order("index", { ascending: true })
-      ]);
-      
-      if (cancelled) return;
-      if (!cRes.data) {
-        setLoading(false);
-        return;
-      }
-
-      let fetchedLessons: CourseLessonItem[] = (lRes.data || []).filter((l) => l.status !== "draft");
-
-      if (studentId) {
-        // Fetch student test scores and assignment submissions
-        const [tsRes, subRes, assignRes] = await Promise.all([
-          supabase.from("test_scores").select("*").eq("student_id", studentId),
-          supabase.from("submissions").select("*").eq("student_id", studentId),
-          supabase.from("assignments").select("*").eq("course_id", courseId)
-        ]);
-
-        if (cancelled) return;
-        const testScores = tsRes.data || [];
-        const submissions = subRes.data || [];
-        const assignments = assignRes.data || [];
-
-        fetchedLessons = fetchedLessons.map((l) => {
-          const myScore = testScores.find((ts) => ts.student_id === studentId && ts.lesson_id === l.id);
-          const preTaken = myScore ? (myScore.pre !== null && myScore.pre !== undefined) : false;
-          const postTaken = myScore ? (myScore.post !== null && myScore.post !== undefined) : false;
-
-          const preObj = asTestObj(l.pretest);
-          const postObj = asTestObj(l.posttest);
-
-          let status = l.status || "active";
-          const hasPre = preObj && preObj.required;
-          if (hasPre && !preTaken && (l.index ?? 0) > 1) {
-            status = "locked-pretest";
-          }
-
-          const lessonAssignments = assignments.filter((a) => a.lesson_id === l.id);
-          const mappedAssignments = lessonAssignments.map(asg => {
-            const sub = submissions.find((s) => s.assignment_id === asg.id);
-            return {
-              id: asg.id,
-              status: sub ? sub.status : "todo"
-            };
-          });
-
-          let progress = 0;
-          if (typeof window !== "undefined") {
-            const saved = localStorage.getItem(`watch_progress_${studentId}_${l.id}`);
-            if (saved) progress = parseInt(saved, 10);
-          }
-
-          return {
-            ...l,
-            status,
-            progress,
-            pretest: preObj ? {
-              ...preObj,
-              taken: preTaken,
-              score: myScore ? myScore.pre : null,
-              total: myScore ? myScore.total : null
-            } : null,
-            posttest: postObj ? {
-              ...postObj,
-              taken: postTaken,
-              score: myScore ? myScore.post : null,
-              total: myScore ? myScore.total : null
-            } : null,
-            assignments: mappedAssignments
-          };
-        });
-      }
-
-      setCourse(cRes.data);
-      setLessons(fetchedLessons);
-      setLoading(false);
-    }
-    load();
-    return () => { cancelled = true; };
-  }, [courseId, studentId, role, authStatus]);
-
-  if (loading) return <Loading className="container p-5 text-center muted" />;
+  if (loading) return <PageContainer><LoadingState /></PageContainer>;
   if (!course) {
     return (
-      <div className="container p-5">
-        <div className="card">
-          <div className="empty">
-            <div className="ec"><Icon name="alert" size={22} style={{ color: "var(--warning)" }} /></div>
-            <div className="fw-6 fg" style={{ fontSize: "16px" }}>ไม่พบข้อมูลรายวิชา</div>
-            <div className="t-sm muted">ไม่พบข้อมูลรายวิชาตามรหัสที่ระบุ หรือไม่มีอยู่ในฐานข้อมูลของระบบ</div>
-          </div>
-        </div>
-      </div>
+      <PageContainer>
+        <EmptyState
+          icon={<AlertCircleIcon />}
+          title="ไม่พบข้อมูลรายวิชา"
+          description="ไม่พบข้อมูลรายวิชาตามรหัสที่ระบุ หรือไม่มีอยู่ในฐานข้อมูลของระบบ"
+        />
+      </PageContainer>
     );
   }
 
-  // Count lessons completed (meaning student finished post-test if required, or progress is 100)
-  const completedCount = lessons.filter(l => {
-    const postObj = asTestObj(l.posttest);
-    const hasPost = postObj && postObj.required;
-    if (hasPost) return postObj.taken;
-    return l.progress === 100;
+  // A lesson counts as finished when its required post-test is taken, else when progress is 100.
+  const completed = lessons.filter((l) => {
+    const post = asTestObj(l.posttest);
+    return post?.required ? post.taken : l.progress === 100;
   }).length;
-
-  const totalLessons = lessons.length;
-  const averageProgress = totalLessons > 0 
-    ? Math.round(lessons.reduce((acc, l) => acc + (l.progress || 0), 0) / totalLessons)
-    : 0;
-  const courseProgress = averageProgress;
-  const hero = course.hero && course.hero.startsWith("#") ? course.hero : "#0d6e8c";
+  const progress = lessons.length > 0 ? Math.round(lessons.reduce((acc, l) => acc + (l.progress || 0), 0) / lessons.length) : 0;
 
   return (
-    <div className="container">
-      <Crumb nav={nav} items={[{ label: "รายวิชาของฉัน", to: "/s/courses" }, { label: course.code || "" }]} />
-      <div className="card mb-5">
-        <div className="card-p flex items-start justify-between gap-4 wrap">
-          <div className="flex items-start gap-4 flex-1" style={{ minWidth: 280 }}>
-            <div
-              className="clay-pod"
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: 16,
-                background: `linear-gradient(135deg, ${hexToRgba(hero, 0.16)} 0%, ${hexToRgba(hero, 0.07)} 100%)`,
-                border: `1.5px solid ${hexToRgba(hero, 0.28)}`,
-                color: hero,
-                boxShadow: `inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.95), inset -1.5px -1.5px 3px ${hexToRgba(hero, 0.18)}, 0 4px 12px -2px ${hexToRgba(hero, 0.2)}`,
-                marginTop: 2,
-              }}
-            >
-              <Icon name="book" size={24} />
-            </div>
-            <div className="flex-1" style={{ minWidth: 0 }}>
-              <div className="flex items-center gap-2.5 mb-2.5">
-                <span
-                  style={{
-                    padding: "3px 10px",
-                    borderRadius: 999,
-                    fontSize: "11.5px",
-                    fontWeight: 700,
-                    background: hexToRgba(hero, 0.12),
-                    color: hero,
-                    border: `1px solid ${hexToRgba(hero, 0.25)}`,
-                    boxShadow: "inset 1px 1px 2px rgba(255,255,255,.9)",
-                  }}
-                >
-                  {course.code}
-                </span>
-                <span className="t-xs muted">{course.term}</span>
-              </div>
-              <h1 className="t-2xl fw-7 serif" style={{ letterSpacing: "-.01em", lineHeight: 1.3, margin: 0, marginBottom: 6 }}>{course.title}</h1>
-              <div className="muted t-sm pretty">{course.subtitle}</div>
-              <div className="flex items-center gap-3 mt-3.5 t-sm muted wrap">
-                <span className="flex items-center gap-1"><Icon name="user" size={15} />{course.instructor}</span>
-                <i className="dot-sep" />
-                <span className="flex items-center gap-1"><Icon name="book" size={15} />{lessons.length} บทเรียน</span>
-              </div>
-            </div>
-          </div>
-          <div className="clay-well" style={{ padding: 18, minWidth: 200 }}>
-            <div className="t-xs muted mb-1">ความคืบหน้ารวม</div>
-            <div className="flex items-end gap-2"><span className="t-3xl fw-7 tnum" style={{ lineHeight: 1 }}>{courseProgress}</span><span className="muted mb-1">%</span></div>
-            <div className="mt-2"><Progress value={courseProgress} /></div>
-            <div className="t-xs muted mt-2">เรียนจบ {completedCount} จาก {lessons.length} บทเรียน</div>
-          </div>
-        </div>
+    <PageContainer>
+      <CourseHero course={course} lessonCount={lessons.length} completed={completed} progress={progress} />
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-bold">บทเรียนทั้งหมด</h2>
+        <span className="text-xs text-muted-foreground">เรียงตามลำดับบทเรียน</span>
       </div>
-      <div className="flex items-center justify-between mb-3">
-        <div className="t-md fw-7">บทเรียนทั้งหมด</div>
-        <div className="t-xs muted">เรียงตามลำดับบทเรียน</div>
+      <div className="flex flex-col gap-3">
+        {lessons.map((l) => <LessonRow key={l.id} lesson={l} hero={course.hero} />)}
       </div>
-      <div className="flex col gap-3">
-        {lessons.map((l) => <LessonRow key={l.id} l={l} nav={nav} heroColor={course.hero} />)}
-      </div>
-    </div>
+    </PageContainer>
   );
 }
