@@ -268,7 +268,22 @@ export default function MasterUsersPage() {
 
   return (
     <PageContainer>
-      <PageHeader {...HEADER} description="จัดการบัญชีผู้ใช้ในระบบ สิทธิ์บทบาทหน้าที่ และข้อมูลกลุ่มเรียนของนักศึกษา" />
+      <PageHeader
+        {...HEADER}
+        description="จัดการบัญชีผู้ใช้ในระบบ สิทธิ์บทบาทหน้าที่ และข้อมูลกลุ่มเรียนของนักศึกษา"
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setImportOpen(true)} disabled={loading}>
+              <FileSpreadsheetIcon />
+              นำเข้าจาก Excel
+            </Button>
+            <Button onClick={() => setDlg({ mode: "add" })}>
+              <PlusIcon />
+              เพิ่มผู้ใช้
+            </Button>
+          </>
+        }
+      />
       <p className="mb-3 text-sm text-muted-foreground">จัดการข้อมูลผู้สอน นักศึกษา และสิทธิ์การใช้งานระบบ</p>
 
       {selectedIds.size > 0 && (
@@ -297,16 +312,6 @@ export default function MasterUsersPage() {
             }}
             onGradeChange={setFilterGrade}
           />
-          <DataTable.Actions>
-            <Button variant="outline" onClick={() => setImportOpen(true)} disabled={loading}>
-              <FileSpreadsheetIcon />
-              นำเข้าจาก Excel
-            </Button>
-            <Button onClick={() => setDlg({ mode: "add" })}>
-              <PlusIcon />
-              เพิ่มผู้ใช้
-            </Button>
-          </DataTable.Actions>
         </DataTable.Toolbar>
         <DataTable.Content loading={loading} empty={<EmptyState title="ยังไม่มีผู้ใช้งาน" />} />
         <DataTable.Pagination />

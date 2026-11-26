@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -9,6 +8,7 @@ import { PlusIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_DOMAIN, sectionRangeMatch } from "@/lib/course-access";
 import type { Json } from "@/lib/database.types";
+import { hasPermission, PERMISSIONS } from "@/lib/rbac";
 import { hasRole } from "@/lib/roles";
 import { PageContainer } from "@/components/common/page-container";
 import { PageHeader } from "@/components/common/page-header";
@@ -17,6 +17,8 @@ import { EmptyState } from "@/components/common/states";
 import { useConfirm } from "@/components/common/confirm";
 import { Button } from "@/components/ui/button";
 import { courseColumns } from "@/components/course/columns";
+import { CreateCourseDialog } from "@/components/course/create-course-dialog";
+import { CreateLessonDialog } from "@/components/course/create-lesson-dialog";
 import { CourseLessonList } from "@/components/course/lesson-list";
 import type { CourseLessonSummary, EnrichedCourse } from "@/components/course/types";
 
@@ -40,6 +42,9 @@ export default function InstructorCourses() {
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
   const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
+  const [createCourseOpen, setCreateCourseOpen] = useState(false);
+  const [lessonTarget, setLessonTarget] = useState<{ courseId: string | null; lessonsCount: number } | null>(null);
+  const [creatingLesson, setCreatingLesson] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -248,15 +253,20 @@ export default function InstructorCourses() {
     }
   };
 
-  const handleCreateLesson = async (courseId: string | null, lessonsCount: number) => {
+  const handleOpenCreateLesson = (courseId: string | null, lessonsCount: number) => {
+    setLessonTarget({ courseId, lessonsCount });
+  };
+
+  const handleCreateLesson = async (title: string) => {
+    if (!lessonTarget || creatingLesson) return;
+    setCreatingLesson(true);
     try {
-      toast("กำลังสร้างบทเรียนใหม่...");
-      const nextIndex = lessonsCount + 1;
+      const nextIndex = lessonTarget.lessonsCount + 1;
       const newId = "l_" + Date.now();
       const newLessonObj = {
         id: newId,
-        course_id: courseId,
-        title: "บทเรียนใหม่",
+        course_id: lessonTarget.courseId,
+        title,
         description: "",
         duration: "",
         status: "draft",
@@ -277,49 +287,77 @@ export default function InstructorCourses() {
       const { error } = await supabase.from("lessons").insert([newLessonObj]);
       if (error) {
         toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message);
+        setCreatingLesson(false);
       } else {
         toast.success("สร้างบทเรียนใหม่สำเร็จแล้ว");
+        setLessonTarget(null);
         router.push(`/i/lesson/${newId}`);
       }
     } catch (error: unknown) {
       console.error(error);
       toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + (error instanceof Error ? error.message : String(error)));
+      setCreatingLesson(false);
     }
   };
 
   const canManage = hasRole(user?.role, "admin", "course_manager");
+  const canCreate = canManage && hasPermission(user, PERMISSIONS.COURSES_CREATE);
+  const termOptions = useMemo(
+    () => [...new Set(courses.map((c) => c.term).filter((t): t is string => Boolean(t)))].sort().map((t) => ({ value: t, label: t })),
+    [courses],
+  );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers only touch state setters, the supabase client and the confirm dialog
   const columns = useMemo(() => courseColumns({ expanded: expandedCourses, onToggle: toggleExpand, canManage, onDelete: handleDeleteCourse }), [expandedCourses, canManage]);
 
   return (
     <PageContainer>
-      <PageHeader kicker="พื้นที่อาจารย์ผู้สอน" title="จัดการรายวิชา" description="กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ" />
+      <PageHeader
+        kicker="พื้นที่อาจารย์ผู้สอน"
+        title="จัดการรายวิชา"
+        description="กลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ"
+        actions={
+          canCreate && (
+            <Button onClick={() => setCreateCourseOpen(true)}>
+              <PlusIcon />
+              สร้างรายวิชา
+            </Button>
+          )
+        }
+      />
       <p className="mb-3 text-sm text-muted-foreground">รายชื่อวิชาในกลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ</p>
       <DataTable.Root data={courses} columns={columns} getRowId={(c: EnrichedCourse) => c.id ?? ""} searchKeys={["title", "code", "subtitle", "term"]}>
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหารายวิชา…" />
-          {canManage && (
-            <DataTable.Actions>
-              <Button asChild>
-                <Link href="/i/course/new">
-                  <PlusIcon />
-                  สร้างรายวิชา
-                </Link>
-              </Button>
-            </DataTable.Actions>
-          )}
+          {termOptions.length > 0 && <DataTable.Filter column="term" options={termOptions} allLabel="ทุกภาคเรียน" />}
         </DataTable.Toolbar>
         <DataTable.Content
           loading={loading}
           empty={<EmptyState title="ยังไม่มีรายวิชา" />}
           subRow={(c: EnrichedCourse) =>
             expandedCourses[c.id ?? ""] ? (
-              <CourseLessonList course={c} onCreateLesson={handleCreateLesson} onDeleteLesson={handleDeleteLesson} />
+              <CourseLessonList course={c} onCreateLesson={handleOpenCreateLesson} onDeleteLesson={handleDeleteLesson} />
             ) : null
           }
         />
         <DataTable.Pagination />
       </DataTable.Root>
+      {createCourseOpen && (
+        <CreateCourseDialog
+          user={user}
+          onClose={() => setCreateCourseOpen(false)}
+          onCreated={() => {
+            setCreateCourseOpen(false);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
+      {lessonTarget && (
+        <CreateLessonDialog
+          onClose={() => setLessonTarget(null)}
+          onCreate={handleCreateLesson}
+          loading={creatingLesson}
+        />
+      )}
     </PageContainer>
   );
 }

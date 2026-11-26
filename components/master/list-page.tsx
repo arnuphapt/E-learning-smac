@@ -96,7 +96,19 @@ export function MasterListPage<T extends { id: string }>({
 
   return (
     <PageContainer>
-      <PageHeader kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title={title} description={description} />
+      <PageHeader
+        kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)"
+        title={title}
+        description={description}
+        actions={
+          onAdd && (
+            <Button onClick={onAdd}>
+              <PlusIcon />
+              {addLabel}
+            </Button>
+          )
+        }
+      />
       {note && <p className="mb-3 text-sm text-muted-foreground">{note}</p>}
       <DataTable.Root data={data} columns={columns} getRowId={(r: T) => r.id} searchKeys={searchKeys}>
         {tabFilter && (
@@ -113,14 +125,6 @@ export function MasterListPage<T extends { id: string }>({
           {dropdownFilters?.map((f) => (
             <DataTable.Filter key={f.column} {...f} />
           ))}
-          {onAdd && (
-            <DataTable.Actions>
-              <Button onClick={onAdd}>
-                <PlusIcon />
-                {addLabel}
-              </Button>
-            </DataTable.Actions>
-          )}
         </DataTable.Toolbar>
         <DataTable.Content loading={loading} empty={<EmptyState title={emptyTitle} />} />
         <DataTable.Pagination />

@@ -1,11 +1,11 @@
-import { Actions, Filter, Search, Toolbar } from "./toolbar"
+import { Filter, Search, Toolbar } from "./toolbar"
 import { Content } from "./content"
 import { Pagination } from "./pagination"
 import { Root } from "./root"
 import { Stats } from "./stats"
 import { Tabs } from "./tabs"
 
-export const DataTable = { Root, Stats, Tabs, Toolbar, Search, Filter, Actions, Content, Pagination }
+export const DataTable = { Root, Stats, Tabs, Toolbar, Search, Filter, Content, Pagination }
 
 export { AvatarCell, ProgressCell } from "./cells"
 export { ColumnHeader } from "./column-header"

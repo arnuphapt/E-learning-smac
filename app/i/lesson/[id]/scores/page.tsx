@@ -143,6 +143,19 @@ function ScoresContent() {
   )
 
   const testColumns = useMemo(() => testScoreColumns((item, kind) => setSelectedSubmission({ student: item.student, record: item.record, kind })), [])
+  const sectionOptions = useMemo(
+    () => [...new Set(testRows.map((r) => r.section).filter((s) => s && s !== "-"))].sort().map((s) => ({ value: s, label: s })),
+    [testRows],
+  )
+  const asgStatusOptions = useMemo(
+    () => [
+      { value: "submitted", label: "รอตรวจ" },
+      { value: "graded", label: "ตรวจแล้ว" },
+      { value: "late", label: "ส่งช้า" },
+      { value: "not-submitted", label: "ยังไม่ส่ง" },
+    ],
+    [],
+  )
 
   if (loading) return <PageContainer><LoadingState /></PageContainer>
   if (!lesson || !course) {
@@ -204,6 +217,7 @@ function ScoresContent() {
           <DataTable.Root data={testRows} columns={testColumns} getRowId={(r: TestScoreItem) => r.id} searchKeys={["name", "studentNo"]}>
             <DataTable.Toolbar>
               <DataTable.Search placeholder="ค้นหานักศึกษา..." />
+              {sectionOptions.length > 0 && <DataTable.Filter column="section" options={sectionOptions} allLabel="ทุก Section" />}
             </DataTable.Toolbar>
             <DataTable.Content empty={<EmptyState title="ยังไม่มีข้อมูลคะแนน" />} />
             <DataTable.Pagination />
@@ -219,6 +233,7 @@ function ScoresContent() {
           <DataTable.Root data={asgRows} columns={asgScoreColumns} getRowId={(r: AsgScoreItem) => r.id} searchKeys={["name", "studentNo", "assignmentTitle"]}>
             <DataTable.Toolbar>
               <DataTable.Search placeholder="ค้นหานักศึกษา หรือใบงาน..." />
+              <DataTable.Filter column="status" options={asgStatusOptions} allLabel="ทุกสถานะ" />
             </DataTable.Toolbar>
             <DataTable.Content empty={<EmptyState title="ยังไม่มีการส่งใบงาน" />} />
             <DataTable.Pagination />

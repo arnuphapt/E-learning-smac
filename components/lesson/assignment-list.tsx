@@ -59,16 +59,16 @@ export function AssignmentList({
   const columns = useMemo(() => assignmentColumns(onSelect, onDelete), [onSelect, onDelete])
   return (
     <div className="grid gap-3">
-      <h2 className="text-base font-bold">ใบงานในบทเรียนนี้ ({assignments.length})</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-bold">ใบงานในบทเรียนนี้ ({assignments.length})</h2>
+        <Button onClick={onAdd}>
+          <PlusIcon />
+          เพิ่มใบงานใหม่
+        </Button>
+      </div>
       <DataTable.Root data={assignments} columns={columns} getRowId={(a: AssignmentRow) => a.id} searchKeys={["title"]}>
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหาใบงาน…" />
-          <DataTable.Actions>
-            <Button onClick={onAdd}>
-              <PlusIcon />
-              เพิ่มใบงานใหม่
-            </Button>
-          </DataTable.Actions>
         </DataTable.Toolbar>
         <DataTable.Content
           empty={

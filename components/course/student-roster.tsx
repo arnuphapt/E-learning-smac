@@ -91,16 +91,16 @@ export function StudentRoster({
 
   return (
     <>
-      <h2 className="mb-3 text-base font-bold">รายชื่อนักศึกษา ({students.length})</h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-bold">รายชื่อนักศึกษา ({students.length})</h2>
+        <Button variant="outline" onClick={() => setAccessOpen(true)}>
+          <UsersIcon />
+          จัดการนักศึกษาเพิ่มเติม
+        </Button>
+      </div>
       <DataTable.Root data={rows} columns={columns} getRowId={(r: RosterRow) => r.id} searchKeys={["name", "student_no"]}>
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหาชื่อ หรือรหัสนักศึกษา..." />
-          <DataTable.Actions>
-            <Button variant="outline" onClick={() => setAccessOpen(true)}>
-              <UsersIcon />
-              จัดการนักศึกษาเพิ่มเติม
-            </Button>
-          </DataTable.Actions>
         </DataTable.Toolbar>
         <DataTable.Content loading={false} empty={<EmptyState title="ไม่มีนักศึกษาในรายวิชานี้" />} />
         <DataTable.Pagination />

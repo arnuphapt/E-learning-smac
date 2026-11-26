@@ -1,40 +1,50 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { Loader2Icon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
-import { PlusIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_DOMAIN } from "@/lib/course-access";
 import type { Json } from "@/lib/database.types";
 import { hasPermission, PERMISSIONS } from "@/lib/rbac";
 import { hasRole } from "@/lib/roles";
-import { PageContainer } from "@/components/common/page-container";
-import { PageHeader } from "@/components/common/page-header";
 import { LoadingState } from "@/components/common/states";
 import type { UserRow } from "@/components/common/manager-select";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { type CourseDraft, type SectionRow, type SubjectGroupRow, type TermRow } from "@/components/course/draft";
 import { CourseInfoCard } from "@/components/course/info-card";
-import { CoursePreviewCard } from "@/components/course/preview-card";
 
 type SubjectGroupManagerRow = { user_id: string; group_id: string };
 
-export default function CreateCourse() {
-  const router = useRouter();
-  const { data: session, status } = useSession();
-  const user = session?.user;
+type SessionUser = {
+  id?: string;
+  name?: string | null;
+  role?: string | null;
+  group_id?: string | null;
+  permissions?: string[];
+};
+
+/** Dialog for creating a new course; mount only while open. */
+export function CreateCourseDialog({
+  user,
+  onClose,
+  onCreated,
+}: {
+  user: SessionUser | undefined;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   // admin wins over course_manager when a user holds both
   const isCourseManagerOnly = hasRole(user?.role, "course_manager") && !hasRole(user?.role, "admin");
-
-  useEffect(() => {
-    if (status === "loading") return;
-    if (!user || !hasPermission(user, PERMISSIONS.COURSES_CREATE)) {
-      toast.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-      router.push("/i/courses");
-    }
-  }, [user, status, router]);
+  const canCreate = Boolean(user && hasPermission(user, PERMISSIONS.COURSES_CREATE));
 
   const [draft, setDraft] = useState<CourseDraft>({
     title: "",
@@ -57,11 +67,19 @@ export default function CreateCourse() {
   const [groupManagers, setGroupManagers] = useState<SubjectGroupManagerRow[]>([]);
   const [masterYearLabels, setMasterYearLabels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   // Pre-select the current user as main manager until the user picks someone
   const mainManagers = draft.mainManagers ?? (user?.id ? [user.id] : []);
 
   useEffect(() => {
+    if (!canCreate) {
+      toast.error("คุณไม่มีสิทธิ์สร้างรายวิชา");
+      onClose();
+      return;
+    }
+
+    let cancelled = false;
     async function load() {
       const [tRes, uRes, gRes, sRes, sgmRes, gradeRes] = await Promise.all([
         supabase.from("terms").select("*"),
@@ -71,6 +89,7 @@ export default function CreateCourse() {
         supabase.from("subject_group_managers").select("*"),
         supabase.from("student_grades").select("year_label").eq("domain", DEFAULT_DOMAIN),
       ]);
+      if (cancelled) return;
 
       const fetchedTerms = tRes.data || [];
       setTerms(fetchedTerms);
@@ -103,12 +122,13 @@ export default function CreateCourse() {
       setSections(fetchedSections);
       setLoading(false);
     }
-    if (user) {
-      load();
-    }
-  }, [user, isCourseManagerOnly]);
 
-  // Group IDs managed by the current user computed directly from the fetched database managers
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [canCreate, user?.id, user?.group_id, isCourseManagerOnly, onClose]);
+
   const myManagedGroupIds = useMemo(() => {
     if (!user) return [];
     if (hasRole(user.role, "admin")) return subjectGroups.map((g) => g.id);
@@ -124,7 +144,10 @@ export default function CreateCourse() {
 
   const namesOf = (ids: string[]) => ids.map((id) => instructors.find((u) => u.id === id)?.name).filter((n): n is string => Boolean(n));
 
-  const create = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting || !canCreate) return;
+
     const { title, code, subtitle, term, subjectGroup, section, yearLevels, coInstructors } = draft;
     if (!title || !code) {
       toast.error("กรุณากรอกชื่อวิชาและรหัสวิชา");
@@ -135,45 +158,50 @@ export default function CreateCourse() {
       return;
     }
 
-    let selectedYear: string | number | null = new Date().getFullYear() + 543;
-    const selectedTermObj = terms.find((t) => `${t.name} ${t.year}` === term);
-    if (selectedTermObj) {
-      selectedYear = selectedTermObj.year;
-    }
+    setSubmitting(true);
+    try {
+      let selectedYear: string | number | null = new Date().getFullYear() + 543;
+      const selectedTermObj = terms.find((t) => `${t.name} ${t.year}` === term);
+      if (selectedTermObj) {
+        selectedYear = selectedTermObj.year;
+      }
 
-    const selectedGroup = subjectGroups.find((g) => g.id === subjectGroup);
-    const mainManagerNames = namesOf(mainManagers);
-    const mainManagerName = mainManagerNames.length > 0 ? mainManagerNames.join(", ") : (user?.name || "ไม่ระบุ");
+      const selectedGroup = subjectGroups.find((g) => g.id === subjectGroup);
+      const mainManagerNames = namesOf(mainManagers);
+      const mainManagerName = mainManagerNames.length > 0 ? mainManagerNames.join(", ") : user?.name || "ไม่ระบุ";
 
-    const newCourse = {
-      id: "c_" + Date.now(),
-      code,
-      title,
-      subtitle,
-      term,
-      year: String(selectedYear),
-      instructor: mainManagerName,
-      group_id: subjectGroup || null,
-      group_name: selectedGroup?.name || null,
-      section: section || null,
-      lessons: 0,
-      students: 0,
-      progress: 0,
-      hero: "#0d6e8c",
-      year_level: yearLevels.map((y) => {
-        const parsed = parseInt(String(y).replace(/\D/g, ""), 10);
-        return isNaN(parsed) ? null : parsed;
-      }).filter((y): y is number => Boolean(y)),
-      access: { allowedYears: [], allowedEmails: [] } as Json,
-      kind: "course",
-    };
+      const newCourse = {
+        id: "c_" + Date.now(),
+        code,
+        title,
+        subtitle,
+        term,
+        year: String(selectedYear),
+        instructor: mainManagerName,
+        group_id: subjectGroup || null,
+        group_name: selectedGroup?.name || null,
+        section: section || null,
+        lessons: 0,
+        students: 0,
+        progress: 0,
+        hero: "#0d6e8c",
+        year_level: yearLevels
+          .map((y) => {
+            const parsed = parseInt(String(y).replace(/\D/g, ""), 10);
+            return isNaN(parsed) ? null : parsed;
+          })
+          .filter((y): y is number => Boolean(y)),
+        access: { allowedYears: [], allowedEmails: [] } as Json,
+        kind: "course",
+      };
 
-    const { error } = await supabase.from("courses_all").insert([newCourse]);
+      const { error } = await supabase.from("courses_all").insert([newCourse]);
+      if (error) {
+        console.error("Error creating course", error);
+        toast.error("เกิดข้อผิดพลาดในการสร้างรายวิชา: " + error.message);
+        return;
+      }
 
-    if (error) {
-      console.error("Error creating course", error);
-      toast.error("เกิดข้อผิดพลาดในการสร้างรายวิชา: " + error.message);
-    } else {
       // Link main manager, selected instructors, and creator to course_instructors
       const uniqueUserIds = new Set<string>([...mainManagers, ...coInstructors]);
       if (user?.id) uniqueUserIds.add(user.id);
@@ -187,61 +215,48 @@ export default function CreateCourse() {
       }
 
       toast.success("สร้างรายวิชาเรียบร้อยแล้ว");
-      setTimeout(() => router.push("/i/courses"), 700);
+      onCreated();
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  if (status === "loading" || loading || !user || !hasPermission(user, PERMISSIONS.COURSES_CREATE)) {
-    return (
-      <PageContainer>
-        <LoadingState className="min-h-[60vh]" />
-      </PageContainer>
-    );
-  }
-
   return (
-    <PageContainer>
-      <PageHeader kicker="พื้นที่อาจารย์ผู้สอน" title="สร้างรายวิชาใหม่" description="กรอกข้อมูลพื้นฐานของรายวิชา จากนั้นจึงเพิ่มบทเรียน วิดีโอ และแบบทดสอบได้" />
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <form noValidate className="grid gap-4" onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>สร้างรายวิชาใหม่</DialogTitle>
+            <DialogDescription>กรอกข้อมูลพื้นฐานของรายวิชา จากนั้นจึงเพิ่มบทเรียน วิดีโอ และแบบทดสอบได้</DialogDescription>
+          </DialogHeader>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_312px]">
-        <div className="grid gap-4">
-          <CourseInfoCard
-            draft={draft}
-            mainManagers={mainManagers}
-            onChange={patch}
-            groups={filteredGroups}
-            groupLocked={isCourseManagerOnly && filteredGroups.length <= 1}
-            terms={terms}
-            sections={sections}
-            instructors={instructors}
-            yearLabels={masterYearLabels}
-          />
-        </div>
+          {loading ? (
+            <LoadingState className="min-h-60" />
+          ) : (
+            <CourseInfoCard
+              draft={draft}
+              mainManagers={mainManagers}
+              onChange={patch}
+              groups={filteredGroups}
+              groupLocked={isCourseManagerOnly && filteredGroups.length <= 1}
+              terms={terms}
+              sections={sections}
+              instructors={instructors}
+              yearLabels={masterYearLabels}
+            />
+          )}
 
-        {/* live preview + actions */}
-        <aside className="grid gap-4 lg:sticky lg:top-4">
-          <CoursePreviewCard
-            code={draft.code}
-            term={draft.term}
-            title={draft.title}
-            subtitle={draft.subtitle}
-            mainManagerNames={namesOf(mainManagers)}
-            coInstructorNames={namesOf(draft.coInstructors)}
-            section={draft.section}
-            groupName={subjectGroups.find((g) => g.id === draft.subjectGroup)?.name ?? null}
-          />
-          <div className="grid gap-2">
-            <Button size="lg" disabled={!draft.title || !draft.code || !draft.term || mainManagers.length === 0} onClick={create}>
-              <PlusIcon />
-              สร้างรายวิชา
-            </Button>
-            <Button variant="outline" onClick={() => router.push("/i/courses")}>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
               ยกเลิก
             </Button>
-          </div>
-          <p className="text-center text-xs text-muted-foreground">หลังสร้างแล้ว คุณจะเพิ่มบทเรียนและแบบทดสอบได้</p>
-        </aside>
-      </div>
-    </PageContainer>
+            <Button type="submit" disabled={loading || submitting || !draft.title || !draft.code || !draft.term || mainManagers.length === 0}>
+              {submitting ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
+              สร้างรายวิชา
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -25,7 +25,7 @@ export function Search({ placeholder = "ค้นหาข้อมูล…", c
   const table = useDataTable()
   const value = (table.state.globalFilter as string | undefined) ?? ""
   return (
-    <div className={cn("relative min-w-52 flex-1 sm:max-w-xs", className)}>
+    <div className={cn("relative min-w-52 flex-1 sm:mr-auto sm:max-w-xs", className)}>
       <SearchIcon aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="search"
@@ -62,7 +62,7 @@ export function Filter({
   const current = (col?.getFilterValue() as string | undefined) ?? ALL
   return (
     <Select value={current} onValueChange={(v) => col?.setFilterValue(v === ALL ? undefined : v)}>
-      <SelectTrigger aria-label={placeholder ?? allLabel} className={cn("h-9 w-44 bg-card", className)}>
+      <SelectTrigger aria-label={placeholder ?? allLabel} className={cn("h-9 w-44 max-w-full bg-card", className)}>
         <SelectValue placeholder={placeholder ?? allLabel} />
       </SelectTrigger>
       <SelectContent>
@@ -75,8 +75,4 @@ export function Filter({
       </SelectContent>
     </Select>
   )
-}
-
-export function Actions({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("ml-auto flex flex-wrap items-center gap-2", className)}>{children}</div>
 }

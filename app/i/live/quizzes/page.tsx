@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Loader2Icon, LibraryBigIcon, PlusIcon } from "lucide-react";
+import { LibraryBigIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { validateQuiz } from "@/lib/live";
@@ -13,6 +13,7 @@ import { DataTable } from "@/components/common/data-table";
 import { EmptyState } from "@/components/common/states";
 import { useConfirm } from "@/components/common/confirm";
 import { Button } from "@/components/ui/button";
+import { CreateQuizDialog } from "@/components/live/create-quiz-dialog";
 import { quizColumns, type FormattedLiveQuiz } from "@/components/live/quiz-columns";
 
 function getErrorMessage(err: unknown): string {
@@ -34,6 +35,7 @@ export default function InstructorLiveQuizzesPage() {
   const [quizzes, setQuizzes] = useState<FormattedLiveQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const fetchQuizzes = useCallback(async () => {
     if (!user?.id) return;
@@ -84,19 +86,20 @@ export default function InstructorLiveQuizzesPage() {
     fetchQuizzes();
   }, [user, status, fetchQuizzes]);
 
-  const handleCreate = async () => {
+  const handleCreate = async (title: string) => {
     if (!user?.id || actionLoading) return;
     setActionLoading(true);
     try {
       const { data, error } = await supabase
         .from("live_quizzes")
-        .insert([{ title: "ชุดควิซใหม่", owner_id: user.id }])
+        .insert([{ title, owner_id: user.id }])
         .select("id")
         .single();
 
       if (error) throw error;
 
       toast.success("สร้างชุดควิซใหม่แล้ว");
+      setCreateOpen(false);
       router.push(`/i/live/quizzes/${data.id}`);
     } catch (err: unknown) {
       console.error("Error creating quiz:", err);
@@ -181,20 +184,21 @@ export default function InstructorLiveQuizzesPage() {
 
   const columns = useMemo(() => quizColumns(handleDuplicate, handleDelete, actionLoading), [handleDuplicate, handleDelete, actionLoading]);
 
-  const createButton = (
-    <Button onClick={handleCreate} disabled={actionLoading}>
-      {actionLoading ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
-      สร้างชุดควิซ
-    </Button>
-  );
-
   return (
     <PageContainer>
-      <PageHeader title="ควิซสด" description="จัดการชุดคำถามสำหรับเปิดห้องแข่งขันสดในห้องเรียน" />
+      <PageHeader
+        title="ควิซสด"
+        description="จัดการชุดคำถามสำหรับเปิดห้องแข่งขันสดในห้องเรียน"
+        actions={
+          <Button onClick={() => setCreateOpen(true)} disabled={actionLoading}>
+            <PlusIcon />
+            สร้างชุดควิซ
+          </Button>
+        }
+      />
       <DataTable.Root data={quizzes} columns={columns} getRowId={(r: FormattedLiveQuiz) => r.id} searchKeys={["title"]}>
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหาชื่อชุดควิซ" />
-          <DataTable.Actions>{createButton}</DataTable.Actions>
         </DataTable.Toolbar>
         <DataTable.Content
           loading={(loading && !!user) || status === "loading"}
@@ -208,6 +212,13 @@ export default function InstructorLiveQuizzesPage() {
         />
         <DataTable.Pagination />
       </DataTable.Root>
+      {createOpen && (
+        <CreateQuizDialog
+          onClose={() => setCreateOpen(false)}
+          onCreate={handleCreate}
+          loading={actionLoading}
+        />
+      )}
     </PageContainer>
   );
 }

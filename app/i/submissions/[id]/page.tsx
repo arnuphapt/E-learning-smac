@@ -178,7 +178,7 @@ export default function SubmissionList() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="secondary" onClick={() => nav("/i/reports")}>
+            <Button variant="outline" onClick={() => nav("/i/reports")}>
               <DownloadIcon />
               ส่งออก Excel
             </Button>

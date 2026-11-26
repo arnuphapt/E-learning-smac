@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { deleteCourseCascade, deleteLessonCascade } from "@/components/course/actions";
 import { CoInstructorCard } from "@/components/course/co-instructor-card";
+import { CreateLessonDialog } from "@/components/course/create-lesson-dialog";
 import { CourseDangerZone } from "@/components/course/danger-zone-card";
 import {
   getEnrolledStudents,
@@ -67,6 +68,8 @@ export default function InstructorCourse() {
   const [tab, setTab] = useState<CourseTab>("lessons");
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
+  const [createLessonOpen, setCreateLessonOpen] = useState(false);
+  const [creatingLesson, setCreatingLesson] = useState(false);
   const reload = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
@@ -190,16 +193,17 @@ export default function InstructorCourse() {
     }
   };
 
-  const handleCreateLesson = async () => {
+  const handleCreateLesson = async (title: string) => {
+    if (creatingLesson) return;
+    setCreatingLesson(true);
     try {
-      toast.info("กำลังสร้างบทเรียนใหม่...");
       const newId = "l_" + Date.now();
       const testDefaults = { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" };
       const { error } = await supabase.from("lessons").insert([
         {
           id: newId,
           course_id: courseId,
-          title: "บทเรียนใหม่",
+          title,
           description: "",
           duration: "",
           status: "draft",
@@ -219,13 +223,16 @@ export default function InstructorCourse() {
       ]);
       if (error) {
         toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message);
+        setCreatingLesson(false);
       } else {
         toast.success("สร้างบทเรียนใหม่สำเร็จแล้ว");
+        setCreateLessonOpen(false);
         router.push(`/i/lesson/${newId}`);
       }
     } catch (error: unknown) {
       console.error(error);
       toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + errMsg(error));
+      setCreatingLesson(false);
     }
   };
 
@@ -380,7 +387,7 @@ export default function InstructorCourse() {
                 ตั้งค่า
               </Button>
             )}
-            <Button onClick={handleCreateLesson}>
+            <Button onClick={() => setCreateLessonOpen(true)}>
               <PlusIcon />
               เพิ่มบทเรียน
             </Button>
@@ -416,7 +423,7 @@ export default function InstructorCourse() {
         </TabsList>
 
         <TabsContent value="lessons">
-          <LessonReorderList lessons={lessons} assignments={assignments} submissions={submissions} onReorder={handleReorder} onCreate={handleCreateLesson} onDelete={handleDeleteLesson} />
+          <LessonReorderList lessons={lessons} assignments={assignments} submissions={submissions} onReorder={handleReorder} onCreate={() => setCreateLessonOpen(true)} onDelete={handleDeleteLesson} />
         </TabsContent>
         <TabsContent value="students">
           <StudentRoster
@@ -438,6 +445,13 @@ export default function InstructorCourse() {
           </TabsContent>
         )}
       </Tabs>
+      {createLessonOpen && (
+        <CreateLessonDialog
+          onClose={() => setCreateLessonOpen(false)}
+          onCreate={handleCreateLesson}
+          loading={creatingLesson}
+        />
+      )}
     </PageContainer>
   );
 }
