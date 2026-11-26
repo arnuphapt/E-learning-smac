@@ -46,7 +46,7 @@ export const instructorNav: NavConfig = {
           ],
         },
         {
-          title: "ควิซสด",
+          title: "รวมเกม",
           icon: Target,
           permission: PERMISSIONS.COURSES_VIEW,
           items: [

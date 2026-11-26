@@ -1,16 +1,16 @@
 .landing-body {
   --teal: var(--primary);
-  --teal-deep: #0a5063;
-  --teal-ink: #0b2e3a;
-  --ink: #102a33;
+  --teal-deep: var(--primary-soft-foreground);
+  --teal-ink: color-mix(in oklab, var(--primary) 35%, var(--foreground));
+  --ink: var(--foreground);
   --paper: var(--card);
-  --mint: #f0f9ff;
-  --mint-2: #e0f2fe;
-  --coral: #d2785f;
-  --coral-soft: #f3e0d8;
-  --coral-text: #b4533c;
+  --mint: color-mix(in oklab, var(--primary) 6%, var(--card));
+  --mint-2: var(--primary-soft);
+  --coral: var(--accent-amber);
+  --coral-soft: var(--accent-amber-soft);
+  --coral-text: var(--accent-amber);
   --line: var(--border);
-  --muted: #5c6b70;
+  --muted: var(--muted-foreground);
   --serif: var(--font-noto-serif-thai), Georgia, serif;
   --sans: var(--font-plex-sans-thai), var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
   --shadow-float: 0 8px 24px -12px rgb(15 23 42 / 0.12);
@@ -31,24 +31,16 @@
   color: inherit;
   text-decoration: none;
 }
+.landing-body :is(a, button):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
 .landing-body ::selection {
   background: var(--coral-soft);
 }
 .landing-body img {
   max-width: 100%;
   display: block;
-}
-
-/* grain overlay */
-.landing-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.04;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .landing-body .wrap {
@@ -118,7 +110,7 @@
   height: 38px;
   border-radius: 10px;
   background: var(--teal);
-  color: #fff;
+  color: var(--primary-foreground);
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -168,14 +160,14 @@
 }
 .landing-body .btn-primary {
   background: var(--teal);
-  color: #fff;
+  color: var(--primary-foreground);
   padding: 12px 22px;
   border-radius: 8px;
   box-shadow: none;
 }
 .landing-body .btn-primary:hover {
   background: var(--teal-deep);
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .landing-body .btn-ghost {
   background: transparent;
@@ -215,7 +207,7 @@
   z-index: -2;
   background:
     radial-gradient(900px 600px at 78% 8%, var(--mint-2), transparent 60%),
-    radial-gradient(700px 500px at 8% 92%, #eef2ff, transparent 55%),
+    radial-gradient(700px 500px at 8% 92%, var(--background), transparent 55%),
     var(--paper);
 }
 .landing-body .hero-mesh {
@@ -341,7 +333,7 @@
 }
 .landing-body .hero-badge {
   position: absolute;
-  background: #fff;
+  background: var(--paper);
   border-radius: 12px;
   padding: 14px 16px;
   box-shadow: var(--shadow-float);
@@ -413,10 +405,10 @@
 /* ============ marquee strip ============ */
 .landing-body .strip {
   background: var(--teal-ink);
-  color: #cfe6ec;
+  color: color-mix(in oklab, var(--primary-foreground) 85%, transparent);
   padding: 0;
   overflow: hidden;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid color-mix(in oklab, var(--primary-foreground) 8%, transparent);
 }
 .landing-body .strip-row {
   display: flex;
@@ -558,7 +550,7 @@
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--paper);
 }
 .landing-body .feat-card img {
   width: 100%;
@@ -579,24 +571,24 @@
   background: var(--teal);
 }
 .landing-body .feat-illu-emerald {
-  background: #1c7e6b;
+  background: var(--success);
 }
 .landing-body .feat-illu .glyph {
   position: relative;
-  color: #fff;
+  color: var(--primary-foreground);
   opacity: 0.96;
 }
 .landing-body .feat-illu .ring {
   position: absolute;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border: 1.5px solid color-mix(in oklab, var(--primary-foreground) 25%, transparent);
 }
 
 /* ============ mission ============ */
 .landing-body .mission {
   position: relative;
   background: var(--teal-ink);
-  color: #eaf5f7;
+  color: var(--primary-foreground);
   overflow: hidden;
   padding: 120px 0;
 }
@@ -607,15 +599,15 @@
   z-index: 0;
   opacity: 0.5;
   background:
-    radial-gradient(700px 500px at 85% 15%, rgba(13, 110, 140, 0.55), transparent 60%),
-    radial-gradient(600px 400px at 5% 95%, rgba(210, 120, 95, 0.28), transparent 60%);
+    radial-gradient(700px 500px at 85% 15%, color-mix(in oklab, var(--primary) 55%, transparent), transparent 60%),
+    radial-gradient(600px 400px at 5% 95%, color-mix(in oklab, var(--accent-amber) 28%, transparent), transparent 60%);
 }
 .landing-body .mission .wrap {
   position: relative;
   z-index: 1;
 }
 .landing-body .mission .eyebrow {
-  color: #7ecbd9;
+  color: color-mix(in oklab, var(--primary-foreground) 80%, var(--primary));
 }
 .landing-body .mission .eyebrow::before {
   background: var(--coral);
@@ -631,11 +623,11 @@
 }
 .landing-body .mission h2 em {
   font-style: normal;
-  color: #f0a98f;
+  color: var(--accent-amber-soft);
 }
 .landing-body .mission p {
   font-size: 18px;
-  color: #a9c6cd;
+  color: color-mix(in oklab, var(--primary-foreground) 72%, transparent);
   margin-top: 26px;
   max-width: 720px;
   line-height: 1.85;
@@ -695,7 +687,7 @@
   height: 56px;
   border-radius: 10px;
   background: var(--teal);
-  color: #fff;
+  color: var(--primary-foreground);
   display: grid;
   place-items: center;
   flex: 0 0 56px;
@@ -746,6 +738,7 @@
   right: 0;
   bottom: 24px;
   opacity: 0.3;
+  color: var(--primary-foreground);
   pointer-events: none;
 }
 .landing-body .cta-box .in {
@@ -756,12 +749,12 @@
   font-family: var(--serif);
   font-weight: 600;
   font-size: clamp(30px, 3.6vw, 46px);
-  color: #fff;
+  color: var(--primary-foreground);
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
 .landing-body .cta-box p {
-  color: #cfe7ed;
+  color: color-mix(in oklab, var(--primary-foreground) 85%, transparent);
   font-size: 18px;
   margin-top: 18px;
   max-width: 560px;
@@ -769,7 +762,7 @@
   margin-right: auto;
 }
 .landing-body .cta-box .btn-primary {
-  background: #fff;
+  background: var(--paper);
   color: var(--teal-deep);
   margin-top: 34px;
 }
@@ -781,7 +774,7 @@
 /* ============ footer ============ */
 .landing-body .footer {
   background: var(--teal-ink);
-  color: #9fbcc4;
+  color: color-mix(in oklab, var(--primary-foreground) 72%, transparent);
   padding: 54px 0 40px;
 }
 .landing-body .footer-grid {
@@ -792,7 +785,7 @@
   align-items: flex-start;
 }
 .landing-body .footer .brand {
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .landing-body .footer .desc {
   font-size: 14px;
@@ -808,7 +801,7 @@
 .landing-body .footer-col h4 {
   font-size: 13px;
   font-weight: 700;
-  color: #cfe0e5;
+  color: color-mix(in oklab, var(--primary-foreground) 88%, transparent);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: 14px;
@@ -820,14 +813,14 @@
   transition: 0.15s;
 }
 .landing-body .footer-col a:hover {
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .landing-body .footer-bot {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--primary-foreground) 12%, transparent);
   margin-top: 42px;
   padding-top: 24px;
   font-size: 13px;
-  color: #7d9aa3;
+  color: color-mix(in oklab, var(--primary-foreground) 58%, transparent);
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -835,29 +828,29 @@
 }
 
 /* ============ reveal ============ */
-.landing-body .reveal {
+.landing-body.js .reveal {
   opacity: 0;
   transform: translateY(28px);
   transition:
     opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
     transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.landing-body .reveal.in {
+.landing-body.js .reveal.in {
   opacity: 1;
   transform: none;
 }
-.landing-body .reveal.d1 {
+.landing-body.js .reveal.d1 {
   transition-delay: 0.08s;
 }
-.landing-body .reveal.d2 {
+.landing-body.js .reveal.d2 {
   transition-delay: 0.16s;
 }
-.landing-body .reveal.d3 {
+.landing-body.js .reveal.d3 {
   transition-delay: 0.24s;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landing-body .reveal {
+  .landing-body.js .reveal {
     opacity: 1;
     transform: none;
     transition: none;
@@ -875,16 +868,21 @@
 
 @media (max-width: 960px) {
   .landing-body .hero-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 48px;
+  }
+  .landing-body .hero-grid > *,
+  .landing-body .feat > * {
+    min-width: 0;
   }
   .landing-body .hero-visual {
     max-width: 440px;
+    width: 100%;
     margin: 0 auto;
   }
   .landing-body .feat,
   .landing-body .feat.rev {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 30px;
   }
   .landing-body .feat.rev .feat-media {
@@ -902,15 +900,29 @@
   .landing-body .wrap {
     padding: 0 20px;
   }
+  .landing-body .brand {
+    font-size: 16px;
+    min-width: 0;
+  }
+  .landing-body .brand small {
+    display: none;
+  }
   .landing-body .nav-links {
     display: none;
   }
   .landing-body .nav-in {
-    padding: 16px 20px;
+    padding: 14px 20px;
+    gap: 12px;
     justify-content: space-between;
   }
   .landing-body .hero {
-    padding: 120px 0 70px;
+    padding: 112px 0 70px;
+  }
+  .landing-body .hero h1 {
+    font-size: clamp(32px, 8.5vw, 44px);
+  }
+  .landing-body .hero h1 .hl {
+    white-space: normal;
   }
   .landing-body .section {
     padding: 70px 0;

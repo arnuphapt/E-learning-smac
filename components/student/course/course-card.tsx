@@ -10,7 +10,7 @@ import { startLabel, type MappedCourse } from "./types"
 export function CourseCard({ course: c, layout = "grid" }: { course: MappedCourse; layout?: "grid" | "list" }) {
   const list = layout === "list"
   return (
-    <Card className="relative py-0 transition-colors hover:border-primary/40">
+    <Card className="relative py-0 transition-colors hover:border-primary/40 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
       <CardContent className={cn("flex gap-4 p-5", list ? "flex-col items-start sm:flex-row sm:items-center" : "flex-1 flex-col")}>
         {!list && (
           <div className="flex w-full items-center justify-between gap-2">
@@ -21,7 +21,7 @@ export function CourseCard({ course: c, layout = "grid" }: { course: MappedCours
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={"/s/course/" + c.id} className="font-semibold after:absolute after:inset-0 after:content-['']">
+            <Link href={"/s/course/" + c.id} className="font-semibold after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">
               {c.title}
             </Link>
             {list && <span className="font-mono text-xs text-muted-foreground">{c.code}</span>}

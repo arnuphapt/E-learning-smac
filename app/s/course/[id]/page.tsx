@@ -40,7 +40,7 @@ export default function StudentCourse() {
         <span className="text-xs text-muted-foreground">เรียงตามลำดับบทเรียน</span>
       </div>
       <div className="flex flex-col gap-3">
-        {lessons.map((l) => <LessonRow key={l.id} lesson={l} hero={course.hero} />)}
+        {lessons.map((l) => <LessonRow key={l.id} lesson={l} />)}
       </div>
     </PageContainer>
   );

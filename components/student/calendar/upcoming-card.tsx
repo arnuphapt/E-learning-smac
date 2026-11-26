@@ -2,6 +2,7 @@ import Link from "next/link"
 import { CalendarIcon, ClockIcon, FileTextIcon } from "lucide-react"
 import { EmptyState } from "@/components/common/states"
 import { ToneBadge } from "@/components/common/status-badge"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { CalendarEvent } from "./events"
@@ -39,7 +40,15 @@ export function UpcomingCard({ events, today }: { events: CalendarEvent[]; today
                       {e.course}
                     </div>
                   </div>
-                  <ToneBadge tone={left <= 3 ? "warning" : "muted"} className="shrink-0">{left === 0 ? "วันนี้" : "อีก " + left + " วัน"}</ToneBadge>
+                  {left <= 3 ? (
+                    <Badge variant="outline" className="shrink-0 border-transparent bg-amber-accent-soft text-amber-accent">
+                      {left === 0 ? "วันนี้" : "อีก " + left + " วัน"}
+                    </Badge>
+                  ) : (
+                    <ToneBadge tone="muted" className="shrink-0">
+                      {"อีก " + left + " วัน"}
+                    </ToneBadge>
+                  )}
                 </Link>
               )
             })
@@ -53,7 +62,7 @@ export function UpcomingCard({ events, today }: { events: CalendarEvent[]; today
           {[
             ["bg-primary", "ใบงาน / งานที่มอบหมาย"],
             ["bg-info", "แบบทดสอบ Pre / Post-test"],
-            ["bg-warning", "ใกล้ครบกำหนด"],
+            ["bg-amber-accent", "ใกล้ครบกำหนด (ภายใน 3 วัน)"],
           ].map(([color, label]) => (
             <div key={label} className="flex items-center gap-2">
               <span aria-hidden className={cn("size-2.5 rounded-sm", color)} />

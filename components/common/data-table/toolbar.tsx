@@ -29,7 +29,7 @@ export function Search({ placeholder = "ค้นหาข้อมูล…", c
         placeholder={placeholder}
         value={value}
         onChange={(e) => table.setGlobalFilter(e.target.value || undefined)}
-        className="pl-9"
+        className="bg-card pl-9"
       />
     </div>
   )
@@ -58,7 +58,7 @@ export function Filter({
   const current = (col?.getFilterValue() as string | undefined) ?? ALL
   return (
     <Select value={current} onValueChange={(v) => col?.setFilterValue(v === ALL ? undefined : v)}>
-      <SelectTrigger aria-label={placeholder ?? allLabel} className={cn("w-44", className)}>
+      <SelectTrigger aria-label={placeholder ?? allLabel} className={cn("w-44 bg-card", className)}>
         <SelectValue placeholder={placeholder ?? allLabel} />
       </SelectTrigger>
       <SelectContent>

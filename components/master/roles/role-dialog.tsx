@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { toast } from "sonner"
 import { FormField } from "@/components/common/form-field"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -81,10 +80,17 @@ export function RoleDialog({
   const [name, setName] = useState(row ? row.name : "")
   const [description, setDescription] = useState(row ? row.description || "" : "")
   const [permissions, setPermissions] = useState<string[]>(row ? row.permissions || [] : [])
+  const [errors, setErrors] = useState<{ id?: string; name?: string }>({})
+
+  const clearError = (key: "id" | "name") => setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev))
 
   const handleSave = () => {
-    if (!id || !name) {
-      toast.error("กรุณากรอกข้อมูลที่จำเป็น (*) ให้ครบถ้วน")
+    const next: { id?: string; name?: string } = {}
+    if (!id.trim()) next.id = "กรุณากรอกรหัส Role (ID)"
+    if (!name.trim()) next.name = "กรุณากรอกชื่อ Role"
+    if (Object.keys(next).length > 0) {
+      setErrors(next)
+      document.getElementById(next.id ? "role-id" : "role-name")?.focus()
       return
     }
     onSave({ id: mode === "add" ? id.toLowerCase().replace(/[^a-z0-9_]/g, "") : id, name, description, permissions })
@@ -102,11 +108,28 @@ export function RoleDialog({
       className="sm:max-w-2xl"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="รหัส Role (ID)" htmlFor="role-id" required>
-          <Input id="role-id" value={id} onChange={(e) => setId(e.target.value)} placeholder="เช่น ta, editor" disabled={mode === "edit"} />
+        <FormField label="รหัส Role (ID)" htmlFor="role-id" error={errors.id} required>
+          <Input
+            id="role-id"
+            value={id}
+            onChange={(e) => {
+              setId(e.target.value)
+              clearError("id")
+            }}
+            placeholder="เช่น ta, editor"
+            disabled={mode === "edit"}
+          />
         </FormField>
-        <FormField label="ชื่อ Role" htmlFor="role-name" required>
-          <Input id="role-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น ผู้ช่วยสอน" />
+        <FormField label="ชื่อ Role" htmlFor="role-name" error={errors.name} required>
+          <Input
+            id="role-name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              clearError("name")
+            }}
+            placeholder="เช่น ผู้ช่วยสอน"
+          />
         </FormField>
       </div>
       <FormField label="รายละเอียด" htmlFor="role-desc">

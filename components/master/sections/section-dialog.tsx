@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { toast } from "sonner"
 import { FormField } from "@/components/common/form-field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -49,25 +48,27 @@ export function SectionDialog({
   const [rangeStart, setRangeStart] = useState(row ? row.range_start || "" : "")
   const [rangeEnd, setRangeEnd] = useState(row ? row.range_end || "" : "")
   const [yearLevel, setYearLevel] = useState(row ? row.year_level || "" : "")
+  const [errors, setErrors] = useState<{ name?: string; rangeStart?: string; rangeEnd?: string }>({})
+
+  const clearError = (key: "name" | "rangeStart" | "rangeEnd") => setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev))
 
   const handleSave = () => {
-    if (!name) {
-      toast.error("กรุณากรอกชื่อ Section")
-      return
-    }
-    if ((rangeStart && !rangeEnd) || (!rangeStart && rangeEnd)) {
-      toast.error("กรุณาระบุรหัสเริ่มต้นและรหัสสิ้นสุดให้ครบทั้งคู่")
-      return
-    }
-    if (rangeStart && rangeEnd) {
-      if (rangeStart.length !== 3 || rangeEnd.length !== 3) {
-        toast.error("รหัสนักศึกษาช่วงเริ่มต้นและสิ้นสุดต้องมี 3 หลัก")
-        return
+    const next: { name?: string; rangeStart?: string; rangeEnd?: string } = {}
+    if (!name.trim()) next.name = "กรุณากรอกชื่อ Section"
+    if (rangeStart && !rangeEnd) next.rangeEnd = "กรุณาระบุรหัสสิ้นสุด"
+    else if (!rangeStart && rangeEnd) next.rangeStart = "กรุณาระบุรหัสเริ่มต้น"
+    else if (rangeStart && rangeEnd) {
+      if (rangeStart.length !== 3) next.rangeStart = "รหัสนักศึกษาช่วงเริ่มต้นต้องมี 3 หลัก"
+      if (rangeEnd.length !== 3) next.rangeEnd = "รหัสนักศึกษาช่วงสิ้นสุดต้องมี 3 หลัก"
+      if (rangeStart.length === 3 && rangeEnd.length === 3 && parseInt(rangeStart, 10) > parseInt(rangeEnd, 10)) {
+        next.rangeStart = "รหัสเริ่มต้นต้องไม่มากกว่ารหัสสิ้นสุด"
       }
-      if (parseInt(rangeStart, 10) > parseInt(rangeEnd, 10)) {
-        toast.error("รหัสเริ่มต้นต้องไม่มากกว่ารหัสสิ้นสุด")
-        return
-      }
+    }
+    if (Object.keys(next).length > 0) {
+      setErrors(next)
+      const firstId = next.name ? "section-name" : next.rangeStart ? "section-start" : "section-end"
+      document.getElementById(firstId)?.focus()
+      return
     }
     onSave({
       name,
@@ -87,8 +88,16 @@ export function SectionDialog({
       onSubmit={handleSave}
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="ชื่อ Section" htmlFor="section-name" required>
-          <Input id="section-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Sec 1, Sec A" />
+        <FormField label="ชื่อ Section" htmlFor="section-name" error={errors.name} required>
+          <Input
+            id="section-name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              clearError("name")
+            }}
+            placeholder="เช่น Sec 1, Sec A"
+          />
         </FormField>
         <FormField label="ชั้นปี (ไม่ระบุได้)" htmlFor="section-level">
           <Select value={yearLevel || NO_LEVEL} onValueChange={(v) => setYearLevel(v === NO_LEVEL ? "" : v)}>
@@ -107,25 +116,33 @@ export function SectionDialog({
         </FormField>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="ช่วงรหัสเริ่มต้น (3 หลักท้าย)" htmlFor="section-start">
+        <FormField label="ช่วงรหัสเริ่มต้น (3 หลักท้าย)" htmlFor="section-start" error={errors.rangeStart}>
           <Input
             id="section-start"
             className="text-center"
             value={rangeStart}
             maxLength={3}
             inputMode="numeric"
-            onChange={(e) => setRangeStart(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => {
+              setRangeStart(e.target.value.replace(/\D/g, ""))
+              clearError("rangeStart")
+              clearError("rangeEnd")
+            }}
             placeholder="เช่น 001"
           />
         </FormField>
-        <FormField label="ช่วงรหัสสิ้นสุด (3 หลักท้าย)" htmlFor="section-end">
+        <FormField label="ช่วงรหัสสิ้นสุด (3 หลักท้าย)" htmlFor="section-end" error={errors.rangeEnd}>
           <Input
             id="section-end"
             className="text-center"
             value={rangeEnd}
             maxLength={3}
             inputMode="numeric"
-            onChange={(e) => setRangeEnd(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => {
+              setRangeEnd(e.target.value.replace(/\D/g, ""))
+              clearError("rangeStart")
+              clearError("rangeEnd")
+            }}
             placeholder="เช่น 099"
           />
         </FormField>

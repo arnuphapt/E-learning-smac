@@ -79,6 +79,7 @@ export function LandingHero() {
                 alt="ภาพนักศึกษาพยาบาล / การเรียนการสอน"
                 width={640}
                 height={800}
+                sizes="(min-width: 1024px) 480px, 90vw"
                 priority
               />
             </div>

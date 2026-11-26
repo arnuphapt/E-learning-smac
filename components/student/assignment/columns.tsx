@@ -44,7 +44,7 @@ export const assignmentColumns: DataTableColumnDef[] = [
       const a = row.original as AssignmentListRow
       return (
         <div className="flex flex-col items-start gap-1">
-          <CourseCodeBadge hero={a.courseHero}>{a.courseCode}</CourseCodeBadge>
+          <CourseCodeBadge>{a.courseCode}</CourseCodeBadge>
           <span className="text-xs text-muted-foreground">{a.courseTitle}</span>
         </div>
       )

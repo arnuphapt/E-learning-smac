@@ -22,7 +22,7 @@ export const studentNav: NavConfig = {
           match: ["/s/course/[id]", "/s/lesson/[id]/**", "/s/test/**"],
         },
         { title: "ชุดติว", href: "/s/tutor", icon: Award, tutorOk: true, match: ["/s/tutor/[id]", "/s/tutor/lesson/[id]/**"] },
-        { title: "ควิซสด", href: "/s/live", icon: Target, match: ["/s/live/[id]"] },
+        { title: "รวมเกม", href: "/s/live", icon: Target, match: ["/s/live/[id]"] },
         { title: "ใบงาน", href: "/s/assignments", icon: ClipboardList, match: ["/s/assignment/[id]"] },
       ],
     },

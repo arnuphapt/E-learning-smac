@@ -82,7 +82,7 @@
   --accent-foreground: oklch(0.282 0.045 224.7);
   --destructive: oklch(0.521 0.164 18.0);
   --border: oklch(0.929 0.013 255.5);
-  --input: oklch(0.929 0.013 255.5);
+  --input: oklch(0.632 0.033 256.1);
   --ring: oklch(0.502 0.093 226.0);
   --chart-1: oklch(0.502 0.093 226.0);
   --chart-2: oklch(0.555 0.146 49.0);
@@ -166,5 +166,11 @@
   }
   body {
     @apply bg-background font-sans text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  :is([data-slot="input"], [data-slot="select-trigger"], [data-slot="textarea"]):not(.bg-muted):not(.bg-background) {
+    background-color: var(--card);
   }
 }

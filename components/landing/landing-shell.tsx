@@ -10,6 +10,8 @@ export function LandingShell({ children }: { children: ReactNode }) {
     const root = containerRef.current
     if (!root) return
 
+    root.classList.add("js")
+
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {

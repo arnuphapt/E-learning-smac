@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { DEFAULT_DOMAIN } from "@/lib/course-access"
 import { FormField } from "@/components/common/form-field"
+import { FieldError } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -51,33 +51,46 @@ export function GradeDialog({
   const [yearLabel, setYearLabel] = useState(row ? row.year_label : "ชั้นปีที่ 1")
   const [isCustom, setIsCustom] = useState(Boolean(row && !STANDARD_YEARS.includes(row.year_label)))
   const [customLabel, setCustomLabel] = useState(row && !STANDARD_YEARS.includes(row.year_label) ? row.year_label : "")
+  const [errors, setErrors] = useState<{ domain?: string; prefix?: string; yearLabel?: string }>({})
+
+  const clearError = (key: "domain" | "prefix" | "yearLabel") => setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev))
 
   const handleSave = () => {
     const isAllDomain = external && scope === "all"
     const cleanPrefix = isAllDomain ? "" : prefix.trim()
-    if (!isAllDomain && (!cleanPrefix || cleanPrefix.length !== 2 || Number.isNaN(Number(cleanPrefix)))) {
-      toast.error("กรุณากรอกรหัสนักศึกษา 2 ตัวแรกให้ถูกต้อง (เช่น 66)")
-      return
-    }
+    const finalLabel = isCustom ? customLabel.trim() : yearLabel
+    const next: { domain?: string; prefix?: string; yearLabel?: string } = {}
+
     if (!DOMAIN_RE.test(domain)) {
-      toast.error("กรุณาระบุโดเมนให้ถูกต้อง (เช่น partner.ac.th)")
-      return
-    }
-    if (PUBLIC_MAIL.includes(domain)) {
-      toast.error(`ไม่อนุญาตโดเมนอีเมลสาธารณะ (${domain}): ใครก็สมัครได้ กรุณาใช้โดเมนขององค์กรเท่านั้น`)
-      return
-    }
-    if (mode === "add" && grades.some((g) => (g.domain || DEFAULT_DOMAIN) === domain && g.prefix === cleanPrefix)) {
-      toast.error(
+      next.domain = "กรุณาระบุโดเมนให้ถูกต้อง (เช่น partner.ac.th)"
+    } else if (PUBLIC_MAIL.includes(domain)) {
+      next.domain = `ไม่อนุญาตโดเมนอีเมลสาธารณะ (${domain}): กรุณาใช้โดเมนขององค์กรเท่านั้น`
+    } else if (mode === "add" && grades.some((g) => (g.domain || DEFAULT_DOMAIN) === domain && g.prefix === cleanPrefix)) {
+      const msg =
         cleanPrefix === ""
           ? "โดเมนนี้มีชั้นปีแบบทั้งโดเมนอยู่แล้ว"
-          : `รหัสประจำตัวขึ้นต้นด้วย "${cleanPrefix}" ของโดเมน ${domain} ได้ถูกกำหนดไว้แล้ว`,
-      )
-      return
+          : `รหัสประจำตัวขึ้นต้นด้วย "${cleanPrefix}" ของโดเมน ${domain} ได้ถูกกำหนดไว้แล้ว`
+      if (isAllDomain) next.domain = msg
+      else next.prefix = msg
     }
-    const finalLabel = isCustom ? customLabel.trim() : yearLabel
+
+    if (!isAllDomain && (!cleanPrefix || cleanPrefix.length !== 2 || Number.isNaN(Number(cleanPrefix)))) {
+      next.prefix = "กรุณากรอกรหัสนักศึกษา 2 ตัวแรกให้ถูกต้อง (เช่น 66)"
+    }
     if (!finalLabel) {
-      toast.error("กรุณาระบุชั้นปี")
+      next.yearLabel = "กรุณาระบุชั้นปี"
+    }
+
+    if (Object.keys(next).length > 0) {
+      setErrors(next)
+      const firstId = next.domain
+        ? domainSel === NEW_DOMAIN
+          ? "grade-new-domain"
+          : "grade-domain"
+        : next.prefix
+          ? "grade-prefix"
+          : "grade-custom-label"
+      document.getElementById(firstId)?.focus()
       return
     }
     onSave({ prefix: cleanPrefix, year_label: finalLabel, domain, newDomain: !domains.includes(domain) })
@@ -93,6 +106,7 @@ export function GradeDialog({
       <FormField
         label="โดเมนอีเมล"
         htmlFor="grade-domain"
+        error={errors.domain}
         required
         description={
           external
@@ -104,6 +118,7 @@ export function GradeDialog({
           value={domainSel}
           onValueChange={(v) => {
             setDomainSel(v)
+            clearError("domain")
             if (v === DEFAULT_DOMAIN) setScope("prefix")
           }}
           disabled={mode === "edit"}
@@ -122,7 +137,18 @@ export function GradeDialog({
           </SelectContent>
         </Select>
         {domainSel === NEW_DOMAIN && (
-          <Input aria-label="โดเมนใหม่" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder="เช่น partner.ac.th" />
+          <Input
+            id="grade-new-domain"
+            aria-label="โดเมนใหม่"
+            aria-invalid={Boolean(errors.domain) || undefined}
+            aria-describedby={errors.domain ? "grade-domain-error" : undefined}
+            value={newDomain}
+            onChange={(e) => {
+              setNewDomain(e.target.value)
+              clearError("domain")
+            }}
+            placeholder="เช่น partner.ac.th"
+          />
         )}
       </FormField>
 
@@ -156,13 +182,17 @@ export function GradeDialog({
         <FormField
           label="รหัสนักศึกษา 2 ตัวหน้า"
           htmlFor="grade-prefix"
+          error={errors.prefix}
           required
           description={mode === "add" ? "ตัวเลข 2 หลักแรกของรหัสนักศึกษา (เช่น นักศึกษารหัส 66xxxxxx ป้อน 66)" : undefined}
         >
           <Input
             id="grade-prefix"
             value={prefix}
-            onChange={(e) => setPrefix(e.target.value.replace(/\D/g, "").slice(0, 2))}
+            onChange={(e) => {
+              setPrefix(e.target.value.replace(/\D/g, "").slice(0, 2))
+              clearError("prefix")
+            }}
             placeholder="เช่น 65 หรือ 66"
             disabled={mode === "edit"}
             maxLength={2}
@@ -175,7 +205,13 @@ export function GradeDialog({
         <span className="text-sm font-medium">
           ระดับชั้นปี <span aria-hidden className="text-destructive">*</span>
         </span>
-        <RadioGroup value={isCustom ? "custom" : "standard"} onValueChange={(v) => setIsCustom(v === "custom")}>
+        <RadioGroup
+          value={isCustom ? "custom" : "standard"}
+          onValueChange={(v) => {
+            setIsCustom(v === "custom")
+            clearError("yearLabel")
+          }}
+        >
           <div className="flex items-center gap-2">
             <RadioGroupItem value="standard" id="grade-standard" />
             <Label htmlFor="grade-standard">เลือกจากรายการชั้นปีมาตรฐาน</Label>
@@ -200,13 +236,20 @@ export function GradeDialog({
           </div>
           {isCustom && (
             <Input
+              id="grade-custom-label"
               aria-label="ชั้นปีที่กำหนดเอง"
+              aria-invalid={Boolean(errors.yearLabel) || undefined}
+              aria-describedby={errors.yearLabel ? "grade-year-error" : undefined}
               value={customLabel}
-              onChange={(e) => setCustomLabel(e.target.value)}
+              onChange={(e) => {
+                setCustomLabel(e.target.value)
+                clearError("yearLabel")
+              }}
               placeholder="เช่น ชั้นปีที่ 5 หรือ หลักสูตรพิเศษ"
             />
           )}
         </RadioGroup>
+        {errors.yearLabel && <FieldError id="grade-year-error">{errors.yearLabel}</FieldError>}
       </div>
     </MasterFormDialog>
   )

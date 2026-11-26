@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { hasRole } from "@/lib/roles"
 import { FormField } from "@/components/common/form-field"
@@ -47,11 +46,13 @@ export function GroupDialog({
   const [selectedManagers, setSelectedManagers] = useState<string[]>(
     row ? groupManagers.filter((u) => u.group_id === row.id).map((u) => u.user_id) : [],
   )
+  const [nameError, setNameError] = useState<string>()
   const managerOptions = instructors.filter((u) => hasRole(u.role, "course_manager", "instructor"))
 
   const handleSave = () => {
-    if (!name) {
-      toast.error("กรุณากรอกชื่อกลุ่มวิชา")
+    if (!name.trim()) {
+      setNameError("กรุณากรอกชื่อกลุ่มวิชา")
+      document.getElementById("group-name")?.focus()
       return
     }
     onSave({ name, status, courses: row ? row.courses || 0 : 0, selectedManagers })
@@ -64,8 +65,16 @@ export function GroupDialog({
       onClose={onClose}
       onSubmit={handleSave}
     >
-      <FormField label="ชื่อกลุ่มวิชา" htmlFor="group-name" required>
-        <Input id="group-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น วิทยาการคอมพิวเตอร์" />
+      <FormField label="ชื่อกลุ่มวิชา" htmlFor="group-name" error={nameError} required>
+        <Input
+          id="group-name"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (nameError) setNameError(undefined)
+          }}
+          placeholder="เช่น วิทยาการคอมพิวเตอร์"
+        />
       </FormField>
       <FormField label="คณาจารย์ผู้รับผิดชอบ (เลือกได้หลายคน)" htmlFor="group-managers">
         <ManagerSelect

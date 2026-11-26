@@ -8,7 +8,7 @@ import type { TutorSetSummary } from "./types"
 /** One tutor set tile; the whole card is the link. */
 export function SetCard({ set: c }: { set: TutorSetSummary }) {
   return (
-    <Card className="relative py-0 transition-colors hover:border-primary/40">
+    <Card className="relative py-0 transition-colors hover:border-primary/40 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
       <CardContent className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-center justify-between gap-2">
           <span className="font-mono text-xs text-muted-foreground">{c.code}</span>
@@ -22,7 +22,7 @@ export function SetCard({ set: c }: { set: TutorSetSummary }) {
             {c.lessons} บท
           </span>
           <Button asChild size="sm">
-            <Link href={"/s/tutor/" + c.id} aria-label={`เปิดชุดติว: ${c.title}`} className="after:absolute after:inset-0 after:content-['']">
+            <Link href={"/s/tutor/" + c.id} aria-label={`เปิดชุดติว: ${c.title}`} className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">
               เปิดชุดติว
               <ArrowRightIcon />
             </Link>

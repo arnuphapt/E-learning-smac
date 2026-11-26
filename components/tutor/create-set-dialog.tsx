@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { getErrorMessage } from "./sets"
 
-const TUTOR_HERO = "#4338a8"
+const TUTOR_HERO = "#0d6e8c"
 
 interface CreatorUser {
   id?: string

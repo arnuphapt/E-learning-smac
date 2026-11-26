@@ -71,7 +71,7 @@ export function Pagination({ pageSizes = [10, 20, 50, 100] }: { pageSizes?: read
                     <PaginationEllipsis />
                   ) : (
                     <Button
-                      variant={p === page ? "outline" : "ghost"}
+                      variant={p === page ? "default" : "ghost"}
                       size="icon"
                       aria-label={`หน้า ${p}`}
                       aria-current={p === page ? "page" : undefined}

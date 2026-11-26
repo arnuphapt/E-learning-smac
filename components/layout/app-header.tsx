@@ -32,7 +32,7 @@ export function AppHeader({ config, actions }: { config: NavConfig; actions?: Re
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
-      <SidebarTrigger aria-label="เปิด/ปิดเมนู" className="-ml-1" />
+      <SidebarTrigger aria-label="เปิด/ปิดเมนู" className="-ml-1 size-10" />
       <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
       <AppBreadcrumb config={config} />
 

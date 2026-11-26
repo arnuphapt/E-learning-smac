@@ -11,7 +11,7 @@ export default function StudentLiveIndexPage() {
     <PageContainer>
       <PageHeader
         kicker="กิจกรรมการเรียนรู้"
-        title="ควิซสด"
+        title="รวมเกม"
         description="กรอก PIN เพื่อเข้าร่วมห้องควิซสดและตอบคำถามแข่งขันแบบเรียลไทม์"
       />
       <JoinPinForm />

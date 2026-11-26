@@ -47,13 +47,12 @@ function lessonChips(l: CourseLessonItem): Chip[] {
 }
 
 /** One lesson of a course: number (or lock), title, status chips and progress; the whole row opens the lesson. */
-export function LessonRow({ lesson: l, hero: _hero }: { lesson: CourseLessonItem; hero?: string | null }) {
-  void _hero
+export function LessonRow({ lesson: l }: { lesson: CourseLessonItem }) {
   const locked = l.status === "locked-pretest"
   const hasVideo = !!(l.video_url || l.video)
 
   return (
-    <Card className="relative py-0 transition-colors hover:border-primary/40">
+    <Card className="relative py-0 transition-colors hover:border-primary/40 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
       <CardContent className="flex items-center justify-between gap-4 px-5 py-4">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground">
@@ -62,7 +61,7 @@ export function LessonRow({ lesson: l, hero: _hero }: { lesson: CourseLessonItem
 
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 flex flex-wrap items-center gap-2">
-              <Link href={"/s/lesson/" + l.id} className="font-bold after:absolute after:inset-0 after:content-['']">
+              <Link href={"/s/lesson/" + l.id} className="font-bold after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">
                 {l.title}
               </Link>
               <StatusBadge status={l.status} />
@@ -78,6 +77,10 @@ export function LessonRow({ lesson: l, hero: _hero }: { lesson: CourseLessonItem
                   {c.text}
                 </Badge>
               ))}
+            </div>
+            <div className="mt-2 flex items-center gap-2 md:hidden">
+              <Progress value={l.progress || 0} className="h-1.5 flex-1" />
+              <span className="text-xs font-semibold tabular-nums text-muted-foreground">{l.progress || 0}%</span>
             </div>
           </div>
         </div>

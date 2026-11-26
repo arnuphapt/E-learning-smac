@@ -5,13 +5,6 @@ import { cn } from "@/lib/utils"
 
 export type ChecklistTone = "done" | "current" | "todo" | "locked"
 
-const iconTone: Record<ChecklistTone, string> = {
-  done: "bg-success-soft text-success",
-  current: "bg-primary-soft text-primary",
-  todo: "bg-muted text-muted-foreground",
-  locked: "bg-muted text-muted-foreground",
-}
-
 /** One step of the lesson progress list; a button when it has `onClick`, plain row otherwise. */
 export function ChecklistItem({
   icon: Icon,
@@ -30,9 +23,7 @@ export function ChecklistItem({
 }) {
   const inner = (
     <>
-      <div className={cn("grid size-[30px] shrink-0 place-items-center rounded-lg", iconTone[tone])}>
-        <Icon className="size-4" />
-      </div>
+      <Icon className={cn("size-4 shrink-0", tone === "done" ? "text-success" : "text-muted-foreground")} aria-hidden />
       <div className="min-w-0 flex-1 text-left">
         <div className="truncate text-sm font-semibold">{label}</div>
         {sub && <div className="truncate text-xs font-normal text-muted-foreground">{sub}</div>}

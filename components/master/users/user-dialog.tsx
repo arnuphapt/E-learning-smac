@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { FormField } from "@/components/common/form-field"
 import { MultiSelect } from "@/components/common/multi-select"
@@ -62,12 +61,18 @@ export function UserDialog({
   const [sec] = useState<string | null>(row ? row.sec : "ไม่มี")
   const [status, setStatus] = useState(row ? row.status : "active")
   const [groupId, setGroupId] = useState(row ? (row.group_id ?? "") : "")
+  const [errors, setErrors] = useState<{ name?: string; email?: string; roles?: string }>({})
 
   const isStudent = selectedRoles.includes("student")
+  const clearError = (key: "name" | "email" | "roles") => setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev))
 
   const handleSave = () => {
-    if (!name || !email) {
-      toast.error("กรุณากรอกข้อมูลที่จำเป็น (*) ให้ครบถ้วน")
+    const next: { name?: string; email?: string } = {}
+    if (!name.trim()) next.name = "กรุณากรอกชื่อ-นามสกุล"
+    if (!email.trim()) next.email = "กรุณากรอกอีเมล"
+    if (Object.keys(next).length > 0) {
+      setErrors((prev) => ({ ...prev, ...next }))
+      document.getElementById(next.name ? "user-name" : "user-email")?.focus()
       return
     }
     onSave({
@@ -88,22 +93,40 @@ export function UserDialog({
       onClose={onClose}
       onSubmit={handleSave}
     >
-      <FormField label="ชื่อ-นามสกุล" htmlFor="user-name" required>
-        <Input id="user-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น อ. ดร. สมชาย ใจดี หรือ ณัฐชยา ยิ้มแย้ม" />
+      <FormField label="ชื่อ-นามสกุล" htmlFor="user-name" error={errors.name} required>
+        <Input
+          id="user-name"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value)
+            clearError("name")
+          }}
+          placeholder="เช่น อ. ดร. สมชาย ใจดี หรือ ณัฐชยา ยิ้มแย้ม"
+        />
       </FormField>
-      <FormField label="อีเมล" htmlFor="user-email" required>
-        <Input id="user-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="username@smnc.ac.th" />
+      <FormField label="อีเมล" htmlFor="user-email" error={errors.email} required>
+        <Input
+          id="user-email"
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value)
+            clearError("email")
+          }}
+          placeholder="username@smnc.ac.th"
+        />
       </FormField>
-      <FormField label="บทบาท (เลือกได้หลายบทบาท)" htmlFor="user-roles">
+      <FormField label="บทบาท (เลือกได้หลายบทบาท)" htmlFor="user-roles" error={errors.roles}>
         <MultiSelect
           id="user-roles"
           options={rolesList.map((r) => ({ value: r.id, label: r.name, description: r.id }))}
           selectedValues={selectedRoles}
           onChange={(next) => {
             if (next.length === 0) {
-              toast.error("ต้องเลือกอย่างน้อย 1 บทบาท")
+              setErrors((prev) => ({ ...prev, roles: "ต้องเลือกอย่างน้อย 1 บทบาท" }))
               return
             }
+            clearError("roles")
             setSelectedRoles(next)
           }}
           placeholder="เลือกบทบาท..."

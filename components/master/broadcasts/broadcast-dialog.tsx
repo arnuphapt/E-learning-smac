@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { InfoIcon, SendIcon } from "lucide-react"
-import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { FormField } from "@/components/common/form-field"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -41,10 +40,17 @@ export function BroadcastDialog({
   const [editYearLevels, setEditYearLevels] = useState<Array<string | number>>(
     (row?.year_level || []).map((y) => (typeof y === "number" || !isNaN(Number(y)) ? `ชั้นปีที่ ${y}` : y)),
   )
+  const [errors, setErrors] = useState<{ title?: string; body?: string }>({})
+
+  const clearError = (key: "title" | "body") => setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev))
 
   const handleSave = () => {
-    if (!title.trim() || !body.trim()) {
-      toast.error("กรุณากรอกหัวข้อและเนื้อหาประกาศ")
+    const next: { title?: string; body?: string } = {}
+    if (!title.trim()) next.title = "กรุณากรอกหัวข้อประกาศ"
+    if (!body.trim()) next.body = "กรุณากรอกเนื้อหา"
+    if (Object.keys(next).length > 0) {
+      setErrors(next)
+      document.getElementById(next.title ? "bc-title" : "bc-body")?.focus()
       return
     }
     const finalYearLevels = editYearLevels
@@ -65,11 +71,28 @@ export function BroadcastDialog({
       onSubmit={handleSave}
       submitIcon={<SendIcon />}
     >
-      <FormField label="หัวข้อประกาศ" htmlFor="bc-title" required>
-        <Input id="bc-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น แจ้งปิดระบบชั่วคราว" />
+      <FormField label="หัวข้อประกาศ" htmlFor="bc-title" error={errors.title} required>
+        <Input
+          id="bc-title"
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value)
+            clearError("title")
+          }}
+          placeholder="เช่น แจ้งปิดระบบชั่วคราว"
+        />
       </FormField>
-      <FormField label="เนื้อหา" htmlFor="bc-body" required>
-        <Textarea id="bc-body" value={body} onChange={(e) => setBody(e.target.value)} rows={4} placeholder="รายละเอียดประกาศ..." />
+      <FormField label="เนื้อหา" htmlFor="bc-body" error={errors.body} required>
+        <Textarea
+          id="bc-body"
+          value={body}
+          onChange={(e) => {
+            setBody(e.target.value)
+            clearError("body")
+          }}
+          rows={4}
+          placeholder="รายละเอียดประกาศ..."
+        />
       </FormField>
 
       <div className="grid gap-2">

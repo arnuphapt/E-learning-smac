@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { IBM_Plex_Sans_Thai, IBM_Plex_Sans, IBM_Plex_Mono, Noto_Serif_Thai } from 'next/font/google';
-import SessionProvider from '@/components/SessionProvider';
-import { ImpersonationBanner } from '@/components/layout/impersonation-banner';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 
@@ -18,20 +16,23 @@ const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
   variable: '--font-plex-sans',
   display: 'swap',
+  preload: false,
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
-  weight: ['400', '500', '600'],
+  weight: ['400', '600'],
   subsets: ['latin'],
   variable: '--font-plex-mono',
   display: 'swap',
+  preload: false,
 });
 
 const notoSerifThai = Noto_Serif_Thai({
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600'],
   subsets: ['thai', 'latin'],
   variable: '--font-noto-serif-thai',
   display: 'swap',
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -43,10 +44,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="th" className={`${ibmPlexSansThai.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable} ${notoSerifThai.variable}`}>
       <body>
-        <SessionProvider>
-          <ImpersonationBanner />
-          {children}
-        </SessionProvider>
+        {children}
         <Toaster />
       </body>
     </html>
