@@ -1,0 +1,346 @@
+.dragon-game {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0e2220;
+  color: #f1f3df;
+  font-family: Tahoma, system-ui, sans-serif;
+  border-radius: 12px;
+}
+
+.dragon-game * {
+  box-sizing: border-box;
+}
+
+.dragon-game .world {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.dragon-game .world canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+.dragon-game .world canvas:active {
+  cursor: grabbing;
+}
+
+.dragon-game .boot {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  background: #112927;
+  text-align: center;
+  gap: 12px;
+  z-index: 5;
+  padding: 20px;
+}
+
+.dragon-game .boot p {
+  font-size: 13px;
+  max-width: 380px;
+  line-height: 1.8;
+  color: #c6d2be;
+  margin: 0;
+}
+
+.dragon-game .boot strong {
+  font-size: 21px;
+}
+
+.dragon-game button {
+  font: inherit;
+  color: inherit;
+  background: #173b33e8;
+  border: 1px solid #d2dfa43b;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  box-shadow: 0 3px 14px #00150d33;
+}
+
+.dragon-game button:hover {
+  background: #386044;
+}
+
+.dragon-game button:focus-visible {
+  outline: 2px solid #f0d98b;
+  outline-offset: 3px;
+}
+
+.dragon-game button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Hatchery world overlays */
+.dragon-game .summon-world-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.dragon-game .summon-world-button {
+  position: absolute;
+  z-index: 3;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 20%;
+  cursor: pointer;
+  line-height: 1.2;
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+
+.dragon-game .summon-world-button[hidden] {
+  display: none;
+}
+
+.dragon-game .summon-world-button img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.dragon-game .summon-world-button span {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-weight: 500;
+  text-shadow: 0 2px 4px #00170c, 0 0 6px #00170c;
+  white-space: nowrap;
+}
+
+.dragon-game .summon-world-button:hover {
+  background: transparent;
+  filter: brightness(1.08);
+}
+
+.dragon-game .summon-world-button:disabled {
+  filter: grayscale(0.7);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dragon-game .hatch-world-status {
+  position: absolute;
+  transform: translateX(-50%);
+  text-align: center;
+  color: white;
+  font-weight: 500;
+  text-shadow: 0 2px 4px #00170c, 0 0 6px #00170c;
+  pointer-events: none;
+  line-height: 1.25;
+}
+
+.dragon-game .hatch-world-status[hidden] {
+  display: none;
+}
+
+.dragon-game .hatch-world-status progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin: 0 0 4px;
+  accent-color: #fff;
+}
+
+.dragon-game .hatch-world-status strong {
+  font-weight: 500;
+}
+
+.dragon-game .hatch-world-hit {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  width: var(--egg-width);
+  height: var(--egg-height);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.dragon-game .hatch-world-hit:hover {
+  background: transparent;
+}
+
+.dragon-game .hatch-world-hit:focus-visible {
+  outline: 2px solid #ffffc0;
+  border-radius: 50%;
+}
+
+.dragon-game .hatch-world-move {
+  display: block;
+  width: var(--move-size);
+  height: var(--move-size);
+  margin: 8px auto 24px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  pointer-events: auto;
+  position: relative;
+}
+
+.dragon-game .hatch-world-move:hover {
+  background: transparent;
+  filter: brightness(1.1);
+}
+
+.dragon-game .hatch-world-move:disabled {
+  filter: grayscale(0.85);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dragon-game .hatch-world-move img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: saturate(0.4);
+}
+
+.dragon-game .hatch-world-move span {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 500;
+  font-size: 15px;
+  color: white;
+  text-shadow: 0 2px 4px #00170c;
+}
+
+.dragon-game .summon-menu {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.dragon-game .summon-menu button {
+  pointer-events: auto;
+}
+
+/* Native HUD */
+.dragon-game .native-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.dragon-game .native-hud button {
+  cursor: default;
+}
+
+.dragon-game .native-hud-error {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  padding: 10px;
+  background: #142c28;
+  color: #fff;
+  border-radius: 8px;
+}
+
+/* Native baby / adult / expansion status panels */
+.dragon-game .native-baby-dismiss {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+
+.dragon-game .native-baby-dismiss,
+.dragon-game .native-baby-dismiss:hover,
+.dragon-game .native-baby-dismiss:active,
+.dragon-game .native-baby-dismiss:focus {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.dragon-game .native-baby-status {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.dragon-game .native-baby-status .native-book-hit {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.dragon-game .native-book-hit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  border: 0 !important;
+  border-radius: 4px;
+  padding: 0 !important;
+  margin: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent;
+  touch-action: manipulation;
+}
+
+.dragon-game .native-book-hit:focus-visible {
+  outline: 4px solid #e6e6a9;
+  outline-offset: 5px;
+}
+
+.dragon-game .native-book-hit:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.dragon-game .native-book-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  line-height: 1.3;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+.dragon-game .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

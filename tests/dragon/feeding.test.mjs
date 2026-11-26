@@ -1,0 +1,81 @@
+import {adultPose} from '../../lib/dragon/adult-pose.mjs';import {adultFlight} from '../../lib/dragon/adult-animation.mjs';import {babyFoodSpawnPosition,createBabyFoodState,hitBabyFoodCollider,beginBabyFoodDrag,moveBabyFoodDrag,endBabyFoodDrag,stepBabyFoodState} from '../../lib/dragon/baby-animation.mjs';
+﻿import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {createHatchery,HATCHERY_KEY,babyFeedReward,adultCoinReward} from '../../lib/dragon/hatchery.mjs';import {feedingView,babyPose} from '../../lib/dragon/baby-feeding.mjs';
+const catalog=JSON.parse(fs.readFileSync(new URL('../../public/dragon/generated/hatching/catalog.json',import.meta.url))),map=JSON.parse(fs.readFileSync(new URL('../../public/dragon/data/source-map.json',import.meta.url)));
+function fixture(){let time=10000;const values=new Map(),slot=map.MapItemData.filter(i=>i.SymbolID==='Egg_Slot').sort((a,b)=>{const m=map.MapItemData.find(i=>i.SymbolID==='IncubatorEggMarker');return Math.hypot(a.XPos-m.XPos,a.YPos-m.YPos)-Math.hypot(b.XPos-m.XPos,b.YPos-m.YPos);})[0],storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)};storage.setItem(HATCHERY_KEY,JSON.stringify({version:1,summoned:1,active:null,babies:[{id:'baby-test',speciesId:'001',slotGUID:slot.GUID,hatchedAt:1000}]}));const options={catalog,map,storage,now:()=>time,random:()=>0,makeId:()=>String(time)};return {storage,values,at:t=>time=t,create:()=>createHatchery(options)};}
+test('legacy nursery starts hungry and feeding persists exactly one meal with native clip deadlines',()=>{const f=fixture(),a=f.create(),before=JSON.parse(f.storage.getItem(HATCHERY_KEY));assert.equal(a.getSnapshot().babies[0].feeding.stage,1);const b=a.feedBaby('baby-test');assert.equal(b.growth.feeds,1);assert.equal(b.growth.eatDoneAt-b.growth.fedAt,Math.round(catalog.feeding.families[catalog.species[0].family].animations['Stage1/Eating']*1000));assert.equal(b.feeding.status,'eating');assert.throws(()=>a.feedBaby('baby-test'),/พักย่อย/);assert.equal(f.create().getSnapshot().babies[0].growth.feeds,1);assert.equal(JSON.parse(f.storage.getItem(HATCHERY_KEY)).babies[0].id,before.babies[0].id);});
+test('eat, digest and native growth transition resolve by saved time without replaying after reload',()=>{const f=fixture(),a=f.create(),b=a.feedBaby('baby-test');f.at(b.growth.eatDoneAt);let reloaded=f.create().getSnapshot().babies[0];assert.equal(reloaded.feeding.status,'digesting');assert.equal(babyPose(reloaded,catalog,b.growth.eatDoneAt).name,'Stage1/Sleep');f.at(b.growth.digestUntil);reloaded=f.create().getSnapshot().babies[0];assert.equal(reloaded.feeding.status,'growing');assert.equal(babyPose(reloaded,catalog,b.growth.digestUntil).name,'Stage1/Transition');f.at(b.growth.readyAt);reloaded=f.create().getSnapshot().babies[0];assert.equal(reloaded.feeding.status,'hungry');assert.equal(reloaded.feeding.stage,2);assert.equal(babyPose(reloaded,catalog,b.growth.readyAt).name,'Stage2/Hungry');});
+test('five explicit meals finish at stage five; offline time never feeds automatically',()=>{const f=fixture(),a=f.create();for(let i=1;i<=5;i++){const b=a.feedBaby('baby-test');assert.equal(b.growth.feeds,i);f.at(b.growth.readyAt+86400000);a.tick();assert.equal(a.getSnapshot().babies[0].growth.feeds,i);}const b=f.create().getSnapshot().babies[0];assert.equal(b.feeding.status,'mature-ready');assert.equal(b.feeding.stage,5);assert.equal(b.feeding.progress,1);assert.throws(()=>a.feedBaby('baby-test'),/ป้อน|กินครบ/);assert.equal(babyPose(b,catalog,b.growth.readyAt+1).name,'Stage5/Idle');});
+test('another tab cannot double-feed or revive a deleted baby; failed writes preserve progress',()=>{const f=fixture(),a=f.create(),b=f.create(),original=f.storage.getItem(HATCHERY_KEY),write=f.storage.setItem;f.storage.setItem=()=>{throw Error('quota');};assert.throws(()=>a.feedBaby('baby-test'),/บันทึก/);assert.equal(f.storage.getItem(HATCHERY_KEY),original);assert.equal(a.getSnapshot().babies[0].feeding.feeds,0);f.storage.setItem=write;const fed=a.feedBaby('baby-test');assert.throws(()=>b.feedBaby('baby-test'));f.at(fed.growth.readyAt);b.feedBaby('baby-test');assert.equal(a.tick().babies[0].growth.feeds,2);b.removeBaby('baby-test');assert.throws(()=>a.feedBaby('baby-test'),/ไม่พบ/);assert.equal(f.create().getSnapshot().babies.length,0);});
+test('feeding one baby leaves another baby and the active incubator job unchanged',()=>{const f=fixture(),a=f.create(),job=a.summon(),before=a.getSnapshot();a.feedBaby('baby-test');assert.deepEqual(a.getSnapshot().active,before.active);assert.equal(a.getSnapshot().active.id,job.id);});
+test('malformed growth is rejected without overwriting the original save',()=>{for(const growth of [{feeds:6},{feeds:1,fedAt:10,eatDoneAt:5,digestUntil:20,readyAt:30},{feeds:1,fedAt:1,eatDoneAt:2,digestUntil:3,readyAt:null}]){const f=fixture(),d=JSON.parse(f.storage.getItem(HATCHERY_KEY));d.babies[0].growth=growth;const raw=JSON.stringify(d);f.storage.setItem(HATCHERY_KEY,raw);assert.throws(()=>f.create(),/อ่านข้อมูล/);assert.equal(f.storage.getItem(HATCHERY_KEY),raw);}});
+function matureFixture(){const f=fixture(),a=f.create();for(let i=0;i<5;i++){const b=a.feedBaby('baby-test');f.at(b.growth.readyAt);}a.tick();return {...f,a};}
+test('offline newborn keeps its initial-flight marker until release or landing and persists either result',()=>{
+ const f=matureFixture(),m=f.a.matureBaby('baby-test');f.at(m.maturing.doneAt+86400000);
+ const a=f.create(),adult=a.tick().adults[0];assert.equal(adult.initialFlightPending,true);assert(adult.flyUntil<m.maturing.doneAt+86400000);
+ const before=f.storage.getItem(HATCHERY_KEY),origin=map.MapItemData.find(i=>i.GUID===adult.originSlotGUID);
+ a.releaseAdultPerch(adult.id,{x:origin.XPos,y:origin.YPos,z:origin.ZPos,layerID:origin.LayerID});
+ const released=f.create().getSnapshot().adults[0];assert.equal(released.initialFlightPending,undefined);assert.equal(released.perchReserved,false);assert(released.flightPosition);
+ f.storage.setItem(HATCHERY_KEY,before);f.create().setAdultPerch(adult.id,adult.perchGUID);
+ const landed=f.create().getSnapshot().adults[0];assert.equal(landed.initialFlightPending,undefined);assert.equal(landed.perchReserved,true);assert.equal(landed.flightPosition,undefined);
+});
+test('Mature plays the final authored transition and atomically creates one adult and frees its nursery slot',()=>{const f=matureFixture(),baby=f.a.getSnapshot().babies[0],m=f.a.matureBaby(baby.id);assert.equal(m.feeding.status,'maturing');assert.equal(babyPose(m,catalog,m.maturing.startedAt+100).name,'Stage5/Transition');assert.throws(()=>f.a.matureBaby(baby.id));f.at(m.maturing.doneAt);const v=f.a.tick();assert.equal(v.babies.length,0);assert.equal(v.adults.length,1);assert.equal(v.adults[0].speciesId,baby.speciesId);assert.equal(v.adults[0].originSlotGUID,baby.slotGUID);assert.equal(v.adults[0].perchGUID,m.maturing.perchGUID);assert.equal(f.a.summon().slotGUID,baby.slotGUID);});
+test('reload/offline completion and two tabs cannot duplicate the adult or replay maturation',()=>{const f=matureFixture(),m=f.a.matureBaby('baby-test'),b=f.create();assert.equal(b.getSnapshot().babies[0].maturing.doneAt,m.maturing.doneAt);f.at(m.maturing.doneAt+86400000);f.a.tick();b.tick();b.tick();assert.equal(f.a.tick().adults.length,1);assert.equal(f.create().getSnapshot().adults.length,1);assert.throws(()=>b.matureBaby('baby-test'),/ไม่พบ/);assert.throws(()=>b.feedBaby('baby-test'),/ไม่พบ/);});
+test('failed maturation writes preserve the ready baby or the pending transition for a safe retry',()=>{const f=matureFixture(),write=f.storage.setItem;f.storage.setItem=()=>{throw Error('quota');};assert.throws(()=>f.a.matureBaby('baby-test'),/บันทึก/);assert.equal(f.a.getSnapshot().babies[0].feeding.status,'mature-ready');f.storage.setItem=write;const m=f.a.matureBaby('baby-test');f.at(m.maturing.doneAt);f.storage.setItem=()=>{throw Error('quota');};assert.throws(()=>f.a.tick(),/บันทึก/);assert.equal(f.create().getSnapshot().adults.length,0);assert.equal(f.create().getSnapshot().babies.length,1);f.storage.setItem=write;assert.equal(f.a.tick().adults.length,1);});
+test('maturation requires all meals and cannot replace an occupied adult perch',()=>{const f=fixture(),a=f.create();assert.throws(()=>a.matureBaby('baby-test'),/ยังไม่พร้อม/);const ready=matureFixture(),save=JSON.parse(ready.storage.getItem(HATCHERY_KEY)),perches=map.MapItemData.filter(i=>i.isMarker&&['PerchMarker_Branch','PerchMarker_Ground'].includes(i.SymbolID));save.adults=perches.map((p,i)=>({id:'adult-'+i,speciesId:'001',originSlotGUID:save.babies[0].slotGUID,perchGUID:p.GUID,maturedAt:1,flyUntil:2}));ready.storage.setItem(HATCHERY_KEY,JSON.stringify(save));assert.throws(()=>ready.create().matureBaby('baby-test'),/พื้นที่/);assert.equal(ready.create().getSnapshot().babies.length,1);});
+
+test('new adult emerges hovering at the nursery, survives reload, then travels and perches',()=>{const f=matureFixture(),m=f.a.matureBaby('baby-test');f.at(m.maturing.doneAt);const adult=f.a.tick().adults[0],origin=map.MapItemData.find(i=>i.GUID===adult.originSlotGUID),perch=map.MapItemData.find(i=>i.GUID===adult.perchGUID);assert(adult.hoverUntil>=adult.maturedAt+5000&&adult.hoverUntil<adult.maturedAt+8000);assert.equal(adultPose(adult,perch,adult.maturedAt).name,'Hover');assert.equal(adultPose(adult,perch,adult.hoverUntil-1).name,'Hover');const still=adultFlight(adult,origin,perch,adult.maturedAt+1000);assert.equal(still.x,origin.XPos);assert.equal(still.y,origin.YPos);assert.equal(still.t,0);assert.equal(f.create().getSnapshot().adults[0].hoverUntil,adult.hoverUntil);assert.equal(adultPose(adult,perch,adult.hoverUntil).name,'Fly');assert.equal(adultPose(adult,perch,adult.hoverUntil).elapsed,0);assert.equal(adultPose(adult,perch,adult.flyUntil).name,perch.SymbolID==='PerchMarker_Ground'?'Ground/Idle':'Branch/Idle');});
+test('legacy adults without emergence deadline retain their saved flight window',()=>{const a={maturedAt:1000,flyUntil:4000},perch={SymbolID:'PerchMarker_Branch'};assert.equal(adultPose(a,perch,1500).name,'Fly');assert.equal(adultPose(a,perch,4000).name,'Branch/Idle');assert.equal(adultPose(a,perch,1500,true).name,'Branch/Idle');});
+test('baby food spawn offsets match native feeds and slot facing direction',()=>{
+ const slotR={GUID:'s1',XPos:10,YPos:5,ZPos:0,scaleX:1},slotL={GUID:'s2',XPos:10,YPos:5,ZPos:0,scaleX:-1};
+ assert.deepEqual(babyFoodSpawnPosition(slotR,0),{x:8.95,y:7,z:-1,facing:1});
+ assert.deepEqual(babyFoodSpawnPosition(slotR,1),{x:8.95,y:7,z:-1,facing:1});
+ assert.deepEqual(babyFoodSpawnPosition(slotR,2),{x:8.78,y:7,z:-1,facing:1});
+ assert.deepEqual(babyFoodSpawnPosition(slotR,3),{x:8.78,y:7,z:-1,facing:1});
+ assert.deepEqual(babyFoodSpawnPosition(slotR,4),{x:8.78,y:7,z:-1,facing:1});
+ assert.deepEqual(babyFoodSpawnPosition(slotL,0),{x:11.05,y:7,z:-1,facing:-1});
+ assert.deepEqual(babyFoodSpawnPosition(slotL,2),{x:11.22,y:7,z:-1,facing:-1});
+});
+test('baby food FSM tweens scale (Sinusoidal.Out 0.125s), checks 3x3 collider and 8.0 sqDist eat radius, lerps return, and times out at 1.0s',()=>{
+ const slot={GUID:'s1',XPos:0,YPos:0,ZPos:0,scaleX:1},spawn=babyFoodSpawnPosition(slot,0),babyPos={x:4,y:0};
+ const fs=createBabyFoodState({spawn,slotGUID:'s1',feeds:0});
+ assert.equal(fs.state,'spawning');assert.equal(fs.scale,0);
+ assert.equal(hitBabyFoodCollider(fs,{x:spawn.x,y:spawn.y}),false);
+ stepBabyFoodState(fs,0.0625,babyPos);
+ assert(Math.abs(fs.scale-Math.sin(Math.PI/4))<1e-6);assert.equal(fs.state,'spawning');
+ stepBabyFoodState(fs,0.0625,babyPos);
+ assert.equal(fs.state,'idle');assert(Math.abs(fs.scale-1)<1e-6);
+ assert.equal(hitBabyFoodCollider(fs,{x:spawn.x+1.5,y:spawn.y-1.5}),true);
+ assert.equal(hitBabyFoodCollider(fs,{x:spawn.x+1.51,y:spawn.y}),false);
+ assert.equal(beginBabyFoodDrag(fs,1000),true);assert.equal(fs.state,'dragging');
+ stepBabyFoodState(fs,0.125,babyPos);
+ assert(Math.abs(fs.scale-1.5)<1e-6);
+ assert.equal(endBabyFoodDrag(fs,babyPos,{x:spawn.x+0.02,y:spawn.y}),'idle');
+ stepBabyFoodState(fs,0.125,babyPos);
+ assert(Math.abs(fs.scale-1)<1e-6);
+ beginBabyFoodDrag(fs,2000);moveBabyFoodDrag(fs,{x:5,y:0});
+ assert.equal(endBabyFoodDrag(fs,babyPos,{x:babyPos.x+3.0,y:0}),'returning');
+ stepBabyFoodState(fs,0.125,babyPos);assert(Math.abs(fs.scale-1)<1e-6);
+ for(let i=0;i<60;i++)stepBabyFoodState(fs,1/60,babyPos);
+ assert.equal(fs.state,'idle');assert.equal(fs.x,spawn.x);assert.equal(fs.y,spawn.y);
+ beginBabyFoodDrag(fs,3000);moveBabyFoodDrag(fs,{x:4,y:4});
+ assert.equal(stepBabyFoodState(fs,0.9,babyPos).event,null);assert.equal(fs.state,'dragging');
+ assert.equal(stepBabyFoodState(fs,0.15,babyPos).event,'timeout');assert.equal(fs.state,'returning');
+ for(let i=0;i<60;i++)stepBabyFoodState(fs,1/60,babyPos);
+ assert.equal(fs.state,'idle');
+ beginBabyFoodDrag(fs,4000);
+ assert.equal(endBabyFoodDrag(fs,babyPos,{x:babyPos.x+2.0,y:1.9}),'eating');
+ const midEat=stepBabyFoodState(fs,0.0625,babyPos);assert.equal(midEat.event,null);
+ const doneEat=stepBabyFoodState(fs,0.0625,babyPos);assert.equal(doneEat.event,'eat');assert.equal(fs.state,'done');assert.equal(fs.scale,0);
+});
+test('feedBaby credits 25% of stage-0 adult coin yield and feed buttons are removed from hatchery-panel',()=>{
+ const credits=[],wallet={credit:(c,a)=>credits.push([c,a])},f=fixture(),a=f.create();
+ const sp=catalog.species[0],expected=Math.round(adultCoinReward(sp,0)*0.25);
+ assert.equal(babyFeedReward(sp),expected);
+ const fed=a.feedBaby('baby-test',wallet);
+ assert.equal(fed.reward,expected);
+ if(expected>0)assert.deepEqual(credits,[['SC',expected]]);else assert.equal(credits.length,0);
+ const panelSrc=fs.readFileSync(new URL('../../lib/dragon/hatchery-panel.mjs',import.meta.url),'utf8');
+ assert.equal(panelSrc.includes('ป้อนอาหาร'),false);
+ assert.equal(panelSrc.includes("'ป้อน'"),false);
+ assert.equal(panelSrc.includes('foodHit'),false);
+});
