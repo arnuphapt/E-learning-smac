@@ -21,6 +21,7 @@ export interface FormattedLiveQuiz extends LiveQuizRow {
 }
 
 export function quizColumns(
+  onEdit: (quiz: FormattedLiveQuiz) => void,
   onDuplicate: (quiz: FormattedLiveQuiz) => void,
   onDelete: (quiz: FormattedLiveQuiz) => void,
   busy: boolean,
@@ -86,11 +87,9 @@ export function quizColumns(
                 </Link>
               </Button>
             )}
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/i/live/quizzes/${quiz.id}`}>
-                <PencilIcon />
-                แก้ไข
-              </Link>
+            <Button type="button" variant="outline" size="sm" onClick={() => onEdit(quiz)} disabled={busy}>
+              <PencilIcon />
+              แก้ไข
             </Button>
             <RowActions
               actions={[

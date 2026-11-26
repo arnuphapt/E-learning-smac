@@ -8,7 +8,7 @@ import { ArrowLeftIcon, CheckIcon, CircleAlertIcon, CircleHelpIcon, Loader2Icon,
 import { toast } from "sonner";
 import type { Database, Json } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
-import { isValidPoints, validateQuiz, type QuizProblem } from "@/lib/live";
+import { POINTS_DEFAULT, isValidPoints, validateQuiz } from "@/lib/live";
 import { PageContainer } from "@/components/common/page-container";
 import { FormField } from "@/components/common/form-field";
 import { EmptyState, LoadingState } from "@/components/common/states";
@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { groupProblemsByIndex, toQuestionInsertRow, toQuestionUpdateRow } from "@/components/live/quiz-draft";
 import {
   QuizQuestionEditor,
   type QuizChoice,
@@ -237,13 +238,7 @@ export default function QuizEditorPage(props: QuizEditorPageProps) {
         if (!isValidPoints(fields.points)) return false;
         const { error } = await supabase
           .from("live_quiz_questions")
-          .update({
-            text: fields.text,
-            choices: fields.choices.map((c) => ({ id: c.id, text: c.text })),
-            answer: fields.answer,
-            time_limit_sec: fields.time_limit_sec,
-            points: fields.points,
-          })
+          .update(toQuestionUpdateRow(fields))
           .eq("id", updatedQ.id);
 
         if (error) throw error;
@@ -280,14 +275,14 @@ export default function QuizEditorPage(props: QuizEditorPageProps) {
       const { data, error } = await supabase
         .from("live_quiz_questions")
         .insert([
-          {
-            quiz_id: quizId,
+          toQuestionInsertRow(quizId, {
             no: nextNo,
             text: "",
             choices: defaultChoices,
             answer: "",
             time_limit_sec: 20,
-          },
+            points: POINTS_DEFAULT,
+          }),
         ])
         .select()
         .single();
@@ -430,13 +425,7 @@ export default function QuizEditorPage(props: QuizEditorPageProps) {
 
   // Quiz readiness validation
   const validation = validateQuiz(questions);
-  const problemsByIndex: Record<number, QuizProblem[]> = {};
-  validation.problems.forEach((p) => {
-    if (p.index >= 0) {
-      if (!problemsByIndex[p.index]) problemsByIndex[p.index] = [];
-      problemsByIndex[p.index].push(p);
-    }
-  });
+  const problemsByIndex = groupProblemsByIndex(validation.problems);
 
   return (
     <PageContainer className="max-w-4xl">
