@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { FormField } from "@/components/common/form-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,10 @@ export function JoinPinForm() {
   const [pin, setPin] = useState("");
   const [joining, setJoining] = useState(false);
   const [pinError, setPinError] = useState("");
+  const { data: session } = useSession();
+  // null = untouched, so the field follows the account name once the session loads
+  const [editedName, setEditedName] = useState<string | null>(null);
+  const displayName = editedName ?? session?.user?.name ?? "";
 
   async function handleJoin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -25,12 +30,18 @@ export function JoinPinForm() {
       return;
     }
 
+    const trimmedName = displayName.trim();
+    if (trimmedName.length < 1 || trimmedName.length > 30) {
+      setPinError("ชื่อที่จะแสดงต้องมี 1-30 ตัวอักษร");
+      return;
+    }
+
     setJoining(true);
     try {
       const res = await fetch("/api/live/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: trimmedPin }),
+        body: JSON.stringify({ pin: trimmedPin, name: trimmedName }),
       });
 
       const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
@@ -68,6 +79,20 @@ export function JoinPinForm() {
                 placeholder="123456"
                 className="h-15 text-center font-mono text-3xl font-bold tracking-widest md:text-3xl"
                 autoFocus
+                disabled={joining}
+              />
+            </FormField>
+
+            <FormField label="ชื่อที่จะแสดง" htmlFor="quiz-display-name" description="ชื่อนี้แสดงในห้องรอ ตารางคะแนน และผลลัพธ์ของรอบนี้เท่านั้น">
+              <Input
+                id="quiz-display-name"
+                maxLength={30}
+                required
+                value={displayName}
+                onChange={(e) => {
+                  setEditedName(e.target.value);
+                  if (pinError) setPinError("");
+                }}
                 disabled={joining}
               />
             </FormField>

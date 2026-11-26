@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { CHOICE_STYLES } from "@/lib/live";
 import { CheckIcon, CircleCheckIcon, MonitorIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,16 +48,19 @@ export function PlayerQuestion({
     me?.answered ? "ส่งคำตอบแล้ว รอเฉลย" : ""
   );
 
-  // Sync with state changes (e.g. phase or index change)
-  useEffect(() => {
+  // Reset when the question index changes; for the same index only sync in the "answered"
+  // direction, so a stale refetch can't re-enable buttons after an optimistic answer.
+  const [prevIndex, setPrevIndex] = useState(index);
+  if (prevIndex !== index) {
+    setPrevIndex(index);
     setHasAnswered(!!me?.answered);
-    if (me?.chosen) {
-      setSelectedChoice(me.chosen);
-    }
-    if (me?.answered) {
-      setStatusMessage("ส่งคำตอบแล้ว รอเฉลย");
-    }
-  }, [me, index]);
+    setSelectedChoice(me?.chosen || null);
+    setStatusMessage(me?.answered ? "ส่งคำตอบแล้ว รอเฉลย" : "");
+  } else if (me?.answered && !hasAnswered) {
+    setHasAnswered(true);
+    if (me.chosen) setSelectedChoice(me.chosen);
+    setStatusMessage("ส่งคำตอบแล้ว รอเฉลย");
+  }
 
   // Remaining timer for player
   const [remainingSec, setRemainingSec] = useState(() => {
@@ -79,14 +82,28 @@ export function PlayerQuestion({
     return () => clearInterval(timer);
   }, [deadline, now]);
 
+  // Bell once per question when 5s remain (muted = silent via sound engine)
+  const bellIndexRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (remainingSec <= 5 && remainingSec > 0 && bellIndexRef.current !== index) {
+      bellIndexRef.current = index;
+      sound.bell();
+    }
+  }, [remainingSec, index]);
+
+  // Cut the bell when leaving the question (early reveal)
+  useEffect(() => () => sound.stopBell(), []);
+
   const handleSelectChoice = useCallback(
     async (choiceId: string) => {
       if (hasAnswered || submitting || !sessionId) return;
       sound.play("answer");
       try {
+        // optimistic: show "sent" immediately, roll back below on failure
         setSubmitting(true);
         setSelectedChoice(choiceId);
-        setStatusMessage("");
+        setHasAnswered(true);
+        setStatusMessage("ส่งคำตอบแล้ว รอเฉลย");
 
         const res = await fetch(`/api/live/${sessionId}/answer`, {
           method: "POST",
@@ -97,11 +114,7 @@ export function PlayerQuestion({
           }),
         });
 
-        if (res.ok) {
-          setHasAnswered(true);
-          setStatusMessage("ส่งคำตอบแล้ว รอเฉลย");
-          if (onRefresh) onRefresh();
-        } else {
+        if (!res.ok) {
           const rawErr: unknown = await res.json().catch(() => ({}));
           const errMsg =
             rawErr && typeof rawErr === "object" && "error" in rawErr && typeof rawErr.error === "string"
@@ -112,6 +125,7 @@ export function PlayerQuestion({
             setHasAnswered(true);
             setStatusMessage(errMsg || "ส่งคำตอบแล้ว");
           } else {
+            setHasAnswered(false);
             setSelectedChoice(null);
             setStatusMessage(errMsg || "เกิดข้อผิดพลาดในการส่งคำตอบ");
           }
@@ -119,6 +133,7 @@ export function PlayerQuestion({
         }
       } catch (e: unknown) {
         console.error("Answer submit failed:", e);
+        setHasAnswered(false);
         setSelectedChoice(null);
         setStatusMessage("เชื่อมต่อขัดข้อง โปรดลองใหม่");
       } finally {

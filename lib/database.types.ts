@@ -614,6 +614,7 @@ export type Database = {
           choices: Json
           id: string
           no: number
+          points: number
           quiz_id: string
           text: string
           time_limit_sec: number
@@ -623,6 +624,7 @@ export type Database = {
           choices: Json
           id?: string
           no: number
+          points?: number
           quiz_id: string
           text: string
           time_limit_sec?: number
@@ -632,6 +634,7 @@ export type Database = {
           choices?: Json
           id?: string
           no?: number
+          points?: number
           quiz_id?: string
           text?: string
           time_limit_sec?: number
@@ -690,6 +693,7 @@ export type Database = {
           answer: string
           choices: Json
           idx: number
+          points: number
           session_id: string
           text: string
           time_limit_sec: number
@@ -698,6 +702,7 @@ export type Database = {
           answer: string
           choices: Json
           idx: number
+          points?: number
           session_id: string
           text: string
           time_limit_sec: number
@@ -706,6 +711,7 @@ export type Database = {
           answer?: string
           choices?: Json
           idx?: number
+          points?: number
           session_id?: string
           text?: string
           time_limit_sec?: number
@@ -1640,6 +1646,19 @@ export type Database = {
           team_stats: Json
         }[]
       }
+      live_session_advance: {
+        Args: {
+          p_action: string
+          p_host: string
+          p_now: string
+          p_session: string
+        }
+        Returns: {
+          current_index: number
+          phase: string
+          status: string
+        }[]
+      }
       live_session_create: {
         Args: {
           p_course: string
@@ -1666,6 +1685,17 @@ export type Database = {
           correct: number
           score: number
           user_id: string
+        }[]
+      }
+      live_standings: {
+        Args: { p_session: string; p_user: string }
+        Returns: {
+          me_rank: number | null
+          me_score: number
+          me_team_id: string | null
+          player_count: number
+          teams: Json | null
+          top: Json
         }[]
       }
       tutor_answer_save: {

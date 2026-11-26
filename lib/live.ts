@@ -18,7 +18,7 @@ export const CHOICE_STYLES: readonly ChoiceStyle[] = [
   {
     key: 'a',
     shape: 'triangle',
-    label: 'A',
+    label: 'ก',
     name: 'สามเหลี่ยม',
     color: '#ef4444',
     bg: 'bg-red-500',
@@ -29,7 +29,7 @@ export const CHOICE_STYLES: readonly ChoiceStyle[] = [
   {
     key: 'b',
     shape: 'diamond',
-    label: 'B',
+    label: 'ข',
     name: 'ข้าวหลามตัด',
     color: '#3b82f6',
     bg: 'bg-blue-600',
@@ -40,7 +40,7 @@ export const CHOICE_STYLES: readonly ChoiceStyle[] = [
   {
     key: 'c',
     shape: 'circle',
-    label: 'C',
+    label: 'ค',
     name: 'วงกลม',
     color: '#eab308',
     bg: 'bg-amber-500',
@@ -51,7 +51,7 @@ export const CHOICE_STYLES: readonly ChoiceStyle[] = [
   {
     key: 'd',
     shape: 'square',
-    label: 'D',
+    label: 'ง',
     name: 'สี่เหลี่ยม',
     color: '#10b981',
     bg: 'bg-emerald-600',
@@ -80,6 +80,23 @@ export const TRANSITIONS: readonly PhaseTransition[] = [
 
 export const GRACE_MS = 500;
 
+/**
+ * Milliseconds until the host should fire the reveal: deadline + grace, in server time (never negative).
+ */
+export function revealDelayMs(deadlineMs: number, serverNowMs: number): number {
+  return Math.max(0, Number(deadlineMs) + GRACE_MS - Number(serverNowMs));
+}
+
+export const POINTS_MIN = 100;
+export const POINTS_MAX = 5000;
+export const POINTS_STEP = 100;
+export const POINTS_DEFAULT = 1000;
+
+export function isValidPoints(value: unknown): boolean {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= POINTS_MIN && n <= POINTS_MAX && n % POINTS_STEP === 0;
+}
+
 export const TEAM_NAMES: readonly string[] = ['แดง', 'ฟ้า', 'เหลือง', 'เขียว', 'ม่วง', 'ส้ม', 'ชมพู', 'เทา'];
 
 export interface QuizChoiceInput {
@@ -92,6 +109,7 @@ export interface QuizQuestionInput {
   choices?: unknown;
   answer?: unknown;
   time_limit_sec?: unknown;
+  points?: unknown;
 }
 
 export interface QuizProblem {
@@ -144,6 +162,11 @@ export function validateQuiz(questions: unknown): QuizValidationResult {
 
     if (!q || !TIME_LIMITS.includes(Number(q.time_limit_sec))) {
       problems.push({ index, reason: 'เวลาต่อข้อต้องอยู่ในค่าที่กำหนด' });
+    }
+
+    // points is optional here so legacy callers/rows without it still validate (DB default is 1000).
+    if (q && q.points !== undefined && !isValidPoints(q.points)) {
+      problems.push({ index, reason: 'คะแนนต่อข้อต้องเป็นจำนวนเต็ม 100-5000 (เพิ่มทีละ 100)' });
     }
   });
 
@@ -225,19 +248,21 @@ export function scorePoints({
   elapsedMs,
   limitSec,
   correct,
+  maxPoints = POINTS_DEFAULT,
 }: {
   elapsedMs: number;
   limitSec: number;
   correct: boolean;
+  maxPoints?: number;
 }): number {
   if (!correct) return 0;
 
   const limitMs = (Number(limitSec) || 0) * 1000;
-  if (limitMs <= 0) return 500;
+  if (limitMs <= 0) return Math.round(maxPoints / 2);
 
   const clampedElapsed = Math.max(0, Math.min(Number(elapsedMs) || 0, limitMs));
   const ratio = clampedElapsed / limitMs;
-  return Math.round(1000 * (1 - ratio / 2));
+  return Math.round(maxPoints * (1 - ratio / 2));
 }
 
 /**

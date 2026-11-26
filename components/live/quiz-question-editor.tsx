@@ -13,7 +13,16 @@ import {
   TriangleAlertIcon,
   XIcon,
 } from "lucide-react";
-import { TIME_LIMITS, CHOICE_STYLES, type QuizProblem } from "@/lib/live";
+import {
+  TIME_LIMITS,
+  CHOICE_STYLES,
+  POINTS_DEFAULT,
+  POINTS_MAX,
+  POINTS_MIN,
+  POINTS_STEP,
+  isValidPoints,
+  type QuizProblem,
+} from "@/lib/live";
 import { FormField } from "@/components/common/form-field";
 import { ToneBadge } from "@/components/common/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -40,6 +49,7 @@ export interface QuizQuestion {
   choices?: QuizChoice[];
   answer?: string | null;
   time_limit_sec?: number | null;
+  points?: number | null;
 }
 
 export interface QuestionDraft {
@@ -48,6 +58,7 @@ export interface QuestionDraft {
   choices: QuizChoice[];
   answer: string;
   time_limit_sec: number;
+  points: number;
 }
 
 interface QuizQuestionEditorProps {
@@ -80,6 +91,9 @@ export function QuizQuestionEditor({
   );
   const [answer, setAnswer] = useState(question.answer || "");
   const [timeLimitSec, setTimeLimitSec] = useState(question.time_limit_sec || 20);
+  // Kept as a string so the instructor can type freely; only valid values are saved.
+  const [pointsInput, setPointsInput] = useState(String(question.points || POINTS_DEFAULT));
+  const pointsInvalid = !isValidPoints(pointsInput);
 
   // Autosave status: 'idle' | 'saving' | 'saved' | 'error'
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("saved");
@@ -109,7 +123,8 @@ export function QuizQuestionEditor({
     );
     setAnswer(question.answer || "");
     setTimeLimitSec(question.time_limit_sec || 20);
-  }, [question.id, question.text, question.choices, question.answer, question.time_limit_sec]);
+    setPointsInput(String(question.points || POINTS_DEFAULT));
+  }, [question.id, question.text, question.choices, question.answer, question.time_limit_sec, question.points]);
 
   const flushSave = useCallback(async () => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -140,16 +155,16 @@ export function QuizQuestionEditor({
 
   // Debounced save
   const triggerDebouncedSave = useCallback(
-    (updatedFields: Omit<QuestionDraft, "id">) => {
+    (updatedFields: Omit<QuestionDraft, "id" | "points">, points: number = isValidPoints(pointsInput) ? Number(pointsInput) : question.points || POINTS_DEFAULT) => {
       setSaveStatus("saving");
-      pendingSaveRef.current = { id: question.id, ...updatedFields };
+      pendingSaveRef.current = { id: question.id, ...updatedFields, points };
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
 
       debounceTimerRef.current = setTimeout(flushSave, 600);
     },
-    [question.id, flushSave]
+    [question.id, question.points, pointsInput, flushSave]
   );
 
   useEffect(() => {
@@ -195,6 +210,13 @@ export function QuizQuestionEditor({
     const val = Number(value);
     setTimeLimitSec(val);
     triggerDebouncedSave({ text, choices, answer, time_limit_sec: val });
+  };
+
+  const handlePointsChange = (value: string) => {
+    setPointsInput(value);
+    if (isValidPoints(value)) {
+      triggerDebouncedSave({ text, choices, answer, time_limit_sec: timeLimitSec }, Number(value));
+    }
   };
 
   const handleAddChoice = () => {
@@ -289,6 +311,26 @@ export function QuizQuestionEditor({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor={`q-points-${question.id}`} className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+              คะแนน:
+            </Label>
+            <Input
+              id={`q-points-${question.id}`}
+              type="number"
+              inputMode="numeric"
+              min={POINTS_MIN}
+              max={POINTS_MAX}
+              step={POINTS_STEP}
+              value={pointsInput}
+              onChange={(e) => handlePointsChange(e.target.value)}
+              aria-label="คะแนนเต็มต่อข้อ"
+              aria-invalid={pointsInvalid}
+              title={`${POINTS_MIN}-${POINTS_MAX} เพิ่มทีละ ${POINTS_STEP}`}
+              className="h-8 w-24 text-xs font-semibold"
+            />
           </div>
 
           <div className="flex items-center gap-1.5">

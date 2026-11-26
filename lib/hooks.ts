@@ -43,6 +43,8 @@ export interface LiveSessionState extends Record<string, unknown> {
   current_index: number;
   team_mode: boolean;
   restrict_to_course: boolean;
+  /** Client Date.now() when this response arrived; with the server `now` it gives the clock offset at fetch time. */
+  fetchedAt?: number;
   me: {
     userId: string;
     isHost: boolean;
@@ -60,6 +62,8 @@ export interface UseLiveSessionResult {
   state: LiveSessionState | null;
   error: LiveSessionError | null;
   refresh: () => Promise<LiveSessionState | null>;
+  /** Ask every other client on the session channel to refetch state. */
+  signal: () => void;
 }
 
 /**
@@ -76,12 +80,14 @@ export function useLiveSession(
   const requestSeqRef = useRef(0);
   const appliedSeqRef = useRef(0);
   const subscribeRef = useRef<(() => void) | null>(null);
+  const signalRef = useRef<(() => void) | null>(null);
 
   const fetchState = useCallback(async (): Promise<LiveSessionState | null> => {
     if (!id) return null;
     const requestSeq = ++requestSeqRef.current;
     try {
       const res = await fetch(`/api/live/${id}/state`, { cache: "no-store" });
+      const fetchedAt = Date.now();
       if (!res.ok) {
         const errJson: unknown = await res.json().catch(() => ({}));
         const errMsg =
@@ -98,7 +104,7 @@ export function useLiveSession(
         setError(err);
         return null;
       }
-      const data = (await res.json()) as LiveSessionState;
+      const data = { ...((await res.json()) as LiveSessionState), fetchedAt };
       if (requestSeq < appliedSeqRef.current) return null;
       appliedSeqRef.current = requestSeq;
       setState(data);
@@ -192,6 +198,9 @@ export function useLiveSession(
       }
 
       channel = ch;
+      signalRef.current = () => {
+        ch.send({ type: "broadcast", event: "players-changed", payload: {} });
+      };
       ch.subscribe((status) => {
         if (!active || status !== "SUBSCRIBED") return;
         fetchState();
@@ -211,6 +220,7 @@ export function useLiveSession(
     return () => {
       active = false;
       subscribeRef.current = null;
+      signalRef.current = null;
       if (signalTimer !== null) clearTimeout(signalTimer);
       // Invalidate responses from this subscription after an id change/unmount.
       appliedSeqRef.current = ++requestSeqRef.current;
@@ -220,5 +230,7 @@ export function useLiveSession(
     };
   }, [id, isHost, fetchState]);
 
-  return { state, error, refresh: fetchState };
+  const signal = useCallback(() => signalRef.current?.(), []);
+
+  return { state, error, refresh: fetchState, signal };
 }

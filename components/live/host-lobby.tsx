@@ -1,9 +1,11 @@
 "use client";
 
-import { UsersIcon } from "lucide-react";
+import { useState } from "react";
+import { PencilIcon, UsersIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { getTeamStyle } from "./team-colors";
@@ -21,6 +23,76 @@ export interface LobbyTeam {
   players?: LobbyPlayer[];
 }
 
+function TeamNameEditor({
+  team,
+  onRename,
+}: {
+  team: LobbyTeam;
+  onRename: (teamId: string, name: string) => Promise<string | null>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(team.name);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    const name = value.trim();
+    if (!name || name.length > 30) {
+      setError("ชื่อทีมต้องมีความยาว 1-30 ตัวอักษร");
+      return;
+    }
+    setSaving(true);
+    const err = await onRename(team.id, name);
+    setSaving(false);
+    if (err) setError(err);
+    else setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <>
+        <span className="text-sm font-bold text-foreground sm:text-base">ทีม{team.name}</span>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`แก้ชื่อทีม${team.name}`}
+          onClick={() => {
+            setValue(team.name);
+            setError(null);
+            setEditing(true);
+          }}
+        >
+          <PencilIcon aria-hidden />
+        </Button>
+      </>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1">
+        <Input
+          autoFocus
+          value={value}
+          disabled={saving}
+          aria-label="ชื่อทีม"
+          aria-invalid={!!error}
+          className="h-8 w-28"
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+        />
+        <Button size="sm" disabled={saving} onClick={save}>
+          บันทึก
+        </Button>
+      </div>
+      {error && <span className="text-xs text-destructive">{error}</span>}
+    </div>
+  );
+}
+
 export function HostLobby({
   pin,
   total,
@@ -32,6 +104,7 @@ export function HostLobby({
   movingPlayerId,
   onStart,
   onMoveTeam,
+  onRenameTeam,
 }: {
   pin?: string | null;
   total: number;
@@ -43,6 +116,7 @@ export function HostLobby({
   movingPlayerId: string | null;
   onStart: () => void;
   onMoveTeam: (userId: string, teamId: string) => void;
+  onRenameTeam: (teamId: string, name: string) => Promise<string | null>;
 }) {
   const playerCount = players.length;
 
@@ -101,7 +175,7 @@ export function HostLobby({
                   <div className="mb-3 flex items-center justify-between border-b pb-3">
                     <div className="flex items-center gap-2">
                       <span aria-hidden className={cn("size-3.5 shrink-0 rounded-full", style.dot)} />
-                      <span className="text-sm font-bold text-foreground sm:text-base">ทีม{team.name}</span>
+                      <TeamNameEditor team={team} onRename={onRenameTeam} />
                     </div>
                     <Badge variant="outline" className={style.badge}>
                       {members.length} คน

@@ -40,6 +40,9 @@ const bufferLoading = new Map<string, Promise<AudioBuffer | null>>();
 // Track keys/URLs that have already logged a warning to prevent console spam
 const warnedKeys = new Set<string>();
 
+// Currently ringing bell (one at a time)
+let activeBell: { out: GainNode; oscs: OscillatorNode[] } | null = null;
+
 // Music playback state
 let currentMusic: MusicState | null = null; // { key, url, source, gainNode }
 let nextMusicTarget: string | null | undefined = null; // key of the track currently transitioning to
@@ -279,6 +282,56 @@ export async function play(key: string): Promise<AudioBufferSourceNode | null> {
 }
 
 /**
+ * Plays a short synthesized bell (time-running-out warning) through the sfx bus,
+ * so mute applies. Silent on error.
+ */
+export async function bell(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    const ctx = await ensureContext();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+    out.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+    out.connect(sfxBusGain || masterGain || ctx.destination);
+    stopBell();
+    // fundamental + inharmonic partial for a bell timbre
+    const oscs = [880, 2217].map((freq) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.connect(out);
+      osc.start(t);
+      osc.stop(t + 1.25);
+      return osc;
+    });
+    activeBell = { out, oscs };
+  } catch (err) {
+    warnOnce('bell', `Playback error for bell: ${errDetail(err)}`);
+  }
+}
+
+/**
+ * Cuts the currently ringing bell with a short fade (call on early reveal / unmount).
+ */
+export function stopBell(): void {
+  const b = activeBell;
+  activeBell = null;
+  if (!b || !audioCtx) return;
+  try {
+    const now = audioCtx.currentTime;
+    b.out.gain.cancelScheduledValues(now);
+    b.out.gain.setValueAtTime(Math.max(b.out.gain.value, 0.0001), now);
+    b.out.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+    b.oscs.forEach((o) => o.stop(now + 0.05));
+  } catch {
+    // already stopped
+  }
+}
+
+/**
  * Smoothly fades out and stops a music state instance over CROSSFADE_SEC.
  */
 function fadeOutAndStop(musicState: MusicState | null): void {
@@ -397,6 +450,8 @@ export function stopMusic(): Promise<MusicState | null> {
 export default {
   unlock,
   play,
+  bell,
+  stopBell,
   music,
   stopMusic,
   duck,

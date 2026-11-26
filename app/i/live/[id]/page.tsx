@@ -31,7 +31,7 @@ export default function HostLiveSessionPage() {
   const rawId = params?.id;
   const id = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : undefined;
 
-  const { state, error, refresh } = useLiveSession(id, { isHost: true });
+  const { state, error, refresh, signal } = useLiveSession(id, { isHost: true });
   const [siteUrl, setSiteUrl] = useState("");
   const [advancing, setAdvancing] = useState(false);
   const [movingPlayerId, setMovingPlayerId] = useState<string | null>(null);
@@ -170,6 +170,29 @@ export default function HostLiveSessionPage() {
     [id, movingPlayerId, refresh]
   );
 
+  // Returns a Thai error message, or null on success.
+  const handleRenameTeam = useCallback(
+    async (teamId: string, name: string): Promise<string | null> => {
+      try {
+        const res = await fetch(`/api/live/teams/${teamId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        if (!res.ok) {
+          const errData: unknown = await res.json().catch(() => ({}));
+          return getErrorField(errData) || "เปลี่ยนชื่อทีมไม่สำเร็จ";
+        }
+        await refresh();
+        signal();
+        return null;
+      } catch {
+        return "เปลี่ยนชื่อทีมไม่สำเร็จ";
+      }
+    },
+    [refresh, signal]
+  );
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       setSiteUrl(`${window.location.origin}/s/live`);
@@ -193,7 +216,8 @@ export default function HostLiveSessionPage() {
           const errData: unknown = await res.json().catch(() => ({}));
           console.warn("Advance warning:", getErrorField(errData) || res.statusText);
         }
-        await refresh();
+        // Realtime also triggers a fetch; start one now without blocking `advancing` on it.
+        void refresh();
         return res.ok || res.status === 409;
       } catch (e) {
         console.error("Advance failed:", e);
@@ -313,6 +337,7 @@ export default function HostLiveSessionPage() {
             movingPlayerId={movingPlayerId}
             onStart={() => handleAdvance("start")}
             onMoveTeam={handleMoveTeam}
+            onRenameTeam={handleRenameTeam}
           />
         )}
 

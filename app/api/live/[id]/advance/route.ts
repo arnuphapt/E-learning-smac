@@ -1,5 +1,4 @@
 import { type NextRequest } from "next/server";
-import type { Database } from "@/lib/database.types";
 import { nextPhase } from "@/lib/live";
 import { json, getLiveCaller } from "@/lib/live-server";
 
@@ -24,6 +23,34 @@ export async function POST(
       return json({ error: "action is required" }, 400);
     }
 
+    const ending = action === "end" || action === "finish";
+
+    if (!ending) {
+      // Host check, transition and question timer stamp happen in one locked RPC
+      // (transitions mirror nextPhase in lib/live.ts).
+      const { data: adv, error: advErr } = await db
+        .rpc("live_session_advance", {
+          p_session: id,
+          p_host: callerId,
+          p_action: action,
+          p_now: new Date().toISOString(),
+        })
+        .single();
+      if (advErr) throw advErr;
+      switch (adv.status) {
+        case "ok":
+          return json({ phase: adv.phase, current_index: adv.current_index });
+        case "not_found":
+          return json({ error: "Session not found" }, 404);
+        case "forbidden":
+          return json({ error: "Forbidden" }, 403);
+        case "question_not_found":
+          return json({ error: "Question not found" }, 500);
+        default:
+          return json({ error: "Invalid phase transition" }, 409);
+      }
+    }
+
     const { data: session, error: sErr } = await db
       .from("live_sessions")
       .select("id, host_id, phase, current_index, total")
@@ -36,8 +63,7 @@ export async function POST(
       return json({ error: "Forbidden" }, 403);
     }
 
-    const ending = action === "end" || action === "finish";
-    const next = session.phase === "ended" && ending
+    const next = session.phase === "ended"
       ? { phase: "ended", index: session.current_index }
       : nextPhase(session.phase, action, {
           index: session.current_index,
@@ -47,55 +73,16 @@ export async function POST(
       return json({ error: "Invalid phase transition" }, 409);
     }
 
-    if (ending) {
-      const { data: status, error: rpcErr } = await db.rpc("live_session_end", {
-        p_session: id,
-        p_expected_phase: session.phase,
-        p_expected_index: session.current_index,
-      });
-      if (rpcErr) throw rpcErr;
-      if (status === "conflict") {
-        return json({ error: "Conflict: session state has changed" }, 409);
-      }
-      return json({ phase: "ended", current_index: next.index });
-    }
-
-    const nowMs = Date.now();
-    const updatePayload: Database["public"]["Tables"]["live_sessions"]["Update"] = {
-      phase: next.phase,
-      current_index: next.index,
-    };
-
-    if (next.phase === "question") {
-      const { data: qData, error: qErr } = await db
-        .from("live_session_questions")
-        .select("time_limit_sec")
-        .eq("session_id", id)
-        .eq("idx", next.index)
-        .maybeSingle();
-      if (qErr) throw qErr;
-      if (!qData) {
-        return json({ error: "Question not found" }, 500);
-      }
-
-      const timeLimitSec = Number(qData.time_limit_sec) || 20;
-      updatePayload.question_started_at = new Date(nowMs).toISOString();
-      updatePayload.question_deadline_at = new Date(nowMs + timeLimitSec * 1000).toISOString();
-    }
-
-    const { data: updated, error: upErr } = await db
-      .from("live_sessions")
-      .update(updatePayload)
-      .eq("id", id)
-      .eq("phase", session.phase)
-      .eq("current_index", session.current_index)
-      .select("id");
-    if (upErr) throw upErr;
-    if (!updated || updated.length === 0) {
+    const { data: status, error: rpcErr } = await db.rpc("live_session_end", {
+      p_session: id,
+      p_expected_phase: session.phase,
+      p_expected_index: session.current_index,
+    });
+    if (rpcErr) throw rpcErr;
+    if (status === "conflict") {
       return json({ error: "Conflict: session state has changed" }, 409);
     }
-
-    return json({ phase: next.phase, current_index: next.index });
+    return json({ phase: "ended", current_index: next.index });
   } catch (e) {
     console.error("Live advance failed:", e instanceof Error ? e.message : e);
     return json({ error: "Failed to advance session" }, 500);

@@ -13,9 +13,11 @@ import {
   scorePoints,
   rankRows,
   isLate,
+  revealDelayMs,
   teamScore,
   pickTeam,
   genPin,
+  isValidPoints,
 } from '../lib/live.ts';
 
 describe('Live Quiz Core Lib', () => {
@@ -189,6 +191,47 @@ describe('Live Quiz Core Lib', () => {
       assert.equal(scorePoints({ elapsedMs: 30000, limitSec: 60, correct: true }), 750);
       assert.equal(scorePoints({ elapsedMs: 60000, limitSec: 60, correct: true }), 500);
     });
+
+    it('scales by maxPoints and keeps 1000 as the default', () => {
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 1000 }), 1000);
+      assert.equal(scorePoints({ elapsedMs: 5000, limitSec: 10, correct: true, maxPoints: 1000 }), 750);
+
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 2000 }), 2000);
+      assert.equal(scorePoints({ elapsedMs: 20000, limitSec: 20, correct: true, maxPoints: 2000 }), 1000);
+      assert.equal(scorePoints({ elapsedMs: 10000, limitSec: 20, correct: true, maxPoints: 2000 }), 1500);
+
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 100 }), 100);
+      assert.equal(scorePoints({ elapsedMs: 20000, limitSec: 20, correct: true, maxPoints: 100 }), 50);
+
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 5000 }), 5000);
+      assert.equal(scorePoints({ elapsedMs: 30000, limitSec: 20, correct: true, maxPoints: 5000 }), 2500);
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: false, maxPoints: 2000 }), 0);
+    });
+  });
+
+  describe('isValidPoints / validateQuiz points', () => {
+    it('accepts 100..5000 in steps of 100 only', () => {
+      for (const v of [100, 1000, 2500, 5000, '300']) assert.equal(isValidPoints(v), true, String(v));
+      for (const v of [0, 50, 150, 5100, -100, 1000.5, NaN, '', null, undefined, 'abc'])
+        assert.equal(isValidPoints(v), false, String(v));
+    });
+
+    const q = (points) => ({
+      text: 'q',
+      choices: [{ id: 'a', text: '1' }, { id: 'b', text: '2' }],
+      answer: 'a',
+      time_limit_sec: 20,
+      points,
+    });
+
+    it('validateQuiz rejects bad points but allows missing points', () => {
+      assert.equal(validateQuiz([q(2000)]).ok, true);
+      assert.equal(validateQuiz([q(undefined)]).ok, true);
+      const bad = validateQuiz([q(150)]);
+      assert.equal(bad.ok, false);
+      assert.ok(bad.problems.some((p) => p.reason.includes('คะแนน')));
+      assert.equal(validateQuiz([q(6000)]).ok, false);
+    });
   });
 
   describe('rankRows', () => {
@@ -223,6 +266,18 @@ describe('Live Quiz Core Lib', () => {
       const deadline = 10000;
       assert.equal(isLate(10000 + GRACE_MS + 1, deadline), true); // 10501 > 10500
       assert.equal(isLate(12000, deadline), true);
+    });
+  });
+
+  describe('revealDelayMs', () => {
+    it('waits until deadline + GRACE_MS in server time', () => {
+      assert.equal(revealDelayMs(10000, 4000), 6000 + GRACE_MS);
+      assert.equal(revealDelayMs(10000, 10000), GRACE_MS);
+    });
+
+    it('is 0 once the grace window has passed, never negative', () => {
+      assert.equal(revealDelayMs(10000, 10000 + GRACE_MS), 0);
+      assert.equal(revealDelayMs(10000, 99999), 0);
     });
   });
 
@@ -386,5 +441,31 @@ describe('Live Quiz Core Lib', () => {
         );
       }
     });
+  });
+});
+
+describe('SQL parity pins (migrations are the scoring source of truth)', () => {
+  const read = (f) => fs.readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8');
+
+  it('live_answer_submit uses the scorePoints formula scaled by question points and the GRACE_MS window', () => {
+    const sql = read('20261126000000_live_quiz_points.sql');
+    assert.ok(sql.includes('round(v_question.points * (1 - (v_elapsed / v_limit) / 2))'));
+    assert.ok(sql.includes(`interval '${GRACE_MS} milliseconds'`));
+  });
+
+  it('points bounds in SQL match isValidPoints, and team XP is capped at the old 1000 per answer', () => {
+    const sql = read('20261126000000_live_quiz_points.sql');
+    assert.equal(sql.match(/ADD CONSTRAINT \w+ CHECK \(points BETWEEN 100 AND 5000 AND points % 100 = 0\)/g)?.length, 2);
+    assert.ok(sql.includes('live_answers_points_check CHECK (points >= 0 AND points <= 5000)'));
+    assert.ok(sql.includes('least(COALESCE(a.points, 0), 1000)'));
+    assert.equal(isValidPoints(100) && isValidPoints(5000) && !isValidPoints(5100) && !isValidPoints(50), true);
+  });
+
+  it('live_session_advance transitions mirror nextPhase', () => {
+    const sql = read('20261126020000_live_advance_rpc.sql');
+    for (const [action, from] of [['start', 'lobby'], ['reveal', 'question'], ['leaderboard', 'reveal'], ['next', 'leaderboard']]) {
+      assert.ok(sql.includes(`p_action = '${action}' AND v_session.phase = '${from}'`), action);
+      assert.notEqual(nextPhase(from, action, { index: 0, total: 2 }), null, action);
+    }
   });
 });

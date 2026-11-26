@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { teamScore, rankRows } from "@/lib/live";
+import { rankRows } from "@/lib/live";
 import { json, getLiveCaller, readLiveRows } from "@/lib/live-server";
 
 interface LiveSessionInfo {
@@ -118,123 +118,49 @@ async function getLobbyState(
   }
 }
 
-async function computeTeamStandings(
-  db: SupabaseClient<Database>,
-  session: Pick<LiveSessionInfo, "id" | "course_id">,
-  callerId: string
-) {
-  const [{ data: teamsData, error: tErr }, { data: playerRows, error: pErr }, { data: totals, error: aErr }] =
-    await Promise.all([
-      db
-        .from("live_teams")
-        .select("id, name, color_no")
-        .eq("course_id", session.course_id)
-        .order("color_no", { ascending: true }),
-      readLiveRows(() => db
-        .from("live_players")
-        .select("user_id, display_name, team_id")
-        .eq("session_id", session.id).order("user_id")),
-      readLiveRows(() => db.rpc("live_session_totals", { p_session: session.id }).order("user_id")),
-    ]);
-  if (tErr) throw tErr;
-  if (pErr) throw pErr;
-  if (aErr) throw aErr;
-
-  const scoreMap = new Map((totals || []).map((row) => [row.user_id, Number(row.score)]));
-
-  const players = playerRows || [];
-  const teams = teamsData || [];
-
-  const teamsList: TeamSummary[] = teams.map((t) => ({
-    id: t.id,
-    name: t.name,
-    colorNo: t.color_no,
-  }));
-
-  const teamBoard = rankRows(teamsList.map((team) => {
-    const members = players.filter((p) => p.team_id === team.id);
-    return {
-      ...team,
-      score: teamScore(members.map((p) => scoreMap.get(p.user_id) || 0)),
-      members: members.length,
-    };
-  }), "score");
-
-  const callerPlayer = players.find((p) => p.user_id === callerId);
-  let meTeam: (TeamSummary & { rank: number | null }) | null = null;
-  if (callerPlayer && callerPlayer.team_id) {
-    const callerTeamObj = teamsList.find((t) => t.id === callerPlayer.team_id);
-    const standing = teamBoard.find((t) => t.id === callerPlayer.team_id);
-    if (callerTeamObj) {
-      meTeam = {
-        ...callerTeamObj,
-        rank: standing?.rank ?? null,
-      };
-    }
-  }
-
-  return { teamBoard, meTeam, teams: teamsList };
+interface StandingRow {
+  userId: string;
+  name: string;
+  score: number;
+  rank: number;
 }
 
-async function computeSessionStandings(
+interface TeamStandingRow extends TeamSummary {
+  score: number;
+  members: number;
+}
+
+// One live_standings RPC call: query count and rows transferred do not grow with the number of players.
+// Ranking/tie-break rules are documented in supabase/migrations/20261126010000_live_standings_rpc.sql.
+async function computeStandings(
   db: SupabaseClient<Database>,
   sessionId: string,
   callerId: string
 ) {
-  const { data: playerRows, error: pErr } = await readLiveRows(() => db
-    .from("live_players")
-    .select("user_id, display_name, joined_at")
-    .eq("session_id", sessionId)
-    .order("joined_at", { ascending: true }).order("user_id"));
-  if (pErr) throw pErr;
+  const { data, error } = await db
+    .rpc("live_standings", { p_session: sessionId, p_user: callerId })
+    .single();
+  if (error) throw error;
 
-  const players = playerRows || [];
-  const playerCount = players.length;
+  const top5 = (Array.isArray(data.top) ? data.top : []) as unknown as StandingRow[];
+  const teamRows = (Array.isArray(data.teams) ? data.teams : []) as unknown as TeamStandingRow[];
 
-  const { data: totals, error: aErr } = await readLiveRows(() => db
-    .rpc("live_session_totals", { p_session: sessionId }).order("user_id"));
-  if (aErr) throw aErr;
-
-  const scoreMap = new Map((totals || []).map((row) => [row.user_id, Number(row.score)]));
-
-  const standings = players.map((p) => ({
-    userId: p.user_id,
-    name: p.display_name,
-    joinedAt: p.joined_at,
-    score: scoreMap.get(p.user_id) || 0,
-  }));
-
-  standings.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    const timeA = new Date(a.joinedAt).getTime();
-    const timeB = new Date(b.joinedAt).getTime();
-    if (timeA !== timeB) return timeA - timeB;
-    return a.userId.localeCompare(b.userId);
-  });
-
-  const ranked = rankRows(standings, "score");
-  const callerStanding = ranked.find((s) => s.userId === callerId);
-
-  const top5 = ranked.slice(0, 5).map((s) => ({
-    userId: s.userId,
-    name: s.name,
-    score: s.score,
-    rank: s.rank,
-  }));
-
-  const top3 = ranked.slice(0, 3).map((s) => ({
-    userId: s.userId,
-    name: s.name,
-    score: s.score,
-    rank: s.rank,
-  }));
+  const teams: TeamSummary[] = teamRows.map((t) => ({ id: t.id, name: t.name, colorNo: t.colorNo }));
+  const teamBoard = rankRows(teamRows, "score");
+  const meTeamBase = data.me_team_id ? teams.find((t) => t.id === data.me_team_id) : undefined;
+  const meTeam = meTeamBase
+    ? { ...meTeamBase, rank: teamBoard.find((t) => t.id === meTeamBase.id)?.rank ?? null }
+    : null;
 
   return {
-    playerCount,
+    playerCount: data.player_count,
     top5,
-    top3,
-    meTotalScore: callerStanding ? callerStanding.score : 0,
-    meRank: callerStanding?.rank ?? null,
+    top3: top5.slice(0, 3),
+    meTotalScore: Number(data.me_score) || 0,
+    meRank: data.me_rank ?? null,
+    teams,
+    teamBoard,
+    meTeam,
   };
 }
 
@@ -363,6 +289,7 @@ export async function GET(
           { data: qData, error: qErr },
           { data: myAnswer, error: myErr },
           { data: questionStats, error: qaErr },
+          standings,
         ] = await Promise.all([
           db.from("live_session_questions")
             .select("text, choices, time_limit_sec, answer")
@@ -377,6 +304,7 @@ export async function GET(
             .maybeSingle(),
           db.rpc("live_question_stats", { p_session: session.id })
             .eq("idx", session.current_index).maybeSingle(),
+          computeStandings(db, session.id, callerId),
         ]);
         if (qErr) throw qErr;
         if (myErr) throw myErr;
@@ -405,24 +333,6 @@ export async function GET(
         let meTeam: TeamSummary | undefined = undefined;
 
         if (session.team_mode) {
-          const [
-            { data: teamsData, error: tErr },
-            { data: playerRows, error: pErr },
-          ] = await Promise.all([
-            db
-              .from("live_teams")
-              .select("id, name, color_no")
-              .eq("course_id", session.course_id)
-              .order("color_no", { ascending: true }),
-            readLiveRows(() => db
-              .from("live_players")
-              .select("user_id, team_id")
-              .eq("session_id", session.id).order("user_id")),
-          ]);
-          if (tErr) throw tErr;
-          if (pErr) throw pErr;
-
-          const teamIds = (teamsData || []).map((t) => t.id);
           const rawTeamStats =
             questionStats?.team_stats &&
             typeof questionStats.team_stats === "object" &&
@@ -431,7 +341,7 @@ export async function GET(
               : null;
 
           teamCorrect = {};
-          for (const tid of teamIds) {
+          for (const { id: tid } of standings.teams) {
             const rawStat = rawTeamStats?.[tid];
             const stat =
               rawStat && typeof rawStat === "object" && !Array.isArray(rawStat)
@@ -441,26 +351,12 @@ export async function GET(
               !!stat && Number(stat.members) > 0 && Number(stat.correct) > Number(stat.members) / 2;
           }
 
-          teams = (teamsData || []).map((t) => ({
-            id: t.id,
-            name: t.name,
-            colorNo: t.color_no,
-          }));
-
-          const callerPlayer = (playerRows || []).find((p) => p.user_id === callerId);
-          if (callerPlayer && callerPlayer.team_id) {
-            const callerTeamObj = (teamsData || []).find((t) => t.id === callerPlayer.team_id);
-            if (callerTeamObj) {
-              meTeam = {
-                id: callerTeamObj.id,
-                name: callerTeamObj.name,
-                colorNo: callerTeamObj.color_no,
-              };
-            }
+          teams = standings.teams;
+          if (standings.meTeam) {
+            const { id, name, colorNo } = standings.meTeam;
+            meTeam = { id, name, colorNo };
           }
         }
-
-        const standings = await computeSessionStandings(db, session.id, callerId);
 
         phaseState = {
           index: session.current_index,
@@ -501,15 +397,10 @@ export async function GET(
       }
 
       case "leaderboard": {
-        const standings = await computeSessionStandings(db, session.id, callerId);
+        const standings = await computeStandings(db, session.id, callerId);
 
-        let teamBoard = undefined;
-        let meTeam = undefined;
-        if (session.team_mode) {
-          const tStandings = await computeTeamStandings(db, session, callerId);
-          teamBoard = tStandings.teamBoard;
-          meTeam = tStandings.meTeam;
-        }
+        const teamBoard = session.team_mode ? standings.teamBoard : undefined;
+        const meTeam = session.team_mode ? standings.meTeam : undefined;
 
         phaseState = {
           index: session.current_index,
@@ -529,17 +420,11 @@ export async function GET(
       }
 
       case "ended": {
-        const standings = await computeSessionStandings(db, session.id, callerId);
+        const standings = await computeStandings(db, session.id, callerId);
 
-        let teamBoard = undefined;
-        let meTeam = undefined;
-        let teams = undefined;
-        if (session.team_mode) {
-          const tStandings = await computeTeamStandings(db, session, callerId);
-          teamBoard = tStandings.teamBoard;
-          meTeam = tStandings.meTeam;
-          teams = tStandings.teams;
-        }
+        const teamBoard = session.team_mode ? standings.teamBoard : undefined;
+        const meTeam = session.team_mode ? standings.meTeam : undefined;
+        const teams = session.team_mode ? standings.teams : undefined;
 
         phaseState = {
           index: session.current_index,

@@ -89,7 +89,12 @@ export function HostReveal({
                   <div className={cn("flex size-12 shrink-0 items-center justify-center rounded-xl shadow", theme.badge)}>
                     <ChoiceIcon shape={style.shape} className="size-6" />
                   </div>
-                  <div className="text-xl font-bold break-words text-foreground sm:text-2xl">{choice.text}</div>
+                  <div className="min-w-0">
+                    <span className={cn("mb-0.5 block text-sm font-bold tracking-wider text-muted-foreground uppercase sm:text-base")}>
+                      {style.label} · {style.name}
+                    </span>
+                    <div className="text-xl font-bold break-words text-foreground sm:text-2xl">{choice.text}</div>
+                  </div>
                 </div>
 
                 {isCorrect && (

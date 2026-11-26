@@ -123,12 +123,24 @@ export async function GET(
         (missingRows || []).forEach((t) => teamsMap.set(t.id, t));
       }
 
+      // live_team_results.score is capped XP; the page shows game score, so rank on uncapped
+      // member totals (same rule as live_standings: round(avg(member totals))).
+      const teamTotals = new Map<string, { sum: number; count: number }>();
+      for (const p of playersData || []) {
+        if (!p.team_id) continue;
+        const t = teamTotals.get(p.team_id) || { sum: 0, count: 0 };
+        t.sum += playerStats.get(p.user_id)?.score ?? 0;
+        t.count += 1;
+        teamTotals.set(p.team_id, t);
+      }
+
       const rawTeams: TeamResultRow[] = (teamResults || []).map((tr) => {
         const tInfo = teamsMap.get(tr.team_id);
+        const t = teamTotals.get(tr.team_id);
         return {
           name: tInfo?.name || "ทีม",
           colorNo: tInfo?.color_no || 1,
-          score: tr.score,
+          score: t ? Math.round(t.sum / t.count) : 0,
           members: tr.members,
         };
       });

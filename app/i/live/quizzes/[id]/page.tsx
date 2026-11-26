@@ -8,7 +8,7 @@ import { ArrowLeftIcon, CheckIcon, CircleAlertIcon, CircleHelpIcon, Loader2Icon,
 import { toast } from "sonner";
 import type { Database, Json } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
-import { validateQuiz, type QuizProblem } from "@/lib/live";
+import { isValidPoints, validateQuiz, type QuizProblem } from "@/lib/live";
 import { PageContainer } from "@/components/common/page-container";
 import { FormField } from "@/components/common/form-field";
 import { EmptyState, LoadingState } from "@/components/common/states";
@@ -38,6 +38,7 @@ interface LiveQuizQuestionItem extends QuizQuestion {
   choices: QuizChoice[];
   answer: string;
   time_limit_sec: number;
+  points: number;
 }
 
 interface QuizEditorPageProps {
@@ -77,6 +78,7 @@ function toQuestionItem(row: LiveQuizQuestionRow): LiveQuizQuestionItem {
     choices: parseChoices(row.choices),
     answer: row.answer,
     time_limit_sec: row.time_limit_sec,
+    points: row.points,
   };
 }
 
@@ -140,7 +142,7 @@ export default function QuizEditorPage(props: QuizEditorPageProps) {
       // Fetch questions ordered by no
       const { data: questionsData, error: questionsError } = await supabase
         .from("live_quiz_questions")
-        .select("id, quiz_id, no, text, choices, answer, time_limit_sec")
+        .select("id, quiz_id, no, text, choices, answer, time_limit_sec, points")
         .eq("quiz_id", quizId)
         .order("no", { ascending: true });
 
@@ -230,7 +232,9 @@ export default function QuizEditorPage(props: QuizEditorPageProps) {
           choices: updatedQ.choices,
           answer: updatedQ.answer,
           time_limit_sec: updatedQ.time_limit_sec,
+          points: updatedQ.points,
         };
+        if (!isValidPoints(fields.points)) return false;
         const { error } = await supabase
           .from("live_quiz_questions")
           .update({
@@ -238,6 +242,7 @@ export default function QuizEditorPage(props: QuizEditorPageProps) {
             choices: fields.choices.map((c) => ({ id: c.id, text: c.text })),
             answer: fields.answer,
             time_limit_sec: fields.time_limit_sec,
+            points: fields.points,
           })
           .eq("id", updatedQ.id);
 

@@ -26,6 +26,19 @@ export async function POST(req: NextRequest) {
       return json({ error: "PIN ต้องเป็นตัวเลข 6 หลัก" }, 400);
     }
 
+    // Optional per-session display name; absent -> account name fallback below.
+    const rawName =
+      rawBody && typeof rawBody === "object" && "name" in rawBody
+        ? (rawBody as { name?: unknown }).name
+        : undefined;
+    let customName: string | null = null;
+    if (rawName !== undefined && rawName !== null) {
+      customName = typeof rawName === "string" ? rawName.trim() : "";
+      if (customName.length < 1 || customName.length > 30) {
+        return json({ error: "ชื่อที่จะแสดงต้องมี 1-30 ตัวอักษร" }, 400);
+      }
+    }
+
     const { data: session, error: sErr } = await db
       .from("live_sessions")
       .select("id, course_id, restrict_to_course, phase, team_mode")
@@ -53,7 +66,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const displayName = dbUser.name || "นักศึกษา";
+    const displayName = customName ?? (dbUser.name || "นักศึกษา");
 
     const { data: status, error: joinErr } = await db.rpc("live_join_session", {
       p_session: session.id,

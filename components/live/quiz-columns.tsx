@@ -12,7 +12,7 @@ type LiveQuizRow = Pick<Database["public"]["Tables"]["live_quizzes"]["Row"], "id
 
 export type LiveQuizQuestionRow = Pick<
   Database["public"]["Tables"]["live_quiz_questions"]["Row"],
-  "id" | "no" | "text" | "choices" | "answer" | "time_limit_sec"
+  "id" | "no" | "text" | "choices" | "answer" | "time_limit_sec" | "points"
 >;
 
 export interface FormattedLiveQuiz extends LiveQuizRow {

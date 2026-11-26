@@ -51,7 +51,8 @@ export default function InstructorLiveQuizzesPage() {
             text,
             choices,
             answer,
-            time_limit_sec
+            time_limit_sec,
+            points
           )
         `)
         .order("updated_at", { ascending: false });
@@ -130,6 +131,7 @@ export default function InstructorLiveQuizzesPage() {
           choices: q.choices,
           answer: q.answer,
           time_limit_sec: q.time_limit_sec,
+          points: q.points,
         }));
 
         const { error: qError } = await supabase

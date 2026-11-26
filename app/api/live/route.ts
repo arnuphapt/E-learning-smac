@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     // Load quiz questions and validate
     const { data: questions, error: questionsErr } = await readLiveRows(() => db
       .from("live_quiz_questions")
-      .select("text, choices, answer, time_limit_sec")
+      .select("text, choices, answer, time_limit_sec, points")
       .eq("quiz_id", quiz_id)
       .order("no", { ascending: true }).order("id"));
     if (questionsErr) throw questionsErr;

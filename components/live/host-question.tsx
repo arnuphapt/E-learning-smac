@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { CHOICE_STYLES, GRACE_MS } from "@/lib/live";
+import { CHOICE_STYLES, revealDelayMs } from "@/lib/live";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -25,6 +25,8 @@ export interface HostQuestionState {
   total: number;
   deadline?: string | null;
   now?: string | null;
+  /** Client Date.now() when the state response arrived (set by useLiveSession). */
+  fetchedAt?: number;
   answeredCount?: number;
   playerCount?: number;
 }
@@ -33,8 +35,10 @@ interface RevealTracker {
   revealed: boolean;
   inFlight: boolean;
   attempts: number;
-  retryAt: number;
 }
+
+const REVEAL_RETRY_MS = 400;
+const MAX_REVEAL_ATTEMPTS = 8;
 
 export function HostQuestion({
   state,
@@ -43,21 +47,22 @@ export function HostQuestion({
   state: HostQuestionState;
   onAdvance: (action: string) => Promise<boolean> | boolean;
 }) {
-  const { question, index, total, deadline, now, answeredCount = 0, playerCount = 0 } = state;
+  const { question, index, total, deadline, now, fetchedAt, answeredCount = 0, playerCount = 0 } = state;
   const revealRef = useRef<RevealTracker | null>(null);
   const lastHurrySecRef = useRef<number | null>(null);
+  const bellIndexRef = useRef<number | null>(null);
 
   // Compute countdown using deadline and server-now offset
   const [remainingSec, setRemainingSec] = useState(() => {
     if (!deadline) return question?.time_limit_sec || 20;
-    const serverOffset = now ? Date.parse(now) - Date.now() : 0;
+    const serverOffset = now ? Date.parse(now) - (fetchedAt ?? Date.now()) : 0;
     const currentServerTime = Date.now() + serverOffset;
     return Math.max(0, Math.ceil((Date.parse(deadline) - currentServerTime) / 1000));
   });
 
   // Reset revealed trigger and hurry sound tracker on new question index
   useEffect(() => {
-    revealRef.current = { revealed: false, inFlight: false, attempts: 0, retryAt: 0 };
+    revealRef.current = { revealed: false, inFlight: false, attempts: 0 };
     lastHurrySecRef.current = null;
   }, [index]);
 
@@ -71,24 +76,47 @@ export function HostQuestion({
     }
   }, [remainingSec]);
 
+  // Bell once per question when 5s remain (not played if revealed earlier: component unmounts)
   useEffect(() => {
-    const serverOffset = now ? Date.parse(now) - Date.now() : 0;
+    if (remainingSec <= 5 && remainingSec > 0 && bellIndexRef.current !== index) {
+      bellIndexRef.current = index;
+      sound.bell();
+    }
+  }, [remainingSec, index]);
+
+  // Cut the bell when leaving the question (early reveal)
+  useEffect(() => () => sound.stopBell(), []);
+
+  // Countdown display only; the reveal below does not depend on this tick.
+  useEffect(() => {
+    if (!deadline) return;
+    const serverOffset = now ? Date.parse(now) - (fetchedAt ?? Date.now()) : 0;
+    const tick = () => {
+      setRemainingSec(Math.max(0, Math.ceil((Date.parse(deadline) - (Date.now() + serverOffset)) / 1000)));
+    };
+    tick();
+    const timer = setInterval(tick, 200);
+    return () => clearInterval(timer);
+  }, [deadline, now, fetchedAt]);
+
+  // Reveal: one timeout at deadline + GRACE_MS (server clock offset taken at fetch time),
+  // or immediately once everyone answered. A failed attempt retries after REVEAL_RETRY_MS.
+  useEffect(() => {
     const reveal = revealRef.current;
+    const allAnswered = playerCount > 0 && answeredCount >= playerCount;
+    if (!reveal || (!allAnswered && !deadline)) return;
 
-    const checkReveal = async () => {
-      const currentServerTime = Date.now() + serverOffset;
-      if (deadline) {
-        const left = Math.max(0, Math.ceil((Date.parse(deadline) - currentServerTime) / 1000));
-        setRemainingSec(left);
+    const serverOffset = now ? Date.parse(now) - (fetchedAt ?? Date.now()) : 0;
+    const delay = allAnswered || !deadline ? 0 : revealDelayMs(Date.parse(deadline), Date.now() + serverOffset);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const attempt = async () => {
+      if (reveal.revealed || reveal.attempts >= MAX_REVEAL_ATTEMPTS) return;
+      if (reveal.inFlight) {
+        timer = setTimeout(attempt, REVEAL_RETRY_MS);
+        return;
       }
-
-      const allAnswered = playerCount > 0 && answeredCount >= playerCount;
-      const graceExpired = deadline && currentServerTime >= Date.parse(deadline) + GRACE_MS;
-      if (
-        !reveal || (!allAnswered && !graceExpired) || reveal.revealed || reveal.inFlight ||
-        reveal.attempts >= 3 || Date.now() < reveal.retryAt
-      ) return;
-
       reveal.inFlight = true;
       reveal.attempts += 1;
       try {
@@ -97,14 +125,16 @@ export function HostQuestion({
         reveal.revealed = false;
       } finally {
         reveal.inFlight = false;
-        reveal.retryAt = Date.now() + 2000;
       }
+      if (!reveal.revealed && !cancelled) timer = setTimeout(attempt, REVEAL_RETRY_MS);
     };
 
-    checkReveal();
-    const timer = setInterval(checkReveal, 200);
-    return () => clearInterval(timer);
-  }, [index, deadline, now, playerCount, answeredCount, onAdvance]);
+    timer = setTimeout(attempt, delay);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [index, deadline, now, fetchedAt, playerCount, answeredCount, onAdvance]);
 
   const choices = question?.choices || [];
   const timeLimit = question?.time_limit_sec || 20;
@@ -172,8 +202,11 @@ export function HostQuestion({
               <div className={cn("flex size-12 shrink-0 items-center justify-center rounded-xl sm:size-14", theme.icon)}>
                 <ChoiceIcon shape={style.shape} className="size-7 sm:size-8" />
               </div>
-              <div className="min-w-0 flex-1 text-xl leading-snug font-bold break-words sm:text-2xl lg:text-3xl">
-                {choice.text}
+              <div className="min-w-0 flex-1">
+                <span className={cn("mb-0.5 block text-sm font-bold tracking-wider uppercase sm:text-base", theme.label)}>
+                  {style.label} · {style.name}
+                </span>
+                <div className="text-xl leading-snug font-bold break-words sm:text-2xl lg:text-3xl">{choice.text}</div>
               </div>
             </div>
           );
