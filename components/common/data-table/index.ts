@@ -2,10 +2,13 @@ import { Filter, Search, Toolbar } from "./toolbar"
 import { Content } from "./content"
 import { Pagination } from "./pagination"
 import { Root } from "./root"
+import { BulkBar } from "./select"
 import { Stats } from "./stats"
 import { Tabs } from "./tabs"
 
-export const DataTable = { Root, Stats, Tabs, Toolbar, Search, Filter, Content, Pagination }
+export const DataTable = { Root, Stats, Tabs, Toolbar, Search, Filter, BulkBar, Content, Pagination }
+
+export { selectionColumn } from "./select"
 
 export { AvatarCell, ProgressCell } from "./cells"
 export { ColumnHeader } from "./column-header"

@@ -4,7 +4,8 @@ import { Suspense, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
-import { ArrowLeftIcon, ChartColumnIcon, CircleCheckIcon, ClipboardListIcon, DownloadIcon, FileTextIcon, TriangleAlertIcon } from "lucide-react"
+import { ArrowLeftIcon, ChartColumnIcon, CircleCheckIcon, ClipboardListIcon, ClockIcon, DownloadIcon, FileTextIcon, TriangleAlertIcon } from "lucide-react"
+import { StatCards } from "@/components/common/stat-cards"
 import { supabase } from "@/lib/supabase"
 import { DEFAULT_DOMAIN } from "@/lib/course-access"
 import type { Database } from "@/lib/database.types"
@@ -228,6 +229,14 @@ function ScoresContent() {
         </TabsContent>
 
         <TabsContent value="asg">
+          <StatCards
+            stats={[
+              { label: "รายการส่งทั้งหมด", value: asgRows.length, icon: <FileTextIcon /> },
+              { label: "รอตรวจ", value: asgRows.filter((r) => r.status === "submitted").length, icon: <ClockIcon />, tone: "warning" },
+              { label: "ตรวจแล้ว", value: asgRows.filter((r) => r.status === "graded").length, icon: <CircleCheckIcon />, tone: "success" },
+              { label: "ส่งช้า / ยังไม่ส่ง", value: asgRows.filter((r) => r.status === "late" || r.status === "not-submitted").length, icon: <TriangleAlertIcon />, tone: "destructive" },
+            ]}
+          />
           <h2 className="text-base font-bold">รายการส่งใบงานนักศึกษา</h2>
           <p className="mb-3 text-sm text-muted-foreground">แสดงรายการส่งใบงานและคะแนนของนักศึกษาที่มีสิทธิ์ในรายวิชา</p>
           <DataTable.Root data={asgRows} columns={asgScoreColumns} getRowId={(r: AsgScoreItem) => r.id} searchKeys={["name", "studentNo", "assignmentTitle"]}>

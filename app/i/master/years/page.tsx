@@ -75,6 +75,18 @@ export default function MasterYearsPage() {
     }
   };
 
+  const handleBulkDeleteYears = async (rows: AcademicYearRow[]) => {
+    const ids = rows.map((r) => r.id);
+    const { error } = await supabase.from("academic_years").delete().in("id", ids);
+    if (error) {
+      toast.error("เกิดข้อผิดพลาดในการลบปีการศึกษา: " + error.message);
+      return false;
+    }
+    setAcademicYears((prev) => prev.filter((r) => !ids.includes(r.id)));
+    toast.success(`ลบปีการศึกษา ${ids.length} รายการเรียบร้อยแล้ว`);
+    return true;
+  };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers only touch state setters and the supabase client
   const columns = useMemo(() => yearColumns((row) => setDlg({ mode: "edit", row }), handleDeleteYear), []);
 
@@ -85,6 +97,7 @@ export default function MasterYearsPage() {
       note="กำหนดปีการศึกษาและช่วงเวลา ปีที่ตั้งเป็น “ใช้งาน” จะเป็นค่าเริ่มต้นของระบบ"
       addLabel="เพิ่มปีการศึกษา"
       onAdd={() => setDlg({ mode: "add" })}
+      bulkDelete={{ noun: "ปีการศึกษา", rowLabel: (r) => r.label || r.id, onDelete: handleBulkDeleteYears }}
       data={academicYears}
       columns={columns}
       loading={loading}

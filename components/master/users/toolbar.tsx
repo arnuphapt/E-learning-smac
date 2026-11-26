@@ -1,7 +1,6 @@
 "use client"
 
-import { CheckIcon } from "lucide-react"
-import { ToneBadge } from "@/components/common/status-badge"
+import { CheckIcon, Trash2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { RoleSummary, SectionSummary } from "./user-dialog"
@@ -60,51 +59,45 @@ export function UserFilters({
 
 const NO_SECTION = "__none__"
 
-/** Shown while rows are ticked: assign one section to all selected users. */
-export function BulkSectionBar({
-  count,
+/** Content of `<DataTable.BulkBar>` for users: assign one section to, or delete, all selected users. */
+export function BulkUserActions({
   sectionsList,
   section,
   saving,
   onSectionChange,
-  onClear,
   onAssign,
+  onDelete,
 }: {
-  count: number
   sectionsList: SectionSummary[]
   section: string
   saving: boolean
   onSectionChange: (section: string) => void
-  onClear: () => void
   onAssign: () => void
+  onDelete: () => void
 }) {
   return (
-    <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
-      <div className="flex items-center gap-2">
-        <ToneBadge tone="primary">เลือกแล้ว {count} รายการ</ToneBadge>
-        <Button type="button" variant="ghost" size="sm" onClick={onClear} disabled={saving}>
-          ล้างการเลือก
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={section || NO_SECTION} onValueChange={(v) => onSectionChange(v === NO_SECTION ? "" : v)}>
-          <SelectTrigger aria-label="เลือก Section สำหรับผู้ใช้ที่เลือก" className="w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_SECTION}>เลือก Section...</SelectItem>
-            {sectionsList.map((s) => (
-              <SelectItem key={s.id} value={s.name || s.id}>
-                {s.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button type="button" size="sm" onClick={onAssign} disabled={!section || saving}>
-          <CheckIcon />
-          {saving ? "กำลังบันทึก…" : "กำหนด Section"}
-        </Button>
-      </div>
-    </div>
+    <>
+      <Select value={section || NO_SECTION} onValueChange={(v) => onSectionChange(v === NO_SECTION ? "" : v)}>
+        <SelectTrigger aria-label="เลือก Section สำหรับผู้ใช้ที่เลือก" className="h-9 w-56 bg-card">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NO_SECTION}>เลือก Section...</SelectItem>
+          {sectionsList.map((s) => (
+            <SelectItem key={s.id} value={s.name || s.id}>
+              {s.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button type="button" size="sm" onClick={onAssign} disabled={!section || saving}>
+        <CheckIcon />
+        {saving ? "กำลังบันทึก…" : "กำหนด Section"}
+      </Button>
+      <Button type="button" size="sm" variant="destructive" onClick={onDelete} disabled={saving}>
+        <Trash2Icon />
+        ลบที่เลือก
+      </Button>
+    </>
   )
 }

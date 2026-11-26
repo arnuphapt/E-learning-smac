@@ -100,6 +100,14 @@ export default function BroadcastsPage() {
     reload();
   };
 
+  const handleBulkDelete = async (rows: BroadcastRow[]) => {
+    const { error } = await supabase.from("broadcasts").delete().in("id", rows.map((r) => r.id));
+    if (error) { toast.error("ลบไม่สำเร็จ: " + error.message); return false; }
+    toast.success(`ลบประกาศ ${rows.length} รายการเรียบร้อยแล้ว`);
+    reload();
+    return true;
+  };
+
   const handleResend = async (row: BroadcastRow) => {
     if (!(await confirm({
       title: "ส่งประกาศซ้ำ",
@@ -139,6 +147,7 @@ export default function BroadcastsPage() {
       note="ประกาศจะแสดงในปุ่มแมวที่มุมขวาล่างของนักศึกษา"
       addLabel="สร้างประกาศ"
       onAdd={canManage ? () => setDialog({ mode: "add" }) : undefined}
+      bulkDelete={canManage ? { noun: "ประกาศ", rowLabel: (r) => r.title, onDelete: handleBulkDelete } : undefined}
       data={data}
       columns={columns}
       loading={loading}

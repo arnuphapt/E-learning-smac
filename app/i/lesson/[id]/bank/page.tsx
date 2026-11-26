@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeftIcon, ClipboardListIcon, FileSpreadsheetIcon, PlusIcon, TriangleAlertIcon } from "lucide-react"
+import { ArrowLeftIcon, FileSpreadsheetIcon, PlusIcon, TriangleAlertIcon } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { normalizeTopic, findTopic, bankWarning, parseDrawCount } from "@/lib/tutor-bank"
 import type { Database, Json } from "@/lib/database.types"
@@ -15,7 +15,8 @@ import { useConfirm } from "@/components/common/confirm"
 import { Button } from "@/components/ui/button"
 import { BankImport } from "@/components/tutor/bank-import"
 import { BankDrawCard } from "@/components/tutor/bank-draw-card"
-import { BankQuestionCard, parseBankChoices } from "@/components/tutor/bank-question-card"
+import { BankTable } from "@/components/tutor/bank-table"
+import { parseBankChoices } from "@/components/tutor/bank-question-card"
 import { BankQuestionDialog, blankQuestion, type QuestionForm } from "@/components/tutor/bank-question-dialog"
 
 type LessonRow = Database["public"]["Tables"]["lessons"]["Row"]
@@ -77,11 +78,6 @@ export default function TutorBank() {
     })().catch((e: unknown) => { toast.error("โหลดข้อมูลไม่สำเร็จ: " + errMsg(e)); setState((s) => ({ ...s, loading: false })); });
     return () => { cancelled = true; };
   }, [lessonId, fetchAll]);
-
-  // Deep link from /i/tutor/bank (#q-<id>): the rows render after the async load, so the browser's own hash scroll misses them.
-  useEffect(() => {
-    if (!state.loading) document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "center" });
-  }, [state.loading]);
 
   // Reload the bank, drop topics no question uses any more, so "lesson has topics" stays true only for real topics.
   const refresh = async () => {
@@ -186,13 +182,36 @@ export default function TutorBank() {
     return { imported, failed };
   };
 
-  const deleteQuestion = async (q: QuestionRow) => {
-    const ok = await confirm({ title: "ลบข้อสอบ", message: "ลบข้อสอบนี้ออกจากคลังใช่หรือไม่?", danger: true, confirmText: "ลบ", cancelText: "ยกเลิก" });
-    if (!ok) return;
-    const { error } = await supabase.from("questions").delete().eq("id", q.id);
-    if (error) return toast.error("เกิดข้อผิดพลาด: " + error.message);
-    toast.success("ลบข้อสอบเรียบร้อยแล้ว");
+  // One or many (row ลบ passes one, the bulk bar passes the selection); refresh() also drops topics left with no question.
+  const deleteQuestions = async (qs: QuestionRow[]) => {
+    const ok = await confirm({
+      title: qs.length > 1 ? "ลบข้อสอบที่เลือก" : "ลบข้อสอบ",
+      message: qs.length > 1 ? `ลบข้อสอบ ${qs.length} ข้อออกจากคลังใช่หรือไม่?` : "ลบข้อสอบนี้ออกจากคลังใช่หรือไม่?",
+      danger: true,
+      confirmText: "ลบ",
+      cancelText: "ยกเลิก",
+    });
+    if (!ok) return false;
+    const { error } = await supabase.from("questions").delete().in("id", qs.map((q) => q.id));
+    if (error) {
+      toast.error("เกิดข้อผิดพลาด: " + error.message);
+      return false;
+    }
+    toast.success(qs.length > 1 ? `ลบข้อสอบ ${qs.length} ข้อเรียบร้อยแล้ว` : "ลบข้อสอบเรียบร้อยแล้ว");
     await refresh().catch((e: unknown) => toast.error("โหลดคลังไม่สำเร็จ: " + errMsg(e)));
+    return true;
+  };
+
+  // Bulk "ย้ายหัวข้อ": point the selected questions at an existing topic (same topic_id the editor would set).
+  const moveTopic = async (qs: QuestionRow[], topicId: string | null) => {
+    const { error } = await supabase.from("questions").update({ topic_id: topicId }).in("id", qs.map((q) => q.id));
+    if (error) {
+      toast.error("เกิดข้อผิดพลาด: " + error.message);
+      return false;
+    }
+    toast.success(`ย้ายข้อสอบ ${qs.length} ข้อไปหัวข้อใหม่แล้ว`);
+    await refresh().catch((e: unknown) => toast.error("โหลดคลังไม่สำเร็จ: " + errMsg(e)));
+    return true;
   };
 
   const saveDraw = async () => {
@@ -250,63 +269,43 @@ export default function TutorBank() {
           </>
         }
         actions={
-          <Button variant="outline" onClick={() => nav(workspace)}>
-            <ArrowLeftIcon />
-            กลับไปที่บทเรียน
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => nav(workspace)}>
+              <ArrowLeftIcon />
+              กลับไปที่บทเรียน
+            </Button>
+            <Button variant="outline" onClick={() => setImporting(true)}>
+              <FileSpreadsheetIcon />
+              นำเข้าจาก Excel
+            </Button>
+            <Button onClick={() => setEditing(blankQuestion())}>
+              <PlusIcon />
+              เพิ่มข้อสอบ
+            </Button>
+          </>
         }
       />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="grid min-w-0 gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-bold">
-              คลังข้อสอบ ({questions.length} ข้อ · {topics.length} หัวข้อ)
-            </h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
-                <FileSpreadsheetIcon />
-                นำเข้าจาก Excel
-              </Button>
-              <Button size="sm" onClick={() => setEditing(blankQuestion())}>
-                <PlusIcon />
-                เพิ่มข้อสอบ
-              </Button>
-            </div>
-          </div>
-          {questions.length === 0 ? (
-            <EmptyState
-              className="border border-dashed"
-              icon={<ClipboardListIcon />}
-              title="ยังไม่มีข้อสอบในคลัง"
-              action={
-                <Button onClick={() => setEditing(blankQuestion())}>
-                  <PlusIcon />
-                  เพิ่มข้อแรก
-                </Button>
-              }
-            />
-          ) : (
-            questions.map((q, i) => (
-              <BankQuestionCard
-                key={q.id}
-                q={q}
-                no={i + 1}
-                topicName={topicName(q.topic_id)}
-                onEdit={() =>
-                  setEditing({
-                    id: q.id,
-                    text: q.text || "",
-                    choices: q.choices ? parseBankChoices(q.choices) : blankQuestion().choices,
-                    answer: q.answer || "a",
-                    explanation: q.explanation || "",
-                    topicName: topicName(q.topic_id) || "",
-                  })
-                }
-                onDelete={() => deleteQuestion(q)}
-              />
-            ))
-          )}
+        <section className="min-w-0">
+          <BankTable
+            questions={questions}
+            topics={topics}
+            drawCount={lesson.tutor_draw_count ?? null}
+            onAdd={() => setEditing(blankQuestion())}
+            onEdit={(q) =>
+              setEditing({
+                id: q.id,
+                text: q.text || "",
+                choices: q.choices ? parseBankChoices(q.choices) : blankQuestion().choices,
+                answer: q.answer || "a",
+                explanation: q.explanation || "",
+                topicName: topicName(q.topic_id) || "",
+              })
+            }
+            onDelete={deleteQuestions}
+            onMoveTopic={moveTopic}
+          />
         </section>
 
         <BankDrawCard whole={whole} onWhole={setWhole} drawInput={drawInput} onDrawInput={setDrawInput} warning={warning} onSave={saveDraw} />

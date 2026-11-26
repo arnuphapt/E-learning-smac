@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { PlusIcon } from "lucide-react";
+import { BookOpenIcon, ClipboardCheckIcon, FilePenLineIcon, LayersIcon, PlusIcon } from "lucide-react";
+import { StatCards } from "@/components/common/stat-cards";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_DOMAIN, sectionRangeMatch } from "@/lib/course-access";
 import type { Json } from "@/lib/database.types";
@@ -18,9 +18,9 @@ import { useConfirm } from "@/components/common/confirm";
 import { Button } from "@/components/ui/button";
 import { courseColumns } from "@/components/course/columns";
 import { CreateCourseDialog } from "@/components/course/create-course-dialog";
-import { CreateLessonDialog } from "@/components/course/create-lesson-dialog";
 import { CourseLessonList } from "@/components/course/lesson-list";
 import type { CourseLessonSummary, EnrichedCourse } from "@/components/course/types";
+import { LessonWizardDialog } from "@/components/lesson/lesson-wizard-dialog";
 
 interface CourseAccessJson {
   allowedEmails?: string[];
@@ -33,7 +33,6 @@ function parseCourseAccess(raw: Json | null | undefined): CourseAccessJson {
 }
 
 export default function InstructorCourses() {
-  const router = useRouter();
   const { data: session } = useSession();
   const user = session?.user;
 
@@ -43,8 +42,7 @@ export default function InstructorCourses() {
   const [reloadKey, setReloadKey] = useState(0);
   const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
   const [createCourseOpen, setCreateCourseOpen] = useState(false);
-  const [lessonTarget, setLessonTarget] = useState<{ courseId: string | null; lessonsCount: number } | null>(null);
-  const [creatingLesson, setCreatingLesson] = useState(false);
+  const [lessonWizard, setLessonWizard] = useState<{ mode: "create"; courseId: string | null; lessonsCount: number } | { mode: "edit"; lessonId: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -254,50 +252,11 @@ export default function InstructorCourses() {
   };
 
   const handleOpenCreateLesson = (courseId: string | null, lessonsCount: number) => {
-    setLessonTarget({ courseId, lessonsCount });
+    setLessonWizard({ mode: "create", courseId, lessonsCount });
   };
 
-  const handleCreateLesson = async (title: string) => {
-    if (!lessonTarget || creatingLesson) return;
-    setCreatingLesson(true);
-    try {
-      const nextIndex = lessonTarget.lessonsCount + 1;
-      const newId = "l_" + Date.now();
-      const newLessonObj = {
-        id: newId,
-        course_id: lessonTarget.courseId,
-        title,
-        description: "",
-        duration: "",
-        status: "draft",
-        index: nextIndex,
-        video: false,
-        pretest: { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
-        posttest: { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" },
-        assignment: null,
-        watch_limit: false,
-        allow_download: true,
-        allow_ai: true,
-        has_docs: true,
-        has_pretest: true,
-        has_posttest: true,
-        has_assignment: true
-      };
-
-      const { error } = await supabase.from("lessons").insert([newLessonObj]);
-      if (error) {
-        toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message);
-        setCreatingLesson(false);
-      } else {
-        toast.success("สร้างบทเรียนใหม่สำเร็จแล้ว");
-        setLessonTarget(null);
-        router.push(`/i/lesson/${newId}`);
-      }
-    } catch (error: unknown) {
-      console.error(error);
-      toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + (error instanceof Error ? error.message : String(error)));
-      setCreatingLesson(false);
-    }
+  const handleOpenEditLesson = (lessonId: string) => {
+    setLessonWizard({ mode: "edit", lessonId });
   };
 
   const canManage = hasRole(user?.role, "admin", "course_manager");
@@ -325,6 +284,14 @@ export default function InstructorCourses() {
         }
       />
       <p className="mb-3 text-sm text-muted-foreground">รายชื่อวิชาในกลุ่มวิชาการพยาบาลผู้ใหญ่และผู้สูงอายุ</p>
+      <StatCards
+        stats={[
+          { label: "รายวิชา", value: courses.length, icon: <BookOpenIcon /> },
+          { label: "บทเรียนทั้งหมด", value: courses.reduce((n, c) => n + c.lessonsCount, 0), icon: <LayersIcon /> },
+          { label: "บทเรียนฉบับร่าง", value: courses.reduce((n, c) => n + c.lessons.filter((l) => l.status !== "active").length, 0), icon: <FilePenLineIcon /> },
+          { label: "ใบงานรอตรวจ", value: courses.reduce((n, c) => n + c.pendingGrading, 0), icon: <ClipboardCheckIcon />, tone: "warning" },
+        ]}
+      />
       <DataTable.Root data={courses} columns={columns} getRowId={(c: EnrichedCourse) => c.id ?? ""} searchKeys={["title", "code", "subtitle", "term"]}>
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหารายวิชา…" />
@@ -335,7 +302,7 @@ export default function InstructorCourses() {
           empty={<EmptyState title="ยังไม่มีรายวิชา" />}
           subRow={(c: EnrichedCourse) =>
             expandedCourses[c.id ?? ""] ? (
-              <CourseLessonList course={c} onCreateLesson={handleOpenCreateLesson} onDeleteLesson={handleDeleteLesson} />
+              <CourseLessonList course={c} onCreateLesson={handleOpenCreateLesson} onEditLesson={handleOpenEditLesson} onDeleteLesson={handleDeleteLesson} />
             ) : null
           }
         />
@@ -351,11 +318,13 @@ export default function InstructorCourses() {
           }}
         />
       )}
-      {lessonTarget && (
-        <CreateLessonDialog
-          onClose={() => setLessonTarget(null)}
-          onCreate={handleCreateLesson}
-          loading={creatingLesson}
+      {lessonWizard && (
+        <LessonWizardDialog
+          lessonId={lessonWizard.mode === "edit" ? lessonWizard.lessonId : null}
+          courseId={lessonWizard.mode === "create" ? lessonWizard.courseId : null}
+          lessonsCount={lessonWizard.mode === "create" ? lessonWizard.lessonsCount : undefined}
+          onClose={() => setLessonWizard(null)}
+          onChanged={() => setReloadKey((k) => k + 1)}
         />
       )}
     </PageContainer>

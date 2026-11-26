@@ -8,6 +8,7 @@ import { FormField } from "@/components/common/form-field"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { FilePickButton } from "./file-pick-button"
 import { SwitchRow } from "./switch-row"
@@ -26,8 +27,9 @@ export const VideoManage = forwardRef<
     lesson: LessonRow
     onSave: OnSaveLesson
     onLessonChange: (fields: Partial<LessonRow>) => void
+    showStatus?: boolean
   }
->(function VideoManage({ lesson, onSave, onLessonChange }, ref) {
+>(function VideoManage({ lesson, onSave, onLessonChange, showStatus = false }, ref) {
   const [title, setTitle] = useState(lesson.title || "")
   const [desc, setDesc] = useState(lesson.description || "")
   const [uploading, setUploading] = useState(false)
@@ -168,6 +170,19 @@ export const VideoManage = forwardRef<
             <FormField label="คำอธิบาย" htmlFor="lesson-desc">
               <Textarea id="lesson-desc" rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="คำอธิบายและหัวข้อในบทเรียนนี้…" />
             </FormField>
+            {showStatus && (
+              <FormField label="สถานะบทเรียน" htmlFor="lesson-status">
+                <Select value={lesson.status || "draft"} onValueChange={(val) => onLessonChange({ status: val })}>
+                  <SelectTrigger id="lesson-status" className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">เผยแพร่แล้ว</SelectItem>
+                    <SelectItem value="draft">ฉบับร่าง</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormField>
+            )}
           </CardContent>
         </Card>
 

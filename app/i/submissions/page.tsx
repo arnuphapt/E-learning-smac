@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ClipboardCheckIcon, ClockIcon, FileTextIcon, InboxIcon } from "lucide-react";
+import { StatCards } from "@/components/common/stat-cards";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/common/page-container";
@@ -91,6 +93,14 @@ export default function SubmissionsIndexPage() {
   return (
     <PageContainer>
       <PageHeader title="ตรวจใบงาน" description="เลือกใบงานเพื่อดูงานที่นักศึกษาส่งและให้คะแนน" />
+      <StatCards
+        stats={[
+          { label: "ใบงานทั้งหมด", value: rows.length, icon: <FileTextIcon /> },
+          { label: "งานที่ส่งแล้ว", value: rows.reduce((n, r) => n + r.submitted, 0), icon: <InboxIcon /> },
+          { label: "รอตรวจ", value: rows.reduce((n, r) => n + r.pending, 0), icon: <ClockIcon />, tone: "warning" },
+          { label: "ใบงานที่มีงานรอตรวจ", value: rows.filter((r) => r.pending > 0).length, icon: <ClipboardCheckIcon /> },
+        ]}
+      />
       <DataTable.Root data={rows} columns={columns} getRowId={(r: AssignmentListRow) => r.id} searchKeys={["title", "courseCode"]}>
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหาใบงานหรือรายวิชา…" />

@@ -3,8 +3,6 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { CheckIcon, PlusIcon } from "lucide-react"
-import { supabase } from "@/lib/supabase"
-import type { Json } from "@/lib/database.types"
 import { FormField } from "@/components/common/form-field"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,8 +12,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { QuestionCard } from "./question-card"
 import { QuestionDialog } from "./question-dialog"
 import { SwitchRow } from "./switch-row"
+import { deleteTestQuestion, emptyQuestion, formFrom, saveTestQuestion, saveTestSettings, type TestForm, type TestKind } from "./test-actions"
 import {
-  getTodayStr,
   maskTime,
   parseChoices,
   parseTestConfig,
@@ -23,44 +21,9 @@ import {
   type OnSaveLesson,
   type QuestionEditorItem,
   type QuestionRow,
-  type TestConfig,
 } from "./types"
 
-type Kind = "pre" | "post"
-
-interface TestForm {
-  passing: number | string
-  time: number | string
-  attempts: string
-  shuffle: boolean
-  showAnswers: boolean
-  due: string
-  dueTime: string
-  required: boolean
-}
-
-const formFrom = (cfg: TestConfig): TestForm => ({
-  passing: cfg.passing_score ?? 50,
-  time: cfg.time_limit ?? 30,
-  attempts: cfg.attempts ?? "1",
-  shuffle: cfg.shuffle ?? true,
-  showAnswers: cfg.show_answers ?? true,
-  due: cfg.due || getTodayStr(),
-  dueTime: cfg.due_time ?? "23:59",
-  required: cfg.required ?? true,
-})
-
-const emptyQuestion = (no: number): QuestionEditorItem => ({
-  no,
-  type: "single",
-  text: "",
-  choices: [
-    { id: "a", text: "" },
-    { id: "b", text: "" },
-  ],
-  answer: "a",
-  id: "temp_" + Date.now(),
-})
+type Kind = TestKind
 
 const DISABLED_HINT: Record<Kind, string> = {
   pre: "เปิดใช้งานที่สวิตช์ 'มีข้อสอบ Pre-test' ในการตั้งค่าการเข้าถึง (แท็บวิดีโอ)",
@@ -87,55 +50,14 @@ export function TestBuilder({ lesson, questions, onLoad, onSaveSettings }: { les
   const patch = (p: Partial<TestForm>) => setForms((f) => ({ ...f, [which]: { ...f[which], ...p } }))
   const filteredQs = questions.filter((q) => q.kind === which)
 
-  const handleSaveSettings = async () => {
-    const config = {
-      ...parseTestConfig(which === "pre" ? lesson.pretest : lesson.posttest),
-      required: form.required,
-      passing_score: form.passing === "" || form.passing === "—" ? null : parseInt(String(form.passing)) || 0,
-      time_limit: parseInt(String(form.time)) || 0,
-      attempts: form.attempts,
-      shuffle: form.shuffle,
-      show_answers: form.showAnswers,
-      due: form.due || null,
-      due_time: form.dueTime || null,
-    } as Json
-    await onSaveSettings(which === "pre" ? { pretest: config } : { posttest: config })
-  }
+  const handleSaveSettings = () => saveTestSettings({ lesson, kind: which, form, onSaveSettings })
 
   const handleSaveQuestion = async (nq: QuestionEditorItem) => {
-    const fields = { type: nq.type || "single", text: nq.text, choices: nq.choices as unknown as Json, answer: nq.answer, lesson_id: lesson.id, kind: which }
-    if (nq.id && !String(nq.id).startsWith("temp_")) {
-      const { error } = await supabase.from("questions").update({ no: nq.no, ...fields }).eq("id", nq.id)
-      if (error) toast.error("เกิดข้อผิดพลาด: " + error.message)
-      else {
-        toast.success("บันทึกข้อสอบแล้ว")
-        onLoad()
-      }
-    } else {
-      const { error } = await supabase.from("questions").insert([{ id: "q_" + Date.now(), no: filteredQs.length + 1, ...fields }])
-      if (error) toast.error("เกิดข้อผิดพลาด: " + error.message)
-      else {
-        toast.success("เพิ่มข้อสอบใหม่เรียบร้อยแล้ว")
-        onLoad()
-      }
-    }
+    await saveTestQuestion({ lessonId: lesson.id, kind: which, nq, nextNo: filteredQs.length + 1, onLoad })
     setEditing(null)
   }
 
-  const handleDeleteQuestion = async (q: QuestionRow) => {
-    const remainingCount = questions.filter((x) => x.kind === q.kind && x.id !== q.id).length
-    const isReq = q.kind === "pre" ? parseTestConfig(lesson.pretest).required : parseTestConfig(lesson.posttest).required
-    if (isReq && remainingCount === 0) {
-      toast.warning(`ไม่สามารถลบได้ เนื่องจากบทเรียนนี้กำหนดให้ต้องทำ ${q.kind === "pre" ? "Pre-test" : "Post-test"} แต่ระบบต้องการข้อสอบอย่างน้อย 1 ข้อ (กรุณาปิดการตั้งค่าความจำเป็นก่อนลบข้อสอบสุดท้าย)`)
-      return
-    }
-    const { error } = await supabase.from("questions").delete().eq("id", q.id)
-    if (error) toast.error("เกิดข้อผิดพลาด: " + error.message)
-    else {
-      toast.success("ลบข้อสอบเรียบร้อยแล้ว")
-      onLoad()
-    }
-  }
+  const handleDeleteQuestion = (q: QuestionRow) => deleteTestQuestion({ lesson, questions, q, onLoad })
 
   const setPassing = (val: string) => {
     const cleaned = val.replace(/[^0-9]/g, "")

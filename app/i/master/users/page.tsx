@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { FileSpreadsheetIcon, LockIcon, PlusIcon } from "lucide-react";
+import { FileSpreadsheetIcon, GraduationCapIcon, LockIcon, PlusIcon, PresentationIcon, ShieldCheckIcon, UsersIcon } from "lucide-react";
+import { StatCards } from "@/components/common/stat-cards";
 import type { Database } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_DOMAIN } from "@/lib/course-access";
@@ -16,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirmDelete } from "@/components/master/list-page";
 import { userColumns } from "@/components/master/users/columns";
 import { ImportUsersDialog } from "@/components/master/users/import-dialog";
-import { BulkSectionBar, UserFilters } from "@/components/master/users/toolbar";
+import { BulkUserActions, UserFilters } from "@/components/master/users/toolbar";
 import {
   UserDialog,
   type RoleSummary,
@@ -54,7 +55,6 @@ export default function MasterUsersPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [filterRole, setFilterRole] = useState("all");
   const [filterGrade, setFilterGrade] = useState("all");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkSection, setBulkSection] = useState("");
   const [bulkSaving, setBulkSaving] = useState(false);
   const confirmDelete = useConfirmDelete();
@@ -159,12 +159,6 @@ export default function MasterUsersPage() {
       toast.error("เกิดข้อผิดพลาดในการลบผู้ใช้งาน: " + error.message);
     } else {
       setUsersList((prev) => prev.filter((u) => u.id !== user.id));
-      setSelectedIds((prev) => {
-        if (!prev.has(user.id)) return prev;
-        const next = new Set(prev);
-        next.delete(user.id);
-        return next;
-      });
       toast.success("ลบผู้ใช้งานเรียบร้อยแล้ว");
     }
   };
@@ -189,28 +183,10 @@ export default function MasterUsersPage() {
 
   const gradeLabels = useMemo(() => Array.from(new Set(gradesList.map((g) => g.year_label))).sort(), [gradesList]);
 
-  const toggleSelectAll = (ids: string[]) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (ids.length > 0 && ids.every((id) => prev.has(id))) ids.forEach((id) => next.delete(id));
-      else ids.forEach((id) => next.add(id));
-      return next;
-    });
-  };
-
-  const toggleSelectOne = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleBulkAssignSection = async () => {
-    if (!bulkSection || selectedIds.size === 0 || bulkSaving) return;
+  const handleBulkAssignSection = async (rows: UserItem[], clear: () => void) => {
+    if (!bulkSection || rows.length === 0 || bulkSaving) return;
     setBulkSaving(true);
-    const ids = Array.from(selectedIds);
+    const ids = rows.map((u) => u.id);
     const { error } = await supabase
       .from("users")
       .update({ section: bulkSection })
@@ -222,12 +198,35 @@ export default function MasterUsersPage() {
       return;
     }
 
+    const idSet = new Set(ids);
     setUsersList((prev) =>
-      prev.map((u) => (selectedIds.has(u.id) ? { ...u, section: bulkSection, sec: bulkSection } : u))
+      prev.map((u) => (idSet.has(u.id) ? { ...u, section: bulkSection, sec: bulkSection } : u))
     );
-    setSelectedIds(new Set());
+    clear();
     setBulkSection("");
     toast.success(`กำหนด Section "${bulkSection}" ให้ผู้ใช้ ${ids.length} คนเรียบร้อยแล้ว`);
+  };
+
+  const handleBulkDelete = async (rows: UserItem[], clear: () => void) => {
+    // Never delete the account that is signed in, same as one would not do by accident one-by-one.
+    const targets = rows.filter((u) => u.id !== session?.user?.id);
+    if (targets.length === 0) {
+      toast.error("ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้");
+      return;
+    }
+    if (!(await confirmDelete("ลบผู้ใช้งานที่เลือก", `ต้องการลบผู้ใช้งาน ${targets.length} คนออกจากระบบ?`))) return;
+    setBulkSaving(true);
+    const ids = targets.map((u) => u.id);
+    const { error } = await supabase.from("users").delete().in("id", ids);
+    setBulkSaving(false);
+    if (error) {
+      toast.error("เกิดข้อผิดพลาดในการลบผู้ใช้งาน: " + error.message);
+      return;
+    }
+    const idSet = new Set(ids);
+    setUsersList((prev) => prev.filter((u) => !idSet.has(u.id)));
+    clear();
+    toast.success(`ลบผู้ใช้งาน ${ids.length} คนเรียบร้อยแล้ว`);
   };
 
   const columns = useMemo(
@@ -237,17 +236,17 @@ export default function MasterUsersPage() {
         subjectGroups,
         groupManagers,
         gradesList,
-        selectedIds,
-        onToggleOne: toggleSelectOne,
-        onToggleAll: toggleSelectAll,
         canImpersonate,
         onImpersonate: handleImpersonate,
         onEdit: (row) => setDlg({ mode: "edit", row }),
         onDelete: handleDeleteUser,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers only touch state setters, the supabase client and `session`
-    [rolesList, subjectGroups, groupManagers, gradesList, selectedIds, canImpersonate, session],
+    [rolesList, subjectGroups, groupManagers, gradesList, canImpersonate, session],
   );
+
+  const roleCount = (id: string) => usersList.filter((u) => (u.role ? u.role.split(",").map((r) => r.trim()) : []).includes(id)).length;
+  const roleName = (id: string, fallback: string) => rolesList.find((r) => r.id === id)?.name ?? fallback;
 
   if (sessionStatus === "loading") {
     return (
@@ -284,19 +283,15 @@ export default function MasterUsersPage() {
           </>
         }
       />
+      <StatCards
+        stats={[
+          { label: "ผู้ใช้ทั้งหมด", value: usersList.length, icon: <UsersIcon /> },
+          { label: roleName("admin", "ผู้ดูแลระบบ"), value: roleCount("admin"), icon: <ShieldCheckIcon /> },
+          { label: roleName("instructor", "ผู้สอน"), value: roleCount("instructor"), icon: <PresentationIcon /> },
+          { label: roleName("student", "นักศึกษา"), value: roleCount("student"), icon: <GraduationCapIcon /> },
+        ]}
+      />
       <p className="mb-3 text-sm text-muted-foreground">จัดการข้อมูลผู้สอน นักศึกษา และสิทธิ์การใช้งานระบบ</p>
-
-      {selectedIds.size > 0 && (
-        <BulkSectionBar
-          count={selectedIds.size}
-          sectionsList={sectionsList}
-          section={bulkSection}
-          saving={bulkSaving}
-          onSectionChange={setBulkSection}
-          onClear={() => setSelectedIds(new Set())}
-          onAssign={handleBulkAssignSection}
-        />
-      )}
 
       <DataTable.Root data={filteredUsers} columns={columns} getRowId={(r: UserItem) => r.id} searchKeys={["name", "email", "studentId"]}>
         <DataTable.Toolbar>
@@ -313,6 +308,18 @@ export default function MasterUsersPage() {
             onGradeChange={setFilterGrade}
           />
         </DataTable.Toolbar>
+        <DataTable.BulkBar<UserItem>>
+          {({ rows, clear }) => (
+            <BulkUserActions
+              sectionsList={sectionsList}
+              section={bulkSection}
+              saving={bulkSaving}
+              onSectionChange={setBulkSection}
+              onAssign={() => handleBulkAssignSection(rows, clear)}
+              onDelete={() => handleBulkDelete(rows, clear)}
+            />
+          )}
+        </DataTable.BulkBar>
         <DataTable.Content loading={loading} empty={<EmptyState title="ยังไม่มีผู้ใช้งาน" />} />
         <DataTable.Pagination />
       </DataTable.Root>
@@ -324,10 +331,7 @@ export default function MasterUsersPage() {
           sectionsList={sectionsList}
           existingUsers={usersList}
           onClose={() => setImportOpen(false)}
-          onImported={() => {
-            setSelectedIds(new Set());
-            setReloadKey((k) => k + 1);
-          }}
+          onImported={() => setReloadKey((k) => k + 1)}
         />
       )}
     </PageContainer>

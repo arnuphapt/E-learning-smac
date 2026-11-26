@@ -1,8 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRef, useState } from "react"
 import { ClipboardListIcon, FileTextIcon, GripVerticalIcon, PencilIcon, PlusIcon, Trash2Icon, VideoIcon } from "lucide-react"
 import { ToneBadge } from "@/components/common/status-badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +15,7 @@ export function LessonReorderList({
   submissions,
   onReorder,
   onCreate,
+  onEdit,
   onDelete,
 }: {
   lessons: LessonRow[]
@@ -25,14 +24,16 @@ export function LessonReorderList({
   /** Called with the new order after a drop. */
   onReorder: (reordered: LessonRow[]) => void
   onCreate: () => void
+  onEdit: (lesson: LessonRow) => void
   onDelete: (lesson: LessonRow) => void
 }) {
-  const router = useRouter()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const justDraggedRef = useRef(false)
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
     e.preventDefault()
     if (draggedIndex === null || draggedIndex === targetIndex) return
+    justDraggedRef.current = true
     const reordered = [...lessons]
     const [dragged] = reordered.splice(draggedIndex, 1)
     reordered.splice(targetIndex, 0, dragged)
@@ -56,8 +57,19 @@ export function LessonReorderList({
             }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => handleDrop(e, index)}
-            onDragEnd={() => setDraggedIndex(null)}
-            onClick={() => router.push("/i/lesson/" + l.id)}
+            onDragEnd={() => {
+              setDraggedIndex(null)
+              setTimeout(() => {
+                justDraggedRef.current = false
+              }, 0)
+            }}
+            onClick={() => {
+              if (justDraggedRef.current) {
+                justDraggedRef.current = false
+                return
+              }
+              onEdit(l)
+            }}
             className={cn("cursor-grab flex-row items-center gap-3 px-4 py-3.5 transition", draggedIndex === index && "border-2 border-dashed border-primary opacity-40")}
           >
             <GripVerticalIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
@@ -81,11 +93,16 @@ export function LessonReorderList({
             </div>
             {pendingCount > 0 && <ToneBadge tone="warning">{pendingCount} รอตรวจ</ToneBadge>}
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" asChild onClick={(e) => e.stopPropagation()}>
-                <Link href={"/i/lesson/" + l.id}>
-                  <PencilIcon />
-                  จัดการ
-                </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit(l)
+                }}
+              >
+                <PencilIcon />
+                จัดการ
               </Button>
               <Button
                 variant="ghost"

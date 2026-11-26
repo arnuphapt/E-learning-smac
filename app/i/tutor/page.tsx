@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { AwardIcon, PlusIcon } from "lucide-react"
+import { AwardIcon, ClipboardListIcon, LockIcon, PlusIcon, TriangleAlertIcon } from "lucide-react"
+import { StatCards } from "@/components/common/stat-cards"
 import { supabase } from "@/lib/supabase"
 import { hasRole } from "@/lib/roles"
 import { bankWarning, lockSummary } from "@/lib/tutor-bank"
@@ -73,16 +74,14 @@ export default function InstructorTutorSets() {
     }
   }, [user])
 
-  const stats = sets
-    ? `${sets.length} ชุด · ${sets.reduce((n, s) => n + s.questions, 0)} ข้อในคลัง · ${sets.filter((s) => !lockSummary(s).open).length} ชุดที่ยังไม่มีนักศึกษาเข้าได้`
-    : undefined
+  const list = sets ?? []
 
   return (
     <PageContainer>
       <PageHeader
         kicker="โหมดติว"
         title="ชุดติว"
-        description={stats}
+        description="ชุดติวแยกจากรายวิชาปกติ ตรวจได้ว่านักศึกษาเข้าชุดไหนได้ และบทไหนที่คลังข้อสอบยังไม่พอ"
         actions={
           canCreate && (
             <Button onClick={() => setCreating(true)}>
@@ -92,7 +91,15 @@ export default function InstructorTutorSets() {
           )
         }
       />
-      <DataTable.Root data={sets ?? []} columns={columns} getRowId={(r: TutorSetSummary) => r.id} searchKeys={["title", "code"]}>
+      <StatCards
+        stats={[
+          { label: "ชุดติว", value: list.length, icon: <AwardIcon /> },
+          { label: "ข้อสอบในคลัง", value: list.reduce((n, s) => n + s.questions, 0), icon: <ClipboardListIcon /> },
+          { label: "ยังไม่มีนักศึกษาเข้าได้", value: list.filter((s) => !lockSummary(s).open).length, icon: <LockIcon />, tone: "warning" },
+          { label: "บทที่คลังไม่พอ", value: list.reduce((n, s) => n + s.short, 0), icon: <TriangleAlertIcon />, tone: "warning" },
+        ]}
+      />
+      <DataTable.Root data={list} columns={columns} getRowId={(r: TutorSetSummary) => r.id} searchKeys={["title", "code"]}>
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหาชื่อหรือรหัสชุดติว…" />
         </DataTable.Toolbar>

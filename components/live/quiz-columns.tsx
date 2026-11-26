@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CopyIcon, PencilIcon, PlayIcon, Trash2Icon } from "lucide-react";
-import { ColumnHeader, RowActions, type DataTableColumnDef } from "@/components/common/data-table";
+import { ColumnHeader, RowActions, selectionColumn, type DataTableColumnDef } from "@/components/common/data-table";
 import { ToneBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 import type { Database } from "@/lib/database.types";
@@ -26,6 +26,7 @@ export function quizColumns(
   busy: boolean,
 ): DataTableColumnDef[] {
   return [
+    selectionColumn<FormattedLiveQuiz>((q) => q.title),
     {
       accessorKey: "title",
       header: ({ column }) => <ColumnHeader column={column} title="ชุดควิซ" />,

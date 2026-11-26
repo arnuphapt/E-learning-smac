@@ -87,6 +87,19 @@ export default function MasterSectionsPage() {
     }
   };
 
+  const handleBulkDeleteSections = async (rows: SectionTableRow[]) => {
+    const ids = rows.map((r) => r.id);
+    const { error } = await supabase.from("sections").delete().in("id", ids);
+    if (error) {
+      toast.error("เกิดข้อผิดพลาดในการลบ Section: " + error.message);
+      return false;
+    }
+    setSectionList((prev) => prev.filter((r) => !ids.includes(r.id)));
+    toast.success(`ลบ Section ${ids.length} รายการเรียบร้อยแล้ว`);
+    loadData();
+    return true;
+  };
+
   const rows = useMemo<SectionTableRow[]>(
     () =>
       sectionList.map((s) => ({
@@ -106,6 +119,7 @@ export default function MasterSectionsPage() {
       note="กลุ่มเรียนของนักศึกษาในระบบ"
       addLabel="เพิ่ม Section"
       onAdd={() => setDlg({ mode: "add" })}
+      bulkDelete={{ noun: " Section", rowLabel: (r) => r.name || r.id, onDelete: handleBulkDeleteSections }}
       data={rows}
       columns={columns}
       loading={loading}

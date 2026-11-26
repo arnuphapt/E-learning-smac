@@ -67,6 +67,18 @@ export default function MasterTermsPage() {
     }
   };
 
+  const handleBulkDeleteTerms = async (rows: TermRow[]) => {
+    const ids = rows.map((r) => r.id);
+    const { error } = await supabase.from("terms").delete().in("id", ids);
+    if (error) {
+      toast.error("เกิดข้อผิดพลาดในการลบภาคเรียน: " + error.message);
+      return false;
+    }
+    setTerms((prev) => prev.filter((r) => !ids.includes(r.id)));
+    toast.success(`ลบภาคเรียน ${ids.length} รายการเรียบร้อยแล้ว`);
+    return true;
+  };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers only touch state setters and the supabase client
   const columns = useMemo(() => termColumns((row) => setDlg({ mode: "edit", row }), handleDeleteTerm), []);
 
@@ -77,6 +89,7 @@ export default function MasterTermsPage() {
       note="ภาคการศึกษาภายใต้แต่ละปีการศึกษา"
       addLabel="เพิ่มภาคเรียน"
       onAdd={() => setDlg({ mode: "add" })}
+      bulkDelete={{ noun: "ภาคเรียน", rowLabel: (r) => `${r.name} ${r.year}`, onDelete: handleBulkDeleteTerms }}
       data={terms}
       columns={columns}
       loading={loading}

@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { ToneBadge } from "@/components/common/status-badge"
 import { Button } from "@/components/ui/button"
@@ -10,10 +9,12 @@ import type { CourseLessonSummary, EnrichedCourse } from "./types"
 export function CourseLessonList({
   course,
   onCreateLesson,
+  onEditLesson,
   onDeleteLesson,
 }: {
   course: EnrichedCourse
   onCreateLesson: (courseId: string | null, lessonsCount: number) => void
+  onEditLesson: (lessonId: string) => void
   onDeleteLesson: (lesson: CourseLessonSummary) => void
 }) {
   return (
@@ -41,11 +42,9 @@ export function CourseLessonList({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={"/i/lesson/" + l.id}>
-                    <PencilIcon />
-                    จัดการ
-                  </Link>
+                <Button variant="outline" size="sm" onClick={() => onEditLesson(l.id)}>
+                  <PencilIcon />
+                  จัดการ
                 </Button>
                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label={`ลบบทเรียน ${l.title}`} onClick={() => onDeleteLesson(l)}>
                   <Trash2Icon />

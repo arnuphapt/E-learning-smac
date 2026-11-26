@@ -7,7 +7,16 @@ import { EmptyState } from "@/components/common/states"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { StudentAccessDialog } from "./student-access-dialog"
-import { getStudentSectionName, type CourseAssignmentRef, type SectionRow, type StudentRow, type SubmissionRow } from "./detail"
+import { StudentScoresDialog } from "./student-scores-dialog"
+import {
+  getStudentSectionName,
+  type CourseAssignmentRef,
+  type LessonRow,
+  type SectionRow,
+  type StudentRow,
+  type SubmissionRow,
+  type TestScoreRow,
+} from "./detail"
 
 type RosterRow = {
   id: string
@@ -17,6 +26,7 @@ type RosterRow = {
   special: boolean
   submitted: number
   total: number
+  student: StudentRow
 }
 
 const columns: DataTableColumnDef[] = [
@@ -55,25 +65,30 @@ const columns: DataTableColumnDef[] = [
   },
 ]
 
-/** "นักศึกษา" tab: enrolled students with assignment progress, plus the manual access dialog. */
+/** "นักศึกษา" tab: enrolled students with assignment progress, score modal on row click, plus the manual access dialog. */
 export function StudentRoster({
   students,
+  lessons,
   courseSubmissions,
   assignments,
+  testScores,
   allStudents,
   allowedEmails,
   onUpdateAllowedEmails,
   sectionsList,
 }: {
   students: StudentRow[]
+  lessons: LessonRow[]
   courseSubmissions: SubmissionRow[]
   assignments: CourseAssignmentRef[]
+  testScores: TestScoreRow[]
   allStudents: StudentRow[]
   allowedEmails: string[]
   onUpdateAllowedEmails: (emails: string[]) => Promise<void>
   sectionsList: SectionRow[]
 }) {
   const [accessOpen, setAccessOpen] = useState(false)
+  const [selectedRow, setSelectedRow] = useState<RosterRow | null>(null)
 
   const rows = useMemo<RosterRow[]>(
     () =>
@@ -85,6 +100,7 @@ export function StudentRoster({
         special: Boolean(s.email && allowedEmails.includes(s.email)),
         submitted: courseSubmissions.filter((sub) => sub.student_id === s.id).length,
         total: assignments.length,
+        student: s,
       })),
     [students, courseSubmissions, assignments, sectionsList, allowedEmails],
   )
@@ -102,9 +118,20 @@ export function StudentRoster({
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหาชื่อ หรือรหัสนักศึกษา..." />
         </DataTable.Toolbar>
-        <DataTable.Content loading={false} empty={<EmptyState title="ไม่มีนักศึกษาในรายวิชานี้" />} />
+        <DataTable.Content loading={false} empty={<EmptyState title="ไม่มีนักศึกษาในรายวิชานี้" />} onRowClick={setSelectedRow} />
         <DataTable.Pagination />
       </DataTable.Root>
+      {selectedRow && (
+        <StudentScoresDialog
+          student={selectedRow.student}
+          sectionName={selectedRow.section}
+          lessons={lessons}
+          assignments={assignments}
+          submissions={courseSubmissions}
+          testScores={testScores}
+          onClose={() => setSelectedRow(null)}
+        />
+      )}
       {accessOpen && <StudentAccessDialog allStudents={allStudents} allowedEmails={allowedEmails} onClose={() => setAccessOpen(false)} onSave={onUpdateAllowedEmails} />}
     </>
   )

@@ -110,6 +110,17 @@ export default function RolesPage() {
     }
   };
 
+  const handleBulkDelete = async (rows: RoleItem[]) => {
+    const { error } = await supabase.from("roles").delete().in("id", rows.map((r) => r.id));
+    if (error) {
+      toast.error("ไม่สามารถลบได้ อาจมีการใช้งาน Role นี้อยู่");
+      return false;
+    }
+    toast.success(`ลบ Role ${rows.length} รายการเรียบร้อยแล้ว`);
+    reload();
+    return true;
+  };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers only touch state setters and the supabase client
   const columns = useMemo(() => roleColumns((row) => setDialog({ mode: "edit", row }), handleDelete), []);
 
@@ -120,6 +131,7 @@ export default function RolesPage() {
       note="กำหนด Role และสิทธิ์การเข้าถึงสำหรับผู้ใช้แต่ละประเภท"
       addLabel="เพิ่ม Role"
       onAdd={() => setDialog({ mode: "add", row: null })}
+      bulkDelete={{ noun: " Role", rowLabel: (r) => r.name || r.id, canDelete: (r) => !SYSTEM_ROLES.includes(r.id), onDelete: handleBulkDelete }}
       data={data}
       columns={columns}
       loading={loading}

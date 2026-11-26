@@ -12,6 +12,8 @@ export type TestScoreRow = Database["public"]["Tables"]["test_scores"]["Row"]
 export interface CourseAssignmentRef {
   id: string
   lesson_id: string | null
+  title?: string | null
+  points?: number | null
 }
 
 export interface InstructorOption {

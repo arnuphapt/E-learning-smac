@@ -2,7 +2,7 @@ import type { Database, Json } from "@/lib/database.types"
 import { supabase } from "@/lib/supabase"
 import { visibleTutorSets, type BankRowInput } from "@/lib/tutor-bank"
 
-type QuestionSelectRow = Pick<Database["public"]["Tables"]["questions"]["Row"], "id" | "no" | "text" | "choices" | "answer" | "topic_id" | "lesson_id">
+type QuestionSelectRow = Pick<Database["public"]["Tables"]["questions"]["Row"], "id" | "no" | "text" | "choices" | "answer" | "topic_id" | "lesson_id" | "explanation">
 
 export type BankCourseRow = Pick<Database["public"]["Tables"]["courses_all"]["Row"], "id" | "code" | "title" | "group_id">
 
@@ -21,6 +21,7 @@ export interface BankQuestionRow extends BankRowInput {
   setId: string
   topic: string
   answerText: string
+  hasExplanation: boolean
 }
 
 export interface BankData {
@@ -57,7 +58,7 @@ async function allTutorQuestions(): Promise<QuestionSelectRow[]> {
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from("questions")
-      .select("id, no, text, choices, answer, topic_id, lesson_id")
+      .select("id, no, text, choices, answer, topic_id, lesson_id, explanation")
       .eq("kind", "tutor")
       .order("lesson_id")
       .order("no")
@@ -101,6 +102,7 @@ export async function loadTutorBank(user: Parameters<typeof visibleTutorSets>[1]
         setId: parentLesson ? parentLesson.course_id : "",
         topic: (r.topic_id ? topicById.get(r.topic_id) : undefined) || "",
         answerText: parseChoices(r.choices).find((c) => c.id === r.answer)?.text || "",
+        hasExplanation: Boolean(r.explanation),
       }
     })
     .sort((a, b) => (lessonOrder.get(a.lessonId) ?? 0) - (lessonOrder.get(b.lessonId) ?? 0) || a.no - b.no)

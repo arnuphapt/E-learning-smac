@@ -104,6 +104,18 @@ export default function MasterGroupsPage() {
     }
   };
 
+  const handleBulkDeleteGroups = async (rows: GroupTableRow[]) => {
+    const ids = rows.map((r) => r.id);
+    const { error } = await supabase.from("subject_groups").delete().in("id", ids);
+    if (error) {
+      toast.error("เกิดข้อผิดพลาดในการลบกลุ่มวิชา: " + error.message);
+      return false;
+    }
+    setSubjectGroups((prev) => prev.filter((r) => !ids.includes(r.id)));
+    toast.success(`ลบกลุ่มวิชา ${ids.length} รายการเรียบร้อยแล้ว`);
+    return true;
+  };
+
   const rows = useMemo<GroupTableRow[]>(
     () =>
       subjectGroups.map((g) => {
@@ -126,6 +138,7 @@ export default function MasterGroupsPage() {
       note="กลุ่มสาขาวิชาและหัวหน้ากลุ่มผู้รับผิดชอบ"
       addLabel="เพิ่มกลุ่มวิชา"
       onAdd={() => setDlg({ mode: "add" })}
+      bulkDelete={{ noun: "กลุ่มวิชา", rowLabel: (r) => r.name || r.id, onDelete: handleBulkDeleteGroups }}
       data={rows}
       columns={columns}
       loading={loading}

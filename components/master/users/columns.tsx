@@ -2,9 +2,8 @@
 
 import { EyeIcon } from "lucide-react"
 import type { Database } from "@/lib/database.types"
-import { AvatarCell, ColumnHeader, useDataTable, type DataTableColumnDef } from "@/components/common/data-table"
+import { AvatarCell, ColumnHeader, selectionColumn, type DataTableColumnDef } from "@/components/common/data-table"
 import { ToneBadge, type StatusTone } from "@/components/common/status-badge"
-import { Checkbox } from "@/components/ui/checkbox"
 import { masterActionsColumn } from "@/components/master/list-page"
 import type { RoleSummary, SubjectGroupRow, UserItem } from "./user-dialog"
 
@@ -16,29 +15,11 @@ const splitRoles = (role: string | null) => (role ? role.split(",").map((r) => r
 const roleTone = (roleId: string): StatusTone =>
   roleId === "admin" ? "danger" : roleId === "instructor" ? "primary" : roleId === "student" ? "info" : "outline"
 
-/** Header checkbox: selects every row that passes the search box (all pages). */
-function SelectAllHeader({ selectedIds, onToggleAll }: { selectedIds: Set<string>; onToggleAll: (ids: string[]) => void }) {
-  const table = useDataTable()
-  const ids = table.getFilteredRowModel().rows.map((r: { id: string }) => r.id)
-  const selectedCount = ids.filter((id: string) => selectedIds.has(id)).length
-  const all = ids.length > 0 && selectedCount === ids.length
-  return (
-    <Checkbox
-      checked={all ? true : selectedCount > 0 ? "indeterminate" : false}
-      onCheckedChange={() => onToggleAll(ids)}
-      aria-label="เลือกทั้งหมดในรายการที่กรอง"
-    />
-  )
-}
-
 export function userColumns({
   rolesList,
   subjectGroups,
   groupManagers,
   gradesList,
-  selectedIds,
-  onToggleOne,
-  onToggleAll,
   canImpersonate,
   onImpersonate,
   onEdit,
@@ -48,24 +29,13 @@ export function userColumns({
   subjectGroups: SubjectGroupRow[]
   groupManagers: SubjectGroupManagerRow[]
   gradesList: StudentGradeRow[]
-  selectedIds: Set<string>
-  onToggleOne: (id: string) => void
-  onToggleAll: (ids: string[]) => void
   canImpersonate: boolean
   onImpersonate: (row: UserItem) => void
   onEdit: (row: UserItem) => void
   onDelete: (row: UserItem) => void
 }): DataTableColumnDef[] {
   return [
-    {
-      id: "select",
-      header: () => <SelectAllHeader selectedIds={selectedIds} onToggleAll={onToggleAll} />,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const u: UserItem = row.original
-        return <Checkbox checked={selectedIds.has(u.id)} onCheckedChange={() => onToggleOne(u.id)} aria-label={`เลือก ${u.name || u.email}`} />
-      },
-    },
+    selectionColumn<UserItem>((u) => u.name || u.email || u.id),
     {
       accessorKey: "name",
       header: ({ column }) => <ColumnHeader column={column} title="ชื่อ-นามสกุล" />,

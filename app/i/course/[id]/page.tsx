@@ -17,8 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { deleteCourseCascade, deleteLessonCascade } from "@/components/course/actions";
 import { CoInstructorCard } from "@/components/course/co-instructor-card";
-import { CreateLessonDialog } from "@/components/course/create-lesson-dialog";
 import { CourseDangerZone } from "@/components/course/danger-zone-card";
+import { LessonWizardDialog } from "@/components/lesson/lesson-wizard-dialog";
 import {
   getEnrolledStudents,
   parseCourseAccess,
@@ -35,7 +35,7 @@ import {
 } from "@/components/course/detail";
 import { CourseEditCard, type CourseEditValues } from "@/components/course/edit-card";
 import { LessonReorderList } from "@/components/course/lesson-reorder-list";
-import { CourseStats } from "@/components/course/stats-row";
+import { StatCards } from "@/components/common/stat-cards";
 import { StudentRoster } from "@/components/course/student-roster";
 
 type CourseTab = "lessons" | "students" | "settings";
@@ -68,8 +68,7 @@ export default function InstructorCourse() {
   const [tab, setTab] = useState<CourseTab>("lessons");
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
-  const [createLessonOpen, setCreateLessonOpen] = useState(false);
-  const [creatingLesson, setCreatingLesson] = useState(false);
+  const [lessonWizard, setLessonWizard] = useState<{ mode: "create" } | { mode: "edit"; lessonId: string } | null>(null);
   const reload = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
@@ -81,7 +80,7 @@ export default function InstructorCourse() {
         supabase.from("users").select("*").eq("role", "student"),
         supabase.from("submissions").select("*"),
         supabase.from("test_scores").select("*"),
-        supabase.from("assignments").select("id, lesson_id").eq("course_id", courseId),
+        supabase.from("assignments").select("id, lesson_id, title, points").eq("course_id", courseId),
         supabase.from("course_instructors").select("user_id").eq("course_id", courseId),
         supabase.from("users").select("id, name, email, role, group_id").or("role.like.%instructor%,role.like.%course_manager%,role.like.%admin%"),
         supabase.from("student_grades").select("prefix, year_label").eq("domain", DEFAULT_DOMAIN),
@@ -190,49 +189,6 @@ export default function InstructorCourse() {
       reload();
     } catch (error: unknown) {
       toast.error("เกิดข้อผิดพลาด: " + errMsg(error));
-    }
-  };
-
-  const handleCreateLesson = async (title: string) => {
-    if (creatingLesson) return;
-    setCreatingLesson(true);
-    try {
-      const newId = "l_" + Date.now();
-      const testDefaults = { required: false, passing_score: 50, time_limit: 30, attempts: "1", shuffle: true, show_answers: true, due: null, due_time: "23:59" };
-      const { error } = await supabase.from("lessons").insert([
-        {
-          id: newId,
-          course_id: courseId,
-          title,
-          description: "",
-          duration: "",
-          status: "draft",
-          index: lessons.length + 1,
-          video: false,
-          pretest: testDefaults,
-          posttest: testDefaults,
-          assignment: null,
-          watch_limit: false,
-          allow_download: true,
-          allow_ai: true,
-          has_docs: true,
-          has_pretest: true,
-          has_posttest: true,
-          has_assignment: true,
-        },
-      ]);
-      if (error) {
-        toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + error.message);
-        setCreatingLesson(false);
-      } else {
-        toast.success("สร้างบทเรียนใหม่สำเร็จแล้ว");
-        setCreateLessonOpen(false);
-        router.push(`/i/lesson/${newId}`);
-      }
-    } catch (error: unknown) {
-      console.error(error);
-      toast.error("เกิดข้อผิดพลาดในการสร้างบทเรียน: " + errMsg(error));
-      setCreatingLesson(false);
     }
   };
 
@@ -379,23 +335,9 @@ export default function InstructorCourse() {
         kicker={course.term ?? undefined}
         title={course.title ?? ""}
         description={course.code ?? undefined}
-        actions={
-          <>
-            {canManage && (
-              <Button variant="outline" onClick={() => setTab("settings")}>
-                <SettingsIcon />
-                ตั้งค่า
-              </Button>
-            )}
-            <Button onClick={() => setCreateLessonOpen(true)}>
-              <PlusIcon />
-              เพิ่มบทเรียน
-            </Button>
-          </>
-        }
       />
 
-      <CourseStats
+      <StatCards
         stats={[
           { label: "บทเรียน", value: lessons.length, icon: <BookOpenIcon /> },
           { label: "นักศึกษา", value: enrolledStudents.length, icon: <UsersIcon /> },
@@ -405,31 +347,49 @@ export default function InstructorCourse() {
       />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as CourseTab)} className="gap-4">
-        <TabsList>
-          <TabsTrigger value="lessons">
-            <BookOpenIcon />
-            บทเรียน
-          </TabsTrigger>
-          <TabsTrigger value="students">
-            <UsersIcon />
-            นักศึกษา
-          </TabsTrigger>
-          {canManage && (
-            <TabsTrigger value="settings">
-              <SettingsIcon />
-              ตั้งค่ารายวิชา
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList>
+            <TabsTrigger value="lessons">
+              <BookOpenIcon />
+              บทเรียน
             </TabsTrigger>
+            <TabsTrigger value="students">
+              <UsersIcon />
+              นักศึกษา
+            </TabsTrigger>
+            {canManage && (
+              <TabsTrigger value="settings">
+                <SettingsIcon />
+                ตั้งค่ารายวิชา
+              </TabsTrigger>
+            )}
+          </TabsList>
+          {tab === "lessons" && (
+            <Button onClick={() => setLessonWizard({ mode: "create" })}>
+              <PlusIcon />
+              เพิ่มบทเรียน
+            </Button>
           )}
-        </TabsList>
+        </div>
 
         <TabsContent value="lessons">
-          <LessonReorderList lessons={lessons} assignments={assignments} submissions={submissions} onReorder={handleReorder} onCreate={() => setCreateLessonOpen(true)} onDelete={handleDeleteLesson} />
+          <LessonReorderList
+            lessons={lessons}
+            assignments={assignments}
+            submissions={submissions}
+            onReorder={handleReorder}
+            onCreate={() => setLessonWizard({ mode: "create" })}
+            onEdit={(l) => setLessonWizard({ mode: "edit", lessonId: l.id })}
+            onDelete={handleDeleteLesson}
+          />
         </TabsContent>
         <TabsContent value="students">
           <StudentRoster
             students={enrolledStudents}
+            lessons={lessons}
             courseSubmissions={courseSubmissions}
             assignments={assignments}
+            testScores={enrolledScores}
             allStudents={students}
             allowedEmails={allowedEmails}
             onUpdateAllowedEmails={handleUpdateAllowedEmails}
@@ -445,11 +405,13 @@ export default function InstructorCourse() {
           </TabsContent>
         )}
       </Tabs>
-      {createLessonOpen && (
-        <CreateLessonDialog
-          onClose={() => setCreateLessonOpen(false)}
-          onCreate={handleCreateLesson}
-          loading={creatingLesson}
+      {lessonWizard && (
+        <LessonWizardDialog
+          lessonId={lessonWizard.mode === "edit" ? lessonWizard.lessonId : null}
+          courseId={courseId}
+          lessonsCount={lessons.length}
+          onClose={() => setLessonWizard(null)}
+          onChanged={reload}
         />
       )}
     </PageContainer>

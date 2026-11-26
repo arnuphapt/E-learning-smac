@@ -12,6 +12,7 @@ export function Content({
   loading = false,
   skeletonRows = 5,
   subRow,
+  onRowClick,
 }: {
   /** Shown when there are no rows (nothing loaded, or the filters match nothing). */
   empty?: ReactNode
@@ -19,6 +20,8 @@ export function Content({
   skeletonRows?: number
   /** Extra full-width row under a data row (e.g. expanded detail). Return null for none. */
   subRow?: (original: any) => ReactNode
+  /** Optional click handler for each data row. */
+  onRowClick?: (original: any) => void
 }) {
   const table = useDataTable()
   const rows = table.getRowModel().rows
@@ -70,7 +73,25 @@ export function Content({
             const sub = subRow?.(row.original)
             return (
               <Fragment key={row.id}>
-                <TableRow className="border-b border-border/60 transition-colors last:border-b-0 hover:bg-muted/40">
+                <TableRow
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            onRowClick(row.original)
+                          }
+                        }
+                      : undefined
+                  }
+                  tabIndex={onRowClick ? 0 : undefined}
+                  className={
+                    onRowClick
+                      ? "cursor-pointer border-b border-border/60 transition-colors last:border-b-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+                      : "border-b border-border/60 transition-colors last:border-b-0 hover:bg-muted/40"
+                  }
+                >
                   {row.getAllCells().map((cell) => (
                     <TableCell key={cell.id} className="px-4 py-3.5 text-sm">
                       <table.FlexRender cell={cell} />

@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LibraryBigIcon, PlusIcon } from "lucide-react";
+import { CircleCheckIcon, LibraryBigIcon, ListChecksIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
+import { StatCards } from "@/components/common/stat-cards";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { validateQuiz } from "@/lib/live";
@@ -154,35 +155,41 @@ export default function InstructorLiveQuizzesPage() {
     }
   }, [userId, actionLoading, fetchQuizzes]);
 
-  const handleDelete = useCallback(async (quiz: FormattedLiveQuiz) => {
-    if (actionLoading) return;
+  // One or many: the row's ลบ passes one quiz, the bulk bar passes the selection. Questions go with the quiz (FK cascade).
+  const deleteQuizzes = useCallback(async (list: FormattedLiveQuiz[]) => {
+    if (actionLoading || list.length === 0) return false;
     const ok = await confirm({
       danger: true,
-      title: "ยืนยันการลบชุดควิซ",
-      message: `คุณต้องการลบชุดควิซ “${quiz.title}” ใช่หรือไม่? คำถามทั้งหมดในชุดนี้จะถูกลบด้วยและไม่สามารถกู้คืนได้`,
-      confirmText: "ลบชุดควิซ",
+      title: list.length > 1 ? "ยืนยันการลบชุดควิซที่เลือก" : "ยืนยันการลบชุดควิซ",
+      message: list.length > 1
+        ? `คุณต้องการลบชุดควิซ ${list.length} ชุดใช่หรือไม่? คำถามทั้งหมดในชุดเหล่านี้จะถูกลบด้วยและไม่สามารถกู้คืนได้`
+        : `คุณต้องการลบชุดควิซ “${list[0].title}” ใช่หรือไม่? คำถามทั้งหมดในชุดนี้จะถูกลบด้วยและไม่สามารถกู้คืนได้`,
+      confirmText: list.length > 1 ? `ลบ ${list.length} ชุด` : "ลบชุดควิซ",
     });
-    if (!ok) return;
+    if (!ok) return false;
     setActionLoading(true);
     try {
       const { error } = await supabase
         .from("live_quizzes")
         .delete()
-        .eq("id", quiz.id);
+        .in("id", list.map((q) => q.id));
 
       if (error) throw error;
 
-      toast.success("ลบชุดควิซสำเร็จ");
+      toast.success(list.length > 1 ? `ลบชุดควิซ ${list.length} ชุดสำเร็จ` : "ลบชุดควิซสำเร็จ");
       await fetchQuizzes();
+      return true;
     } catch (err: unknown) {
       console.error("Error deleting quiz:", err);
       toast.error("ไม่สามารถลบชุดควิซได้: " + getErrorMessage(err));
+      return false;
     } finally {
       setActionLoading(false);
     }
   }, [actionLoading, confirm, fetchQuizzes]);
 
-  const columns = useMemo(() => quizColumns(handleDuplicate, handleDelete, actionLoading), [handleDuplicate, handleDelete, actionLoading]);
+  const columns = useMemo(() => quizColumns(handleDuplicate, (q) => void deleteQuizzes([q]), actionLoading), [handleDuplicate, deleteQuizzes, actionLoading]);
+  const readyCount = quizzes.filter((q) => q.validation?.ok).length;
 
   return (
     <PageContainer>
@@ -196,10 +203,34 @@ export default function InstructorLiveQuizzesPage() {
           </Button>
         }
       />
+      <StatCards
+        stats={[
+          { label: "ชุดควิซทั้งหมด", value: quizzes.length, icon: <LibraryBigIcon /> },
+          { label: "พร้อมเปิดห้อง", value: readyCount, icon: <CircleCheckIcon />, tone: "success" },
+          { label: "ยังไม่พร้อม", value: quizzes.length - readyCount, icon: <TriangleAlertIcon />, tone: "warning" },
+          { label: "คำถามรวม", value: quizzes.reduce((n, q) => n + q.questions.length, 0), icon: <ListChecksIcon /> },
+        ]}
+      />
       <DataTable.Root data={quizzes} columns={columns} getRowId={(r: FormattedLiveQuiz) => r.id} searchKeys={["title"]}>
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหาชื่อชุดควิซ" />
         </DataTable.Toolbar>
+        <DataTable.BulkBar<FormattedLiveQuiz>>
+          {({ rows, clear }) => (
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={actionLoading}
+              onClick={async () => {
+                if (await deleteQuizzes(rows)) clear();
+              }}
+            >
+              <Trash2Icon />
+              ลบที่เลือก
+            </Button>
+          )}
+        </DataTable.BulkBar>
         <DataTable.Content
           loading={(loading && !!user) || status === "loading"}
           empty={

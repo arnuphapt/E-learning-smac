@@ -1,10 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { toast } from "sonner"
 import { CheckIcon, PlusIcon, TargetIcon, Trash2Icon } from "lucide-react"
-import { supabase } from "@/lib/supabase"
-import type { Json } from "@/lib/database.types"
 import { FormField } from "@/components/common/form-field"
 import { ToneBadge } from "@/components/common/status-badge"
 import { Button } from "@/components/ui/button"
@@ -14,8 +11,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { useDeleteAssignment } from "./assignment-actions"
-import { errMsg, getTodayStr, maskTime, parseCriteria, type AssignmentRow, type LessonRow, type RubricCriterion, type RubricRow } from "./types"
+import { saveAssignmentWithRubric, useDeleteAssignment } from "./assignment-actions"
+import { getTodayStr, maskTime, parseCriteria, type AssignmentRow, type LessonRow, type RubricCriterion, type RubricRow } from "./types"
 
 function OptionCheck({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -58,32 +55,20 @@ export function AssignmentSheet({
   const patchCriterion = (id: string, p: Partial<RubricCriterion>) => setCriteria((cs) => cs.map((c) => (c.id === id ? { ...c, ...p } : c)))
 
   const handleSave = async () => {
-    const asgObj = { title, instructions, due, due_time: dueTime, allow_late: allowLate, points: total, allow_file: allowFile, allow_text: allowText, lesson_id: lesson.id, course_id: lesson.course_id }
-
-    let error: { message: string } | null = null
-    let assignmentId = a.id || ""
-    if (a.id) {
-      ;({ error } = await supabase.from("assignments").update(asgObj).eq("id", a.id))
-    } else {
-      assignmentId = "a_" + Date.now()
-      ;({ error } = await supabase.from("assignments").insert([{ id: assignmentId, ...asgObj }]))
-    }
-
-    if (!error) {
-      const criteriaJson = criteria as unknown as Json
-      if (rubric?.id) {
-        ;({ error } = await supabase.from("rubrics").update({ criteria: criteriaJson }).eq("id", rubric.id))
-      } else {
-        const rubricId = "r_" + Date.now()
-        ;({ error } = await supabase.from("rubrics").insert([{ id: rubricId, title: title + " Rubric", criteria: criteriaJson }]))
-        if (!error && !a.id) await supabase.from("assignments").update({ rubric_id: rubricId }).eq("id", assignmentId)
-      }
-    }
-
-    if (error) {
-      toast.error("เกิดข้อผิดพลาดในการบันทึก: " + errMsg(error))
-    } else {
-      toast.success("บันทึกใบงานและ Rubric เรียบร้อยแล้ว")
+    const ok = await saveAssignmentWithRubric({
+      lesson,
+      assignmentId: a.id,
+      rubricId: rubric?.id,
+      title,
+      instructions,
+      due,
+      dueTime,
+      allowLate,
+      allowFile,
+      allowText,
+      criteria,
+    })
+    if (ok) {
       onSaved()
       onClose()
     }

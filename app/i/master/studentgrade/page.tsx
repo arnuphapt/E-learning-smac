@@ -112,6 +112,18 @@ export default function MasterStudentGradePage() {
     }
   };
 
+  const handleBulkDeleteGrades = async (rows: GradeTableRow[]) => {
+    const ids = rows.map((r) => r.id);
+    const { error } = await supabase.from("student_grades").delete().in("id", ids);
+    if (error) {
+      toast.error("เกิดข้อผิดพลาดในการลบข้อมูล: " + error.message);
+      return false;
+    }
+    setGradesList((prev) => prev.filter((r) => !ids.includes(r.id)));
+    toast.success(`ลบการกำหนดชั้นปี ${ids.length} รายการเรียบร้อยแล้ว`);
+    return true;
+  };
+
   const rows = useMemo<GradeTableRow[]>(
     () =>
       gradesList.map((g) => ({
@@ -145,6 +157,11 @@ export default function MasterStudentGradePage() {
         { column: "domainKey", options: domainOptions, allLabel: "โดเมน: ทั้งหมด" },
         { column: "year_label", options: yearOptions, allLabel: "ระดับชั้นปี: ทั้งหมด" },
       ]}
+      bulkDelete={{
+        noun: "การกำหนดชั้นปี",
+        rowLabel: (r) => `${r.scopeText} ${r.year_label}`,
+        onDelete: handleBulkDeleteGrades,
+      }}
       data={rows}
       columns={columns}
       loading={loading}
