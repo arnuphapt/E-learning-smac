@@ -54,9 +54,6 @@ export interface LookupState {
   assigned: string[]
 }
 
-// Tutor-set card colours: stored as courses.hero, so they are data (hex), not theme tokens.
-export const HERO_COLORS = ["#4338a8", "#0d6e8c", "#1e5fa8", "#2f7d5b", "#b4530b", "#0b1220"]
-
 const yearNo = (label: string) => parseInt(String(label).replace(/\D/g, ""), 10)
 export const normYears = (list: readonly (number | string)[] | null | undefined): number[] => (list || []).map(Number).filter(Boolean)
 export const sameList = <T,>(a: readonly T[], b: readonly T[]) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort())

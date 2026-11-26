@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { PickerDialog } from "./picker-dialog"
 import { SettingsAccessCard } from "./settings-access-card"
 import { SettingsInfoCard } from "./settings-info-card"
-import { getAllowedEmails, HERO_COLORS, normYears, sameList, useTutorLookup, type TutorCourse } from "./settings-lookup"
+import { getAllowedEmails, normYears, sameList, useTutorLookup, type TutorCourse } from "./settings-lookup"
 import { SettingsStaffCard } from "./settings-staff-card"
 
 // Set details and the lock (who can enter). Tutor sets fail closed: with no year / section / email the set is open to
@@ -33,7 +33,6 @@ export function TutorSettings({
   const confirm = useConfirm()
   const [title, setTitle] = useState(course.title || "")
   const [subtitle, setSubtitle] = useState(course.subtitle || "")
-  const [hero, setHero] = useState(course.hero || HERO_COLORS[0])
   const [years, setYears] = useState(normYears(course.year_level))
   const [section, setSection] = useState(course.section || "")
   const [emails, setEmails] = useState(getAllowedEmails(course.access))
@@ -58,7 +57,6 @@ export function TutorSettings({
   const dirty =
     title !== (course.title || "") ||
     subtitle !== (course.subtitle || "") ||
-    hero !== (course.hero || HERO_COLORS[0]) ||
     section !== (course.section || "") ||
     !sameList(years, normYears(course.year_level)) ||
     !sameList(emails, getAllowedEmails(course.access)) ||
@@ -74,7 +72,6 @@ export function TutorSettings({
       const fields: Database["public"]["Tables"]["courses_all"]["Update"] = {
         title: title.trim(),
         subtitle,
-        hero,
         year_level: years,
         section: section || null,
         access: draftAccess,
@@ -157,7 +154,7 @@ export function TutorSettings({
 
   return (
     <div className="grid max-w-4xl gap-4">
-      <SettingsInfoCard code={course.code} title={title} onTitle={setTitle} subtitle={subtitle} onSubtitle={setSubtitle} hero={hero} onHero={setHero} />
+      <SettingsInfoCard code={course.code} title={title} onTitle={setTitle} subtitle={subtitle} onSubtitle={setSubtitle} />
       <SettingsAccessCard
         lookup={lookup}
         lock={lock}

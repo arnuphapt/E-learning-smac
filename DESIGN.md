@@ -4,9 +4,9 @@ Nursing college LMS (student, tutor, instructor). The UI is stock shadcn/ui, new
 
 ## Theme
 
-- Tokens are in `app/globals.css`: the stock shadcn neutral set (oklch) plus extra semantic tokens `success`, `warning`, `info` (each with `-soft`) and `primary-soft`. No raw hex in components.
-- Fonts: IBM Plex Sans Thai / IBM Plex Sans (`font-sans`), Noto Serif Thai (`font-serif`, landing headings), IBM Plex Mono (`font-mono`). Loaded in `app/layout.tsx`.
-- Dark tokens exist but no theme switch is wired.
+- Tokens are in `app/globals.css`: Clean Flat teal theme (oklch) with `#0d6e8c` primary, `#f1f5f9` canvas, `#ffffff` cards, `#0f172a` ink, plus semantic `success`, `warning`, `info` (each with `-soft`), `primary-soft`, and `amber-accent` (`--accent-amber` for scores, rewards, and due-soon highlights). No raw hex in components.
+- Separation relies on 1px `--border` and background tints; subtle single-layer shadows (`--shadow-xs`..`--shadow-lg`) are reserved for floating layers. Moderate radius: `8px` controls (`--radius`), `12px` cards (`rounded-xl`).
+- Fonts: IBM Plex Sans Thai / IBM Plex Sans (`font-sans`), Noto Serif Thai (`font-serif`, headings), IBM Plex Mono (`font-mono`), loaded in `app/layout.tsx`. Dark tokens are kept consistent though no theme switch is wired.
 
 ## Layout of the code
 

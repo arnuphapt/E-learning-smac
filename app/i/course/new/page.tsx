@@ -15,8 +15,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { LoadingState } from "@/components/common/states";
 import type { UserRow } from "@/components/common/manager-select";
 import { Button } from "@/components/ui/button";
-import { CourseColorCard } from "@/components/course/color-card";
-import { COURSE_COLORS, type CourseDraft, type SectionRow, type SubjectGroupRow, type TermRow } from "@/components/course/draft";
+import { type CourseDraft, type SectionRow, type SubjectGroupRow, type TermRow } from "@/components/course/draft";
 import { CourseInfoCard } from "@/components/course/info-card";
 import { CoursePreviewCard } from "@/components/course/preview-card";
 
@@ -41,7 +40,6 @@ export default function CreateCourse() {
     title: "",
     code: "",
     subtitle: "",
-    color: COURSE_COLORS[0],
     term: "",
     credits: "3 (2-2-5)",
     subjectGroup: "",
@@ -127,7 +125,7 @@ export default function CreateCourse() {
   const namesOf = (ids: string[]) => ids.map((id) => instructors.find((u) => u.id === id)?.name).filter((n): n is string => Boolean(n));
 
   const create = async () => {
-    const { title, code, subtitle, term, subjectGroup, section, color, yearLevels, coInstructors } = draft;
+    const { title, code, subtitle, term, subjectGroup, section, yearLevels, coInstructors } = draft;
     if (!title || !code) {
       toast.error("กรุณากรอกชื่อวิชาและรหัสวิชา");
       return;
@@ -161,7 +159,7 @@ export default function CreateCourse() {
       lessons: 0,
       students: 0,
       progress: 0,
-      hero: color,
+      hero: "#0d6e8c",
       year_level: yearLevels.map((y) => {
         const parsed = parseInt(String(y).replace(/\D/g, ""), 10);
         return isNaN(parsed) ? null : parsed;
@@ -218,7 +216,6 @@ export default function CreateCourse() {
             instructors={instructors}
             yearLabels={masterYearLabels}
           />
-          <CourseColorCard color={draft.color} onChange={(color) => patch({ color })} />
         </div>
 
         {/* live preview + actions */}

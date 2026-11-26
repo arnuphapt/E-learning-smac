@@ -2,15 +2,21 @@ const topics = ["เอกสารประกอบการสอน", "ว�
 
 export function LandingTopics() {
   return (
-    <div className="border-y bg-primary text-primary-foreground">
-      <ul className="mx-auto flex max-w-6xl flex-wrap justify-center gap-x-8 gap-y-2 px-5 py-5 sm:px-8">
+    <div className="strip" aria-hidden="true">
+      <div className="strip-row">
         {topics.map((t) => (
-          <li key={t} className="flex items-center gap-2 font-serif">
-            <span className="size-1.5 rounded-full bg-primary-foreground" aria-hidden />
+          <span key={`a-${t}`} className="strip-item">
+            <span className="dot" />
             {t}
-          </li>
+          </span>
         ))}
-      </ul>
+        {topics.map((t) => (
+          <span key={`b-${t}`} className="strip-item">
+            <span className="dot" />
+            {t}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }

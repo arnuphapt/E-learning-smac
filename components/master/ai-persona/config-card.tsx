@@ -31,14 +31,6 @@ const CONFIG_FIELDS: Array<{ key: Exclude<ConfigKey, "model">; label: string; de
   { key: "max_output_tokens_with_files", label: "Max Output (มีไฟล์/สรุป)", desc: "จำนวน token สูงสุดเมื่อมีไฟล์แนบหรือโหมดสรุป", unit: "tokens", icon: FolderIcon },
 ]
 
-function IconTile({ icon: Icon, className }: { icon: ComponentType<{ className?: string }>; className?: string }) {
-  return (
-    <div className="grid shrink-0 place-items-center rounded-lg bg-primary-soft text-primary" aria-hidden>
-      <Icon className={className} />
-    </div>
-  )
-}
-
 export function ConfigCard({
   draft,
   isCustomModel,
@@ -82,7 +74,7 @@ export function ConfigCard({
         <div className="flex flex-col gap-3 rounded-xl border bg-muted p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <IconTile icon={SparklesIcon} className="size-9 p-2" />
+              <SparklesIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <div>
                 <label htmlFor="default-ai-model" className="block text-sm font-bold">
                   โมเดลเริ่มต้นของระบบ (Default AI Model)
@@ -130,10 +122,10 @@ export function ConfigCard({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {CONFIG_FIELDS.map(({ key, label, desc, unit, icon }) => (
+          {CONFIG_FIELDS.map(({ key, label, desc, unit, icon: Icon }) => (
             <div key={key} className="flex flex-col gap-2 rounded-xl border bg-muted p-4">
               <div className="flex items-center gap-2">
-                <IconTile icon={icon} className="size-8 p-2" />
+                <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                 <div>
                   <label htmlFor={`config-${key}`} className="block text-sm font-bold">
                     {label}

@@ -1,16 +1,38 @@
 import { GraduationCap } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export function LandingBrand({ subtitle, className }: { subtitle?: string; className?: string }) {
-  return (
-    <a href="#top" className={cn("flex items-center gap-3", className)}>
-      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+type LandingBrandProps = {
+  title?: string
+  subtitle?: string
+  asLink?: boolean
+  className?: string
+}
+
+export function LandingBrand({
+  title = "Digital Learning Space",
+  subtitle,
+  asLink = true,
+  className,
+}: LandingBrandProps) {
+  const content = (
+    <>
+      <span className="mk">
         <GraduationCap className="size-5" aria-hidden />
       </span>
-      <span className="text-left font-semibold leading-tight">
-        Digital Learning Space
-        {subtitle && <small className="hidden text-xs font-normal text-muted-foreground sm:block">{subtitle}</small>}
+      <span>
+        {title}
+        {subtitle && <small>{subtitle}</small>}
       </span>
+    </>
+  )
+
+  if (!asLink) {
+    return <div className={cn("brand", className)}>{content}</div>
+  }
+
+  return (
+    <a href="#top" className={cn("brand", className)}>
+      {content}
     </a>
   )
 }

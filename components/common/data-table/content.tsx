@@ -24,9 +24,9 @@ export function Content({
   const colCount = table.getAllLeafColumns().length || 1
 
   return (
-    <div className="rounded-md border">
+    <div className="overflow-hidden rounded-xl border bg-card">
       <Table>
-        <TableHeader>
+        <TableHeader className="bg-muted/50">
           {table.getHeaderGroups().map((group) => (
             <TableRow key={group.id}>
               {group.headers.map((header) => (

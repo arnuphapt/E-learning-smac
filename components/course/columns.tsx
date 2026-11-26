@@ -8,23 +8,6 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { EnrichedCourse } from "./types"
 
-/** Course colour chip: tint comes from the course's own `hero` colour, so it is computed. */
-function CourseSwatch({ hero, code }: { hero: string | null; code: string | null }) {
-  const color = hero && hero.startsWith("#") ? hero : "var(--primary)"
-  return (
-    <div
-      className="grid size-10 shrink-0 place-items-center rounded-lg border text-xs font-bold"
-      style={{
-        color,
-        backgroundColor: `color-mix(in oklab, ${color} 12%, transparent)`,
-        borderColor: `color-mix(in oklab, ${color} 28%, transparent)`,
-      }}
-    >
-      {(code || "").slice(-3)}
-    </div>
-  )
-}
-
 export function courseColumns({
   expanded,
   onToggle,
@@ -63,13 +46,10 @@ export function courseColumns({
       cell: ({ row }) => {
         const c: EnrichedCourse = row.original
         return (
-          <div className="flex min-w-64 items-center gap-3">
-            <CourseSwatch hero={c.hero} code={c.code} />
-            <div className="min-w-0">
-              <div className="font-semibold">{c.title}</div>
-              <div className="text-xs text-muted-foreground">
-                {c.code} · {c.subtitle?.slice(0, 28) || ""}…
-              </div>
+          <div className="min-w-64">
+            <div className="font-semibold">{c.title}</div>
+            <div className="text-xs text-muted-foreground">
+              {c.code} · {c.subtitle?.slice(0, 28) || ""}…
             </div>
           </div>
         )

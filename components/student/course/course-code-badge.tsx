@@ -1,12 +1,11 @@
 import type { ReactNode } from "react"
 import { Badge } from "@/components/ui/badge"
-import { heroColor, tint } from "./types"
 
-/** Pill in the course's own colour (computed from the database hex, so inline style). */
-export function CourseCodeBadge({ hero, children }: { hero: string | null | undefined; children: ReactNode }) {
-  const color = heroColor(hero)
+/** Neutral outline pill for course codes (hero prop kept optional for caller compatibility). */
+export function CourseCodeBadge({ hero: _hero, children }: { hero?: string | null; children: ReactNode }) {
+  void _hero
   return (
-    <Badge variant="outline" style={{ background: tint(color, 12), borderColor: tint(color, 28), color }}>
+    <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
       {children}
     </Badge>
   )

@@ -9,7 +9,6 @@ export interface CourseDraft {
   title: string
   code: string
   subtitle: string
-  color: string
   term: string
   credits: string
   subjectGroup: string
@@ -19,6 +18,3 @@ export interface CourseDraft {
   mainManagers: string[] | null
   coInstructors: string[]
 }
-
-/** Preset cover colours; stored as the course's `hero` value. */
-export const COURSE_COLORS = ["#0d6e8c", "#1e5fa8", "#2f7d5b", "#5b4b9e", "#b4530b", "#0b1220"]
