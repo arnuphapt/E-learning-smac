@@ -7,16 +7,18 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { asTestObj, type CourseLessonItem, type LessonTestStatus } from "./use-course-detail"
 
-type ChipTone = "success" | "warning" | "muted"
+type ChipTone = "success" | "warning" | "amber" | "muted"
 type Chip = { text: string; tone: ChipTone; icon: ReactNode }
 
 const toneClass: Record<ChipTone, string> = {
   success: "border-transparent bg-success-soft text-success",
   warning: "border-transparent bg-warning-soft text-warning",
+  amber: "border-transparent bg-amber-accent-soft text-amber-accent-strong",
   muted: "border-transparent bg-muted text-muted-foreground",
 }
 
 const scoreText = (t: LessonTestStatus) => (t.score !== null && t.score !== undefined ? ` (${t.score}/${t.total} คะแนน)` : " (ทำแล้ว)")
+const hasScore = (t: LessonTestStatus) => t.score !== null && t.score !== undefined
 
 function lessonChips(l: CourseLessonItem): Chip[] {
   const chips: Chip[] = []
@@ -26,12 +28,12 @@ function lessonChips(l: CourseLessonItem): Chip[] {
   const clip = <ClipboardListIcon />
 
   if (pretest) {
-    if (pretest.taken) chips.push({ text: `Pre-test${scoreText(pretest)}`, tone: "success", icon: done })
+    if (pretest.taken) chips.push({ text: `Pre-test${scoreText(pretest)}`, tone: hasScore(pretest) ? "amber" : "success", icon: done })
     else if (pretest.required) chips.push({ text: "Pre-test (ต้องทำ)", tone: "warning", icon: clip })
     else chips.push({ text: "Pre-test (ไม่บังคับ)", tone: "muted", icon: clip })
   }
   if (posttest?.required) {
-    if (posttest.taken) chips.push({ text: `Post-test${scoreText(posttest)}`, tone: "success", icon: done })
+    if (posttest.taken) chips.push({ text: `Post-test${scoreText(posttest)}`, tone: hasScore(posttest) ? "amber" : "success", icon: done })
     else chips.push({ text: "Post-test (ยังไม่ได้ทำ)", tone: "muted", icon: clip })
   }
   if (l.assignments && l.assignments.length > 0) {

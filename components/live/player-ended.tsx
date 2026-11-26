@@ -35,7 +35,7 @@ export function PlayerEnded({ state }: { state: PlayerEndedState }) {
         <Card
           className={cn(
             "gap-0 border-2 p-6 shadow-lg sm:p-8",
-            isPodium && "border-amber-300 bg-amber-50/40 ring-4 ring-amber-100",
+            isPodium && "border-amber-accent/40 bg-amber-accent-soft/40 ring-4 ring-amber-accent-soft",
           )}
         >
           <div className="mb-3 text-5xl sm:text-6xl" aria-hidden>
@@ -50,7 +50,7 @@ export function PlayerEnded({ state }: { state: PlayerEndedState }) {
 
           <Separator className="my-4" />
           <span className="mb-1 block text-xs text-muted-foreground">คะแนนรวมทั้งหมด</span>
-          <span className="font-mono text-3xl font-black text-primary tabular-nums sm:text-4xl">
+          <span className="font-mono text-3xl font-black text-amber-accent tabular-nums sm:text-4xl">
             {(me.totalScore || 0).toLocaleString()} <span className="text-base font-normal text-muted-foreground">คะแนน</span>
           </span>
         </Card>

@@ -1,10 +1,9 @@
 "use client"
 
-import { ColumnHeader, type DataTableColumnDef } from "@/components/common/data-table"
+import { AvatarCell, ColumnHeader, ProgressCell, type DataTableColumnDef } from "@/components/common/data-table"
 import { StatusBadge, ToneBadge } from "@/components/common/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { StudentCell } from "./student-cell"
 import type { StudentFallback, SubmissionRow, TestKind, TestScoreRow } from "./scores"
 
 export interface TestScoreItem {
@@ -44,7 +43,7 @@ export function testScoreColumns(onOpen: (item: TestScoreItem, kind: TestKind) =
     {
       accessorKey: "name",
       header: ({ column }) => <ColumnHeader column={column} title="นักศึกษา" />,
-      cell: ({ row }) => <StudentCell name={row.original.name} studentNo={row.original.studentNo} />,
+      cell: ({ row }) => <AvatarCell name={row.original.name} subtitle={row.original.studentNo || "-"} />,
     },
     {
       accessorKey: "section",
@@ -83,7 +82,7 @@ export const asgScoreColumns: DataTableColumnDef[] = [
   {
     accessorKey: "name",
     header: ({ column }) => <ColumnHeader column={column} title="นักศึกษา" />,
-    cell: ({ row }) => <StudentCell name={row.original.name} studentNo={row.original.studentNo} />,
+    cell: ({ row }) => <AvatarCell name={row.original.name} subtitle={row.original.studentNo || "-"} />,
   },
   {
     accessorKey: "assignmentTitle",
@@ -109,9 +108,7 @@ export const asgScoreColumns: DataTableColumnDef[] = [
     cell: ({ row }) => {
       const sub = row.original.sub
       return sub.score != null ? (
-        <span className="font-semibold tabular-nums">
-          {sub.score}/{sub.total}
-        </span>
+        <ProgressCell value={sub.score} max={sub.total ?? 100} label={`${sub.score}/${sub.total}`} score />
       ) : (
         <span className="text-sm text-muted-foreground">—</span>
       )

@@ -2,9 +2,8 @@
 
 import { EyeIcon } from "lucide-react"
 import type { Database } from "@/lib/database.types"
-import { ColumnHeader, useDataTable, type DataTableColumnDef } from "@/components/common/data-table"
+import { AvatarCell, ColumnHeader, useDataTable, type DataTableColumnDef } from "@/components/common/data-table"
 import { ToneBadge, type StatusTone } from "@/components/common/status-badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { masterActionsColumn } from "@/components/master/list-page"
 import type { RoleSummary, SubjectGroupRow, UserItem } from "./user-dialog"
@@ -70,17 +69,7 @@ export function userColumns({
     {
       accessorKey: "name",
       header: ({ column }) => <ColumnHeader column={column} title="ชื่อ-นามสกุล" />,
-      cell: ({ row }) => {
-        const name: string = row.original.name
-        return (
-          <div className="flex items-center gap-2">
-            <Avatar className="size-7">
-              <AvatarFallback className="text-xs">{(name ? name.replace(/^อ\. (ดร\. )?/, "") : "?").charAt(0)}</AvatarFallback>
-            </Avatar>
-            <span className="font-semibold">{name}</span>
-          </div>
-        )
-      },
+      cell: ({ row }) => <AvatarCell name={row.original.name} />,
     },
     {
       accessorKey: "email",

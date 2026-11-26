@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { BookOpenIcon, FilterIcon, LayoutGridIcon, ListIcon } from "lucide-react";
 import { PageContainer } from "@/components/common/page-container";
 import { PageHeader } from "@/components/common/page-header";
@@ -11,11 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CourseCard } from "@/components/student/course/course-card";
 import { useStudentCourses } from "@/components/student/course/use-student-courses";
+import { StudentHomeSummary } from "@/components/student/home/summary-band";
 
 const VIEW_KEY = "nl_course_view";
 const ALL = "all";
 
 export default function StudentCourses() {
+  const { data: session } = useSession();
   const { courses, years, loading } = useStudentCourses();
   const [year, setYear] = useState(ALL);
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -41,6 +44,8 @@ export default function StudentCourses() {
         title="รายวิชาของฉัน"
         description="เลือกรายวิชาเพื่อเข้าเรียนบทเรียน ทำแบบทดสอบ และส่งใบงาน"
       />
+
+      <StudentHomeSummary userName={session?.user?.name} courses={courses} />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">

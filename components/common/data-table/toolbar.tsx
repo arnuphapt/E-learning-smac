@@ -14,14 +14,18 @@ import { cn } from "@/lib/utils"
 import { useDataTable } from "./context"
 
 export function Toolbar({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("flex flex-wrap items-center gap-3 pb-4", className)}>{children}</div>
+  return (
+    <div className={cn("flex flex-wrap items-center gap-2 border-b border-border/60 px-4 py-3.5 sm:px-5 sm:py-4", className)}>
+      {children}
+    </div>
+  )
 }
 
 export function Search({ placeholder = "ค้นหาข้อมูล…", className }: { placeholder?: string; className?: string }) {
   const table = useDataTable()
   const value = (table.state.globalFilter as string | undefined) ?? ""
   return (
-    <div className={cn("relative min-w-60 flex-1", className)}>
+    <div className={cn("relative min-w-52 flex-1 sm:max-w-xs", className)}>
       <SearchIcon aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="search"
@@ -29,7 +33,7 @@ export function Search({ placeholder = "ค้นหาข้อมูล…", c
         placeholder={placeholder}
         value={value}
         onChange={(e) => table.setGlobalFilter(e.target.value || undefined)}
-        className="bg-card pl-9"
+        className="h-9 bg-card pl-9"
       />
     </div>
   )
@@ -58,7 +62,7 @@ export function Filter({
   const current = (col?.getFilterValue() as string | undefined) ?? ALL
   return (
     <Select value={current} onValueChange={(v) => col?.setFilterValue(v === ALL ? undefined : v)}>
-      <SelectTrigger aria-label={placeholder ?? allLabel} className={cn("w-44 bg-card", className)}>
+      <SelectTrigger aria-label={placeholder ?? allLabel} className={cn("h-9 w-44 bg-card", className)}>
         <SelectValue placeholder={placeholder ?? allLabel} />
       </SelectTrigger>
       <SelectContent>
@@ -74,5 +78,5 @@ export function Filter({
 }
 
 export function Actions({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("ml-auto flex items-center gap-2", className)}>{children}</div>
+  return <div className={cn("ml-auto flex flex-wrap items-center gap-2", className)}>{children}</div>
 }

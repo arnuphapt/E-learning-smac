@@ -1,11 +1,10 @@
 "use client"
 
-import { ColumnHeader, type DataTableColumnDef } from "@/components/common/data-table"
+import { AvatarCell, ColumnHeader, ProgressCell, type DataTableColumnDef } from "@/components/common/data-table"
 import { StatusBadge, ToneBadge } from "@/components/common/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { StudentCell } from "./student-cell"
 import type { SubmissionRow } from "./scores"
 
 export interface EnrichedSubmission extends SubmissionRow {
@@ -39,7 +38,7 @@ export function submissionColumns(onGrade: (id: string) => void): DataTableColum
             disabled={!can}
             onClick={() => onGrade(sub.id)}
           >
-            <StudentCell name={sub.studentName} studentNo={sub.studentNo} />
+            <AvatarCell name={sub.studentName} subtitle={sub.studentNo || "-"} />
           </Button>
         )
       },
@@ -82,11 +81,7 @@ export function submissionColumns(onGrade: (id: string) => void): DataTableColum
       cell: ({ row }) => {
         const sub = row.original as EnrichedSubmission
         if (sub.score != null) {
-          return (
-            <span className="font-bold tabular-nums">
-              {sub.score}/{sub.total}
-            </span>
-          )
+          return <ProgressCell value={sub.score} max={sub.total ?? 100} label={`${sub.score}/${sub.total}`} score />
         }
         return sub.status !== "not-submitted" ? <span className="text-sm text-muted-foreground">รอตรวจ</span> : dash
       },

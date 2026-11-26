@@ -7,7 +7,6 @@ export function ScoreRing({ value, total, size = 132, label, className }: { valu
   const c = 2 * Math.PI * r
   const tone = pct >= 0.8 ? "success" : pct >= 0.5 ? "primary" : "warning"
   const stroke = { success: "stroke-success", primary: "stroke-primary", warning: "stroke-warning" }[tone]
-  const text = { success: "text-success", primary: "text-primary", warning: "text-warning" }[tone]
   return (
     <div className={cn("relative shrink-0", className)} style={{ width: size, height: size }} role="img" aria-label={`${value} ${label || "จาก " + total}`}>
       <svg width={size} height={size} className="-rotate-90">
@@ -26,7 +25,7 @@ export function ScoreRing({ value, total, size = 132, label, className }: { valu
       </svg>
       <div className="absolute inset-0 grid place-items-center text-center">
         <div>
-          <div className={cn("leading-none font-bold tabular-nums", text)} style={{ fontSize: size * 0.3 }}>
+          <div className="leading-none font-bold text-amber-accent tabular-nums" style={{ fontSize: size * 0.3 }}>
             {value}
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">{label || "จาก " + total}</div>

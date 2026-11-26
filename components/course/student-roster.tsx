@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from "react"
 import { UsersIcon } from "lucide-react"
-import { DataTable, ColumnHeader, type DataTableColumnDef } from "@/components/common/data-table"
+import { AvatarCell, ColumnHeader, DataTable, ProgressCell, type DataTableColumnDef } from "@/components/common/data-table"
 import { EmptyState } from "@/components/common/states"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { StudentAccessDialog } from "./student-access-dialog"
 import { getStudentSectionName, type CourseAssignmentRef, type SectionRow, type StudentRow, type SubmissionRow } from "./detail"
 
@@ -30,31 +29,29 @@ const columns: DataTableColumnDef[] = [
     accessorKey: "name",
     header: ({ column }) => <ColumnHeader column={column} title="ชื่อ-นามสกุล" />,
     cell: ({ row }) => (
-      <div className="flex items-center gap-2 font-semibold">
-        {row.original.name}
-        {row.original.special && (
-          <Badge variant="secondary" title="นักศึกษาเพิ่มกรณีพิเศษ (Manual)">
-            กรณีพิเศษ
-          </Badge>
-        )}
-      </div>
+      <AvatarCell
+        name={row.original.name}
+        badge={
+          row.original.special ? (
+            <Badge variant="secondary" title="นักศึกษาเพิ่มกรณีพิเศษ (Manual)">
+              กรณีพิเศษ
+            </Badge>
+          ) : undefined
+        }
+      />
     ),
   },
   { accessorKey: "section", header: ({ column }) => <ColumnHeader column={column} title="Section" /> },
   {
     accessorKey: "submitted",
     header: ({ column }) => <ColumnHeader column={column} title="ความคืบหน้า" />,
-    cell: ({ row }) => {
-      const { submitted, total } = row.original
-      return (
-        <div className="flex min-w-32 items-center gap-3">
-          <Progress value={total > 0 ? (submitted / total) * 100 : 0} aria-label="ความคืบหน้าการส่งงาน" />
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {submitted}/{total}
-          </span>
-        </div>
-      )
-    },
+    cell: ({ row }) => (
+      <ProgressCell
+        value={row.original.submitted}
+        max={row.original.total}
+        label={`${row.original.submitted}/${row.original.total}`}
+      />
+    ),
   },
 ]
 

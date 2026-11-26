@@ -51,16 +51,22 @@ const columns: DataTableColumnDef[] = [
   {
     accessorKey: "rank",
     header: ({ column }) => <ColumnHeader column={column} title="อันดับ" />,
-    cell: ({ row }) => (
-      <Badge variant="secondary">
-        อันดับ {row.original.rank} / {row.original.playerCount} คน
-      </Badge>
-    ),
+    cell: ({ row }) => {
+      const top3 = row.original.rank >= 1 && row.original.rank <= 3;
+      return (
+        <Badge
+          variant={top3 ? "outline" : "secondary"}
+          className={top3 ? "border-transparent bg-amber-accent-soft font-semibold text-amber-accent-strong" : undefined}
+        >
+          อันดับ {row.original.rank} / {row.original.playerCount} คน
+        </Badge>
+      );
+    },
   },
   {
     accessorKey: "score",
     header: ({ column }) => <ColumnHeader column={column} title="คะแนนที่ได้" />,
-    cell: ({ row }) => <span className="font-bold text-foreground tabular-nums">{row.original.score.toLocaleString()}</span>,
+    cell: ({ row }) => <span className="font-bold text-amber-accent tabular-nums">{row.original.score.toLocaleString()}</span>,
   },
 ];
 
@@ -112,6 +118,23 @@ export default function StudentQuizHistory() {
         <ErrorState description={error} />
       ) : (
         <DataTable.Root data={history} columns={columns} getRowId={(r: QuizHistoryItem) => r.id} searchKeys={["title", "team"]}>
+          {history.length > 0 && (
+            <DataTable.Stats
+              items={[
+                { label: "จำนวนครั้งที่เล่น", value: history.length, tone: "primary" },
+                {
+                  label: "คะแนนสูงสุด",
+                  value: Math.max(...history.map((h) => h.score)).toLocaleString(),
+                  tone: "amber",
+                },
+                {
+                  label: "อันดับดีที่สุด",
+                  value: `อันดับ ${Math.min(...history.map((h) => h.rank))}`,
+                  tone: "amber",
+                },
+              ]}
+            />
+          )}
           <DataTable.Content
             loading={loading}
             empty={

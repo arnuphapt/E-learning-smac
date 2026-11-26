@@ -3,7 +3,7 @@
 import { DownloadIcon, FileSpreadsheetIcon, FilterIcon } from "lucide-react"
 import type { Database } from "@/lib/database.types"
 import { FormField } from "@/components/common/form-field"
-import { DataTable, type DataTableColumnDef } from "@/components/common/data-table"
+import { AvatarCell, DataTable, ProgressCell, type DataTableColumnDef } from "@/components/common/data-table"
 import { StatusBadge } from "@/components/common/status-badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -99,7 +99,7 @@ export function ColumnPicker({ columns, selected, onToggle }: { columns: string[
 /** First rows of the export, as it will look in the file. */
 export function ReportPreview({ students, testScores, submissions }: { students: StudentRow[]; testScores: TestScoreRow[]; submissions: SubmissionRow[] }) {
   const columns: DataTableColumnDef[] = [
-    { accessorKey: "name", header: "ชื่อ-นามสกุล", cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
+    { accessorKey: "name", header: "ชื่อ-นามสกุล", cell: ({ row }) => <AvatarCell name={row.original.name} /> },
     { accessorKey: "student_no", header: "รหัส", cell: ({ row }) => <span className="tabular-nums">{row.original.student_no || "-"}</span> },
     { accessorKey: "section", header: "Sec", cell: ({ row }) => row.original.section || "-" },
     { id: "pre", header: "Pre", cell: ({ row }) => <span className="tabular-nums">{testScores.find((x) => x.student_id === row.original.id)?.pre ?? "-"}</span> },
@@ -109,7 +109,11 @@ export function ReportPreview({ students, testScores, submissions }: { students:
       header: "ใบงาน",
       cell: ({ row }) => {
         const sub = submissions.find((x) => x.student_id === row.original.id)
-        return <span className="tabular-nums">{sub && sub.score != null ? sub.score : "-"}</span>
+        return sub && sub.score != null ? (
+          <ProgressCell value={sub.score} max={sub.total ?? 100} label={String(sub.score)} score />
+        ) : (
+          <span className="tabular-nums">-</span>
+        )
       },
     },
     {

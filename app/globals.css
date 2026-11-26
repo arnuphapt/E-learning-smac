@@ -52,6 +52,7 @@
   --color-primary-soft: var(--primary-soft);
   --color-primary-soft-foreground: var(--primary-soft-foreground);
   --color-amber-accent: var(--accent-amber);
+  --color-amber-accent-strong: var(--accent-amber-strong);
   --color-amber-accent-foreground: var(--accent-amber-foreground);
   --color-amber-accent-soft: var(--accent-amber-soft);
   --radius-sm: calc(var(--radius) - 4px);
@@ -82,21 +83,21 @@
   --accent-foreground: oklch(0.282 0.045 224.7);
   --destructive: oklch(0.521 0.164 18.0);
   --border: oklch(0.929 0.013 255.5);
-  --input: oklch(0.632 0.033 256.1);
+  --input: oklch(0.869 0.022 252.9);
   --ring: oklch(0.502 0.093 226.0);
   --chart-1: oklch(0.502 0.093 226.0);
   --chart-2: oklch(0.555 0.146 49.0);
   --chart-3: oklch(0.515 0.110 156.8);
   --chart-4: oklch(0.680 0.120 75.0);
   --chart-5: oklch(0.485 0.134 254.4);
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.208 0.040 265.8);
+  --sidebar: oklch(0.282 0.045 224.7);
+  --sidebar-foreground: oklch(0.968 0.009 214.3);
   --sidebar-primary: oklch(0.502 0.093 226.0);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.940 0.014 213.1);
-  --sidebar-accent-foreground: oklch(0.401 0.070 222.1);
-  --sidebar-border: oklch(0.929 0.013 255.5);
-  --sidebar-ring: oklch(0.502 0.093 226.0);
+  --sidebar-accent: oklch(0.340 0.052 224.0);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.781 0.105 218.4);
 
   /* app semantic tokens, Clean Flat teal palette */
   --success: oklch(0.515 0.110 156.8);
@@ -108,6 +109,7 @@
   --primary-soft: oklch(0.940 0.014 213.1);
   --primary-soft-foreground: oklch(0.401 0.070 222.1);
   --accent-amber: oklch(0.555 0.146 49.0);
+  --accent-amber-strong: oklch(0.473 0.125 46.2);
   --accent-amber-foreground: oklch(1 0 0);
   --accent-amber-soft: oklch(0.962 0.058 95.6);
 }
@@ -154,6 +156,7 @@
   --primary-soft: oklch(0.270 0.035 222.0);
   --primary-soft-foreground: oklch(0.940 0.014 213.1);
   --accent-amber: oklch(0.750 0.140 65.0);
+  --accent-amber-strong: oklch(0.830 0.110 75.0);
   --accent-amber-foreground: oklch(0.165 0.020 230.0);
   --accent-amber-soft: oklch(0.286 0.056 81.0);
 }
@@ -172,5 +175,23 @@
 @layer utilities {
   :is([data-slot="input"], [data-slot="select-trigger"], [data-slot="textarea"]):not(.bg-muted):not(.bg-background) {
     background-color: var(--card);
+  }
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--sidebar-foreground) 25%, transparent) transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--sidebar-foreground) 25%, transparent);
+    border-radius: 9999px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--sidebar-foreground) 40%, transparent);
   }
 }

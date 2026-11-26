@@ -31,6 +31,9 @@ import { displayRole, initials } from "./user-info"
 
 type User = (Parameters<typeof hasPermission>[0] & { role?: string | null }) | undefined
 
+const activeItemClass =
+  "relative data-[active=true]:bg-sidebar-primary/45 data-[active=true]:font-semibold data-[active=true]:text-white data-[active=true]:hover:bg-sidebar-primary/50 data-[active=true]:before:absolute data-[active=true]:before:inset-y-1.5 data-[active=true]:before:left-0 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-ring"
+
 /** Drop entries the user may not see; empty submenus and groups go too. */
 function visibleGroups(config: NavConfig, user: User): NavGroup[] {
   const tutorOnly = !!config.restrictTutorOnly && isTutorOnlyRole(user?.role)
@@ -77,23 +80,25 @@ export function AppSidebar({ config }: { config: NavConfig }) {
                 </div>
                 <div className="grid flex-1 text-left leading-tight">
                   <span className="truncate font-semibold">E-learning</span>
-                  <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
+                  <span className="truncate text-xs text-sidebar-foreground/75">{subtitle}</span>
                 </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
         {quickAction && (!quickAction.permission || hasPermission(user, quickAction.permission)) && (
-          <Button asChild className="group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0">
-            <Link href={quickAction.href} onClick={close} aria-label={quickAction.title}>
-              <quickAction.icon />
-              <span className="group-data-[collapsible=icon]:hidden">{quickAction.title}</span>
-            </Link>
-          </Button>
+          <div className="px-2 group-data-[collapsible=icon]:px-0">
+            <Button asChild className="w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0">
+              <Link href={quickAction.href} onClick={close} aria-label={quickAction.title}>
+                <quickAction.icon />
+                <span className="group-data-[collapsible=icon]:hidden">{quickAction.title}</span>
+              </Link>
+            </Button>
+          </div>
         )}
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="sidebar-scroll">
         {visibleGroups(config, user).map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
@@ -118,7 +123,7 @@ export function AppSidebar({ config }: { config: NavConfig }) {
                         <SidebarMenuSub>
                           {item.items.map((sub) => (
                             <SidebarMenuSubItem key={sub.href}>
-                              <SidebarMenuSubButton asChild isActive={sub.href === activeHref}>
+                              <SidebarMenuSubButton asChild isActive={sub.href === activeHref} className={activeItemClass}>
                                 <Link href={sub.href} onClick={close}>
                                   <span>{sub.title}</span>
                                 </Link>
@@ -131,7 +136,7 @@ export function AppSidebar({ config }: { config: NavConfig }) {
                   </Collapsible>
                 ) : (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild tooltip={item.title} isActive={item.href === activeHref}>
+                    <SidebarMenuButton asChild tooltip={item.title} isActive={item.href === activeHref} className={activeItemClass}>
                       {leafLink(item as NavLeaf)}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -148,17 +153,17 @@ export function AppSidebar({ config }: { config: NavConfig }) {
             <div className="flex items-center gap-2 p-2">
               <Avatar className="size-8">
                 <AvatarImage src={user?.image ?? undefined} alt="" />
-                <AvatarFallback>{initials(user?.name)}</AvatarFallback>
+                <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground">{initials(user?.name)}</AvatarFallback>
               </Avatar>
               <div className="grid min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-semibold">{user?.name || "กำลังโหลด..."}</span>
-                <span className="truncate text-xs text-muted-foreground">{displayRole(user?.role, config.roleFallback)}</span>
+                <span className="truncate text-xs text-sidebar-foreground/75">{displayRole(user?.role, config.roleFallback)}</span>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label="ออกจากระบบ"
-                className="group-data-[collapsible=icon]:hidden"
+                className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:hidden"
                 onClick={() => signOut({ callbackUrl: "/login" })}
               >
                 <LogOutIcon />

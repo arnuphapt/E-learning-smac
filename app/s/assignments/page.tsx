@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { AlertCircleIcon, AwardIcon, ClockIcon, FileTextIcon } from "lucide-react";
+import { FileTextIcon } from "lucide-react";
 import { DataTable } from "@/components/common/data-table";
 import { PageContainer } from "@/components/common/page-container";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/states";
-import { ScoreStatCards } from "@/components/grading/score-stat-cards";
 import { assignmentColumns, type AssignmentListRow } from "@/components/student/assignment/columns";
 import type { Database } from "@/lib/database.types";
 import { STUDENT_LESSON_COLUMNS } from "@/lib/files";
@@ -97,20 +96,25 @@ export default function StudentAssignments() {
         description="ติดตามสถานะใบงานที่มอบหมาย ส่งกระบวนการพยาบาล และดูคะแนนประเมินพร้อมข้อเสนอแนะจากอาจารย์"
       />
 
-      <ScoreStatCards
-        items={[
-          { label: "ใบงานทั้งหมด", value: `${rows.length} รายการ`, icon: <FileTextIcon /> },
-          { label: "ส่งแล้ว (รอตรวจ)", value: `${count("submitted")} รายการ`, icon: <ClockIcon /> },
-          { label: "ตรวจแล้ว", value: `${count("graded")} รายการ`, icon: <AwardIcon /> },
-          { label: "ยังไม่ส่ง / เกินกำหนด", value: `${count("not-submitted", "late")} รายการ`, icon: <AlertCircleIcon /> },
-        ]}
-      />
-
       <DataTable.Root data={rows} columns={assignmentColumns} getRowId={(r: AssignmentListRow) => r.id} searchKeys={["title", "courseCode", "courseTitle"]}>
+        <DataTable.Stats
+          items={[
+            { label: "ใบงานทั้งหมด", value: rows.length, tone: "primary", hint: "รายการ" },
+            { label: "ส่งแล้ว (รอตรวจ)", value: count("submitted"), tone: "info", hint: "รายการ" },
+            { label: "ตรวจแล้ว", value: count("graded"), tone: "success", hint: "รายการ" },
+            { label: "ยังไม่ส่ง / เกินกำหนด", value: count("not-submitted", "late"), tone: "warning", hint: "รายการ" },
+          ]}
+        />
+        <DataTable.Tabs
+          column="status"
+          options={[
+            { label: "ทั้งหมด", value: undefined, count: rows.length },
+            ...STATUS_OPTIONS.map((o) => ({ label: o.label, value: o.value, count: count(o.value) })),
+          ]}
+        />
         <DataTable.Toolbar>
           <DataTable.Search placeholder="ค้นหาชื่อใบงาน หรือรหัสวิชา…" />
           <DataTable.Filter column="course_id" options={courseOptions} allLabel="ทุกรายวิชา" />
-          <DataTable.Filter column="status" options={STATUS_OPTIONS} allLabel="ทุกสถานะ" />
         </DataTable.Toolbar>
         <DataTable.Content
           loading={loading}

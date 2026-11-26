@@ -2,6 +2,7 @@
 "use client"
 
 import { Fragment, type ReactNode } from "react"
+import { EmptyState } from "@/components/common/states"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useDataTable } from "./context"
@@ -24,69 +25,70 @@ export function Content({
   const colCount = table.getAllLeafColumns().length || 1
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <Table>
-        <TableHeader className="bg-muted/50">
-          {table.getHeaderGroups().map((group) => (
-            <TableRow key={group.id}>
-              {group.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  colSpan={header.colSpan}
-                  aria-sort={
-                    header.column.getIsSorted() === "asc"
-                      ? "ascending"
-                      : header.column.getIsSorted() === "desc"
-                        ? "descending"
-                        : undefined
-                  }
-                >
-                  {header.isPlaceholder ? null : <table.FlexRender header={header} />}
-                </TableHead>
+    <Table>
+      <TableHeader className="bg-muted/60 [&_tr]:border-b [&_tr]:border-border/60">
+        {table.getHeaderGroups().map((group) => (
+          <TableRow key={group.id} className="hover:bg-transparent">
+            {group.headers.map((header) => (
+              <TableHead
+                key={header.id}
+                colSpan={header.colSpan}
+                className="h-11 px-4 text-xs font-medium text-muted-foreground sm:text-sm"
+                aria-sort={
+                  header.column.getIsSorted() === "asc"
+                    ? "ascending"
+                    : header.column.getIsSorted() === "desc"
+                      ? "descending"
+                      : undefined
+                }
+              >
+                {header.isPlaceholder ? null : <table.FlexRender header={header} />}
+              </TableHead>
+            ))}
+          </TableRow>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {loading ? (
+          Array.from({ length: skeletonRows }, (_, i) => (
+            <TableRow key={i} className="border-b border-border/60 last:border-b-0">
+              {Array.from({ length: colCount }, (_, j) => (
+                <TableCell key={j} className="px-4 py-3.5">
+                  <Skeleton className="h-5 w-full" />
+                </TableCell>
               ))}
             </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            Array.from({ length: skeletonRows }, (_, i) => (
-              <TableRow key={i}>
-                {Array.from({ length: colCount }, (_, j) => (
-                  <TableCell key={j}>
-                    <Skeleton className="h-5 w-full" />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : rows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={colCount} className="py-10 text-center text-muted-foreground">
-                {empty ?? "ไม่มีข้อมูลแสดงในตาราง"}
-              </TableCell>
-            </TableRow>
-          ) : (
-            rows.map((row) => {
-              const sub = subRow?.(row.original)
-              return (
-                <Fragment key={row.id}>
-                  <TableRow>
-                    {row.getAllCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        <table.FlexRender cell={cell} />
-                      </TableCell>
-                    ))}
+          ))
+        ) : rows.length === 0 ? (
+          <TableRow className="hover:bg-transparent">
+            <TableCell colSpan={colCount} className="p-6 text-center text-muted-foreground">
+              {empty ?? <EmptyState title="ไม่มีข้อมูลแสดงในตาราง" />}
+            </TableCell>
+          </TableRow>
+        ) : (
+          rows.map((row) => {
+            const sub = subRow?.(row.original)
+            return (
+              <Fragment key={row.id}>
+                <TableRow className="border-b border-border/60 transition-colors last:border-b-0 hover:bg-muted/40">
+                  {row.getAllCells().map((cell) => (
+                    <TableCell key={cell.id} className="px-4 py-3.5 text-sm">
+                      <table.FlexRender cell={cell} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {sub && (
+                  <TableRow className="border-b border-border/60 bg-muted/40 last:border-b-0 hover:bg-muted/40">
+                    <TableCell colSpan={colCount} className="px-4 py-3.5">
+                      {sub}
+                    </TableCell>
                   </TableRow>
-                  {sub && (
-                    <TableRow className="bg-muted/40 hover:bg-muted/40">
-                      <TableCell colSpan={colCount}>{sub}</TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              )
-            })
-          )}
-        </TableBody>
-      </Table>
-    </div>
+                )}
+              </Fragment>
+            )
+          })
+        )}
+      </TableBody>
+    </Table>
   )
 }

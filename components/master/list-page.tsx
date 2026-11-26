@@ -89,14 +89,28 @@ export function MasterListPage<T extends { id: string }>({
   emptyTitle: string
   children?: ReactNode
 }) {
+  const tabFilter = filters?.find((f) => f.options.length > 0 && f.options.length <= 5)
+  const dropdownFilters = filters?.filter((f) => f !== tabFilter)
+  const countOf = (col: string, val: string) =>
+    data.filter((r) => String((r as Record<string, unknown>)[col] ?? "") === val).length
+
   return (
     <PageContainer>
       <PageHeader kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)" title={title} description={description} />
       {note && <p className="mb-3 text-sm text-muted-foreground">{note}</p>}
       <DataTable.Root data={data} columns={columns} getRowId={(r: T) => r.id} searchKeys={searchKeys}>
+        {tabFilter && (
+          <DataTable.Tabs
+            column={tabFilter.column}
+            options={[
+              { label: tabFilter.allLabel, value: undefined, count: data.length },
+              ...tabFilter.options.map((o) => ({ label: o.label, value: o.value, count: countOf(tabFilter.column, o.value) })),
+            ]}
+          />
+        )}
         <DataTable.Toolbar>
           <DataTable.Search placeholder={searchPlaceholder} />
-          {filters?.map((f) => (
+          {dropdownFilters?.map((f) => (
             <DataTable.Filter key={f.column} {...f} />
           ))}
           {onAdd && (

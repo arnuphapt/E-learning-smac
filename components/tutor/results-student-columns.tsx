@@ -1,6 +1,6 @@
 import { emailDomain } from "@/lib/course-access"
 import { formatClock, type StudentLessonSummary } from "@/lib/tutor-results"
-import { ColumnHeader, type DataTableColumnDef } from "@/components/common/data-table"
+import { AvatarCell, ColumnHeader, ProgressCell, type DataTableColumnDef } from "@/components/common/data-table"
 import { ToneBadge, type StatusTone } from "@/components/common/status-badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -22,8 +22,8 @@ export function studentResultColumns(users: ReadonlyMap<string, TutorUserEntry>,
         const st: StudentLessonSummary = row.original
         const name = userOf(st)?.name
         return (
-          <Button variant="link" className="h-auto max-w-56 justify-start p-0 font-semibold" onClick={() => onOpen(st)} aria-label={"ดูผลของ " + (name || "นักศึกษา")}>
-            <span className="truncate">{name || "(ไม่พบผู้ใช้)"}</span>
+          <Button variant="link" className="h-auto max-w-60 justify-start p-0 text-left no-underline hover:underline" onClick={() => onOpen(st)} aria-label={"ดูผลของ " + (name || "นักศึกษา")}>
+            <AvatarCell name={name || "(ไม่พบผู้ใช้)"} />
           </Button>
         )
       },
@@ -54,9 +54,10 @@ export function studentResultColumns(users: ReadonlyMap<string, TutorUserEntry>,
       cell: ({ row }) => {
         const { best }: StudentLessonSummary = row.original
         return (
-          <ToneBadge tone={TONE[best.status]}>
-            {best.score}/{best.total} · {best.percent}%
-          </ToneBadge>
+          <div className="flex items-center gap-2">
+            <ProgressCell value={best.percent} label={`${best.score}/${best.total}`} score />
+            <ToneBadge tone={TONE[best.status]}>{best.percent}%</ToneBadge>
+          </div>
         )
       },
     },

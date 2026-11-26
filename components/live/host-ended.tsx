@@ -79,7 +79,7 @@ function PodiumPlace({ place, player }: { place: 1 | 2 | 3; player: LeaderboardP
 
 function ScoreText({ value }: { value?: number }) {
   return (
-    <span className="shrink-0 font-mono text-sm font-bold text-primary tabular-nums">
+    <span className="shrink-0 font-mono text-sm font-bold text-amber-accent tabular-nums">
       {(value || 0).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">คะแนน</span>
     </span>
   );

@@ -31,6 +31,21 @@ export function EmptyState({
   return (
     <Empty className={className}>
       <EmptyHeader>
+        <svg
+          className="mb-1 h-10 w-24 text-muted-foreground/40"
+          viewBox="0 0 120 40"
+          fill="none"
+          aria-hidden="true"
+        >
+          <rect x="8" y="6" width="104" height="28" rx="6" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 3" />
+          <path
+            d="M16 20H36L42 12L48 28L54 8L60 20H104"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
         <EmptyMedia variant="icon">{icon ?? <InboxIcon />}</EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>
         {description && <EmptyDescription>{description}</EmptyDescription>}
