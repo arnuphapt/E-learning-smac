@@ -57,8 +57,11 @@ export function SettingsAccessCard({
           </span>
         </div>
 
-        <fieldset className="grid gap-2">
-          <legend className="mb-1 text-sm font-medium">ชั้นปี</legend>
+        <fieldset className="grid gap-3 rounded-xl border border-border/80 bg-muted/25 p-3.5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <legend className="text-sm font-medium text-foreground">ชั้นปี</legend>
+            <span className="text-xs text-muted-foreground">ไม่เลือก = ต้องมีกลุ่มเรียนหรือรายชื่อพิเศษ</span>
+          </div>
           <div className="flex flex-wrap gap-2">
             {!lookup ? (
               <span className="text-sm text-muted-foreground">กำลังโหลด…</span>
@@ -71,7 +74,12 @@ export function SettingsAccessCard({
                   <Label
                     key={value}
                     htmlFor={`ts-year-${value}`}
-                    className={cn("min-h-10 cursor-pointer rounded-lg border px-3.5 py-2", on ? "border-primary bg-primary-soft font-bold text-primary-soft-foreground" : "font-normal")}
+                    className={cn(
+                      "min-h-9 cursor-pointer rounded-lg border bg-card px-3 py-1.5 text-sm transition-colors",
+                      on
+                        ? "border-primary bg-primary-soft/60 font-semibold text-primary-soft-foreground shadow-xs"
+                        : "border-border font-normal text-foreground hover:border-primary/40 hover:bg-card",
+                    )}
                   >
                     <Checkbox id={`ts-year-${value}`} checked={on} onCheckedChange={() => onYears((y) => (on ? y.filter((x) => x !== value) : [...y, value].sort((a, b) => a - b)))} />
                     {label}
@@ -85,7 +93,7 @@ export function SettingsAccessCard({
                 .filter((y) => y >= EXTERNAL_YEAR_BASE && !lookup.yearOptions.some((o) => o.value === y))
                 .map((y) => (
                   // a lock on an external year level that no longer exists matches nobody: show it so it can be unticked
-                  <Label key={y} htmlFor={`ts-year-${y}`} className="min-h-10 cursor-pointer rounded-lg border border-dashed border-destructive px-3.5 py-2 font-normal text-destructive">
+                  <Label key={y} htmlFor={`ts-year-${y}`} className="min-h-9 cursor-pointer rounded-lg border border-dashed border-destructive bg-card px-3 py-1.5 text-sm font-normal text-destructive">
                     <Checkbox id={`ts-year-${y}`} checked onCheckedChange={() => onYears((l) => l.filter((x) => x !== y))} />
                     ชั้นปีที่ถูกลบ <span className="text-xs">(รหัส {y})</span>
                   </Label>

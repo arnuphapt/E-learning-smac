@@ -16,6 +16,7 @@ import { SwitchRow } from "@/components/lesson/switch-row"
 import { deleteTestQuestion, emptyQuestion, formFrom, saveTestQuestion, saveTestSettings, type TestForm, type TestKind } from "@/components/lesson/test-actions"
 import { maskTime, parseChoices, parseTestConfig, type LessonRow, type OnSaveLesson, type QuestionEditorItem, type QuestionRow } from "@/components/lesson/types"
 import { cn } from "@/lib/utils"
+import { MaterialPicker } from "@/components/master/materials/material-picker"
 
 /** Step 4: Pre/Post-test settings and compact question list (flat, no cards). */
 export function StepTest({
@@ -146,6 +147,10 @@ export function StepTest({
 
       <Separator />
 
+      <div className="flex flex-wrap items-center gap-2">
+        <MaterialPicker key={which} kind={which} lessonId={lesson.id} onCopied={onLoad} disabled={filteredQs.length > 0} />
+      </div>
+
       <section className="grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-sm font-semibold">รายการคำถาม ({filteredQs.length} ข้อ)</h4>
@@ -156,7 +161,7 @@ export function StepTest({
         </div>
 
         {filteredQs.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-4 py-6 text-center">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-center">
             <p className="text-sm text-muted-foreground">ยังไม่มีข้อสอบในส่วนนี้</p>
             <Button type="button" variant="outline" size="sm" onClick={openCreate}>
               <PlusIcon />
@@ -164,7 +169,7 @@ export function StepTest({
             </Button>
           </div>
         ) : (
-          <ul className="divide-y rounded-lg border">
+          <ul className="divide-y divide-border/70 rounded-xl border border-border/80 bg-card">
             {filteredQs.map((q, i) => {
               const choices = Array.isArray(q.choices) ? parseChoices(q.choices) : []
               return (

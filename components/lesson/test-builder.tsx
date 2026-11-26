@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { QuestionCard } from "./question-card"
+import { MaterialPicker } from "@/components/master/materials/material-picker"
 import { QuestionDialog } from "./question-dialog"
 import { SwitchRow } from "./switch-row"
 import { deleteTestQuestion, emptyQuestion, formFrom, saveTestQuestion, saveTestSettings, type TestForm, type TestKind } from "./test-actions"
@@ -90,6 +91,9 @@ export function TestBuilder({ lesson, questions, onLoad, onSaveSettings }: { les
             <PlusIcon />
             เพิ่มข้อสอบ
           </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <MaterialPicker key={which} kind={which} lessonId={lesson.id} onCopied={onLoad} disabled={filteredQs.length > 0 || !enabled[which]} />
         </div>
         {filteredQs.map((q, i) => (
           <QuestionCard

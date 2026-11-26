@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
-import { CheckIcon, DownloadIcon, UploadIcon } from "lucide-react"
+import { CheckIcon, DownloadIcon, Loader2Icon, UploadIcon } from "lucide-react"
 import { FilePickButton } from "@/components/lesson/file-pick-button"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -120,81 +120,107 @@ export function BankImport({ topics, onClose, onImport }: BankImportProps) {
 
   return (
     <Dialog open onOpenChange={(o) => !o && close()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>นำเข้าข้อสอบจาก Excel</DialogTitle>
-          <DialogDescription>ไฟล์ถูกอ่านในเบราว์เซอร์ของคุณ ไม่ได้อัปโหลดไปที่เซิร์ฟเวอร์ จนกว่าจะกดยืนยันนำเข้า</DialogDescription>
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-w-3xl">
+        <DialogHeader className="shrink-0 border-b border-border/80 bg-card px-6 py-4 pr-14 text-left">
+          <div className="flex items-start gap-3">
+            <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+              <UploadIcon className="size-4.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-semibold tracking-tight">นำเข้าข้อสอบจาก Excel</DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
+                ไฟล์ถูกอ่านในเบราว์เซอร์ของคุณ ไม่ได้อัปโหลดไปที่เซิร์ฟเวอร์ จนกว่าจะกดยืนยันนำเข้า
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <FilePickButton label="เลือกไฟล์ Excel" accept=".xlsx,.xls" variant="outline" disabled={busy || reading} icon={<UploadIcon />} onFile={readFile}>
-            {reading ? "กำลังอ่านไฟล์…" : file ? "เลือกไฟล์อื่น" : "เลือกไฟล์ Excel"}
-          </FilePickButton>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => downloadTemplate().catch((e: unknown) => toast.error("สร้างไฟล์ตัวอย่างไม่สำเร็จ: " + errMessage(e)))}
-          >
-            <DownloadIcon />
-            ดาวน์โหลดไฟล์ตัวอย่าง
-          </Button>
-          {file && <span className="font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">{file.name}</span>}
+        <div className="modal-scroll flex-1 space-y-5 overflow-y-auto bg-card px-6 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border/80 bg-muted/25 p-4">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <FilePickButton label="เลือกไฟล์ Excel" accept=".xlsx,.xls" variant="outline" disabled={busy || reading} icon={<UploadIcon />} onFile={readFile}>
+                {reading ? "กำลังอ่านไฟล์…" : file ? "เลือกไฟล์อื่น" : "เลือกไฟล์ Excel"}
+              </FilePickButton>
+              {file && <span className="rounded-md border border-border/80 bg-card px-2.5 py-1 font-mono text-xs text-foreground [overflow-wrap:anywhere]">{file.name}</span>}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => downloadTemplate().catch((e: unknown) => toast.error("สร้างไฟล์ตัวอย่างไม่สำเร็จ: " + errMessage(e)))}
+            >
+              <DownloadIcon />
+              ดาวน์โหลดไฟล์ตัวอย่าง
+            </Button>
+          </div>
+
+          {!file && (
+            <div className="grid gap-1.5 rounded-xl border border-border/80 bg-muted/20 p-4 text-sm text-muted-foreground">
+              <div className="font-medium text-foreground">รูปแบบคอลัมน์ในไฟล์ Excel</div>
+              <div>แถวแรกเป็นหัวตาราง 1 แถวต่อ 1 ข้อ (ชีทแรก ไม่เกิน {MAX_IMPORT_ROWS} ข้อต่อไฟล์)</div>
+              <div>
+                <b className="text-foreground">จำเป็น:</b> โจทย์ · ตัวเลือก ก · ตัวเลือก ข · เฉลย
+              </div>
+              <div>
+                <b className="text-foreground">ไม่บังคับ:</b> ตัวเลือก ค, ง, จ · คำอธิบาย · หัวข้อ
+              </div>
+              <div>เฉลยใส่ ก ข ค ง จ (หรือ A-E, 1-5) และต้องชี้ไปที่ตัวเลือกที่ไม่ว่าง</div>
+            </div>
+          )}
+
+          {file && (
+            <>
+              <div className="flex flex-wrap items-center gap-2 text-sm tabular-nums">
+                <span>
+                  อ่านได้ <b className="text-success">{file.ok.length}</b> ข้อ
+                </span>
+                {file.errors.length > 0 && (
+                  <span>
+                    · มีปัญหา <b className="text-destructive">{file.errors.length}</b> แถว (ไม่ถูกนำเข้า)
+                  </span>
+                )}
+              </div>
+
+              {file.errors.length > 0 && (
+                <div className="rounded-xl border border-destructive/25 bg-destructive/10 p-3.5 text-sm text-destructive" role="alert">
+                  <div className="mb-1 font-semibold">แถวที่นำเข้าไม่ได้ แก้ในไฟล์แล้วเลือกไฟล์ใหม่</div>
+                  <ul className="max-h-32 list-disc overflow-auto pl-5">
+                    {file.errors.map((e, i) => (
+                      <li key={i}>
+                        {e.row ? `แถว ${e.row}: ` : ""}
+                        {e.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {file.ok.length > 0 && <ImportPreview rows={file.ok} picked={picked} failed={failed} busy={busy} onToggle={toggle} onToggleAll={toggleAll} />}
+            </>
+          )}
         </div>
 
-        {!file && (
-          <div className="grid gap-1 text-sm text-muted-foreground">
-            <div className="mb-1">แถวแรกเป็นหัวตาราง 1 แถวต่อ 1 ข้อ (ชีทแรก ไม่เกิน {MAX_IMPORT_ROWS} ข้อต่อไฟล์)</div>
-            <div>
-              <b className="text-foreground">จำเป็น</b> โจทย์ · ตัวเลือก ก · ตัวเลือก ข · เฉลย
-            </div>
-            <div>
-              <b className="text-foreground">ไม่บังคับ</b> ตัวเลือก ค, ง, จ · คำอธิบาย · หัวข้อ
-            </div>
-            <div>เฉลยใส่ ก ข ค ง จ (หรือ A-E, 1-5) และต้องชี้ไปที่ตัวเลือกที่ไม่ว่าง</div>
-          </div>
-        )}
-
-        {file && (
-          <>
-            <div className="text-sm">
-              อ่านได้ <b className="text-success">{file.ok.length}</b> ข้อ
-              {file.errors.length > 0 && (
-                <>
-                  {" "}
-                  · มีปัญหา <b className="text-destructive">{file.errors.length}</b> แถว (ไม่ถูกนำเข้า)
-                </>
-              )}
-            </div>
-
-            {file.errors.length > 0 && (
-              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-                <div className="mb-1 font-semibold">แถวที่นำเข้าไม่ได้ แก้ในไฟล์แล้วเลือกไฟล์ใหม่</div>
-                <ul className="max-h-32 list-disc overflow-auto pl-5">
-                  {file.errors.map((e, i) => (
-                    <li key={i}>
-                      {e.row ? `แถว ${e.row}: ` : ""}
-                      {e.message}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+        <DialogFooter className="shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border/80 bg-muted/35 px-6 py-3.5 sm:justify-between">
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {file ? (
+              <>
+                เลือกนำเข้า <strong className="text-foreground">{count}</strong> ข้อ
+              </>
+            ) : (
+              `รองรับไฟล์ .xlsx และ .xls (สูงสุด ${MAX_IMPORT_ROWS} ข้อ)`
             )}
-
-            {file.ok.length > 0 && <ImportPreview rows={file.ok} picked={picked} failed={failed} busy={busy} onToggle={toggle} onToggleAll={toggleAll} />}
-          </>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={close} disabled={busy}>
-            ยกเลิก
-          </Button>
-          {file && (
-            <Button onClick={confirm} disabled={busy || count === 0}>
-              <CheckIcon />
-              {busy ? "กำลังนำเข้า…" : `นำเข้า ${count} ข้อ`}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={close} disabled={busy}>
+              ยกเลิก
             </Button>
-          )}
+            {file && (
+              <Button onClick={confirm} disabled={busy || count === 0}>
+                {busy ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
+                {busy ? "กำลังนำเข้า…" : `นำเข้า ${count} ข้อ`}
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

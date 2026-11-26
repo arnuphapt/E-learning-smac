@@ -140,7 +140,7 @@ export const StepVideo = forwardRef<
 
       {sourceMode === "upload" ? (
         <div className="grid gap-3">
-          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/20 p-6 text-center">
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/80 bg-muted/25 p-6 text-center">
             <div className="grid size-11 place-items-center rounded-full bg-muted text-primary">
               <VideoIcon className="size-5" />
             </div>

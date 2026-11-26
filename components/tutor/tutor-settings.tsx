@@ -11,6 +11,7 @@ import { isTutorOnlyRole } from "@/lib/roles"
 import { lockSummary } from "@/lib/tutor-bank"
 import { useConfirm } from "@/components/common/confirm"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PickerDialog } from "./picker-dialog"
 import { SettingsAccessCard } from "./settings-access-card"
 import { SettingsInfoCard } from "./settings-info-card"
@@ -125,7 +126,7 @@ export function TutorSettings({
   const remove = async () => {
     const ok = await confirm({
       title: "ลบชุดติว",
-      message: `ลบชุดติว “${course.title}” (${course.code}) ใช่หรือไม่?\n\nบทเรียน คลังข้อสอบ และผลการทำข้อสอบของนักศึกษาในชุดนี้จะถูกลบถาวร กู้คืนไม่ได้`,
+      message: `ลบชุดติว “${course.title}” (${course.code}) ใช่หรือไม่?\n\nหมวดติว คลังข้อสอบ และผลการทำข้อสอบของนักศึกษาในชุดนี้จะถูกลบถาวร กู้คืนไม่ได้`,
       danger: true,
       confirmText: "ลบชุดติว",
       cancelText: "ยกเลิก",
@@ -153,7 +154,7 @@ export function TutorSettings({
   const co = (lookup?.assigned || []).filter((id) => !mains.includes(id))
 
   return (
-    <div className="grid max-w-4xl gap-4">
+    <div className="grid gap-4">
       <SettingsInfoCard code={course.code} title={title} onTitle={setTitle} subtitle={subtitle} onSubtitle={setSubtitle} />
       <SettingsAccessCard
         lookup={lookup}
@@ -169,20 +170,29 @@ export function TutorSettings({
       />
       {canManage && <SettingsStaffCard mains={mains} co={co} nameOf={nameOf} disabled={!lookup} onPickMains={() => setPicker("mains")} onPickCo={() => setPicker("co")} />}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {canManage ? (
-          <Button variant="outline" className="text-destructive hover:text-destructive" onClick={remove}>
-            <Trash2Icon />
-            ลบชุดติวนี้
-          </Button>
-        ) : (
-          <span />
-        )}
+      <div className="flex justify-end">
         <Button onClick={save} disabled={saving || !dirty}>
           {saving ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
           {saving ? "กำลังบันทึก…" : "บันทึกชุดติว"}
         </Button>
       </div>
+
+      {canManage && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-destructive">พื้นที่อันตราย (Danger Zone)</CardTitle>
+            <CardDescription>
+              การลบชุดติวนี้จะทำให้หมวดติว คลังข้อสอบ และผลการทำข้อสอบของนักศึกษาทั้งหมดถูกลบอย่างถาวรและไม่สามารถกู้คืนได้
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" className="text-destructive hover:text-destructive" onClick={remove}>
+              <Trash2Icon />
+              ลบชุดติวนี้
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {picker === "emails" && lookup && (
         <PickerDialog

@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      lesson_material_templates: {
+        Row: { id: string; kind: string; title: string; payload: Json; created_at: string }
+        Insert: { id?: string; kind: string; title: string; payload: Json; created_at?: string }
+        Update: { id?: string; kind?: string; title?: string; payload?: Json; created_at?: string }
+        Relationships: []
+      }
       academic_years: {
         Row: {
           courses: number | null
@@ -1594,6 +1600,10 @@ export type Database = {
       }
     }
     Functions: {
+      copy_lesson_material: {
+        Args: { p_template: string; p_lesson: string; p_due?: string; p_due_time?: string }
+        Returns: string
+      }
       ai_quota_claim: {
         Args: {
           p_course: string

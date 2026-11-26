@@ -78,7 +78,7 @@ export function TutorResults({ course, lessons }: { course: { code?: string | nu
 
   if (failed) return <ErrorState title="โหลดผลการทำข้อสอบไม่สำเร็จ" description="ลองเปิดแท็บนี้อีกครั้ง" />
   if (lessons.length === 0) {
-    return <EmptyState icon={<BarChart3Icon />} title="ยังไม่มีบทเรียน" description="เพิ่มบทเรียนและคลังข้อสอบก่อน แล้วผลของนักศึกษาจะแสดงที่นี่" />
+    return <EmptyState icon={<BarChart3Icon />} title="ยังไม่มีหมวดติว" description="เพิ่มหมวดติวและคลังข้อสอบก่อน แล้วผลของนักศึกษาจะแสดงที่นี่" />
   }
   if (!data) return <LoadingState />
 
@@ -100,13 +100,13 @@ export function TutorResults({ course, lessons }: { course: { code?: string | nu
       for (const l of only ? [only] : lessons) {
         const sum = summaries.get(l.id)!
         if (!sum.students.length) continue
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportRows(sum, data.users)), "บทที่ " + l.index)
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportRows(sum, data.users)), "หมวดที่ " + l.index)
       }
       if (!wb.SheetNames.length) {
         toast.error("ยังไม่มีผลที่ส่งออกได้")
         return
       }
-      XLSX.writeFile(wb, `ผลติว_${course.code}${only ? "_บทที่_" + only.index : ""}${domain ? "_" + domain : ""}.xlsx`)
+      XLSX.writeFile(wb, `ผลติว_${course.code}${only ? "_หมวดที่_" + only.index : ""}${domain ? "_" + domain : ""}.xlsx`)
       toast.success("ส่งออกไฟล์ผลการทำข้อสอบสำเร็จ")
     } catch (e: unknown) {
       toast.error("ส่งออกไม่สำเร็จ: " + (e instanceof Error ? e.message : String(e)))
@@ -119,7 +119,7 @@ export function TutorResults({ course, lessons }: { course: { code?: string | nu
     <div className="grid gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid min-w-[min(100%,360px)] gap-1.5">
-          <Label htmlFor="tw-res-lesson">บทเรียน</Label>
+          <Label htmlFor="tw-res-lesson">หมวดติว</Label>
           <Select
             value={lesson.id}
             onValueChange={(v) => {
@@ -133,7 +133,7 @@ export function TutorResults({ course, lessons }: { course: { code?: string | nu
             <SelectContent>
               {lessons.map((l) => (
                 <SelectItem key={l.id} value={l.id}>
-                  {String(l.index ?? "").padStart(2, "0")} · {l.title || "(ไม่มีชื่อบทเรียน)"} ({summaries.get(l.id)!.students.length} คน)
+                  {String(l.index ?? "").padStart(2, "0")} · {l.title || "(ไม่มีชื่อหมวดติว)"} ({summaries.get(l.id)!.students.length} คน)
                 </SelectItem>
               ))}
             </SelectContent>
@@ -142,7 +142,7 @@ export function TutorResults({ course, lessons }: { course: { code?: string | nu
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" disabled={exporting || !s.students.length} onClick={() => exportXlsx(lesson)}>
             <DownloadIcon />
-            ส่งออกบทนี้
+            ส่งออกหมวดนี้
           </Button>
           <Button variant="outline" size="sm" disabled={exporting || !anyResult} onClick={() => exportXlsx(null)}>
             <FileSpreadsheetIcon />
@@ -179,7 +179,7 @@ export function TutorResults({ course, lessons }: { course: { code?: string | nu
           <CardContent>
             <EmptyState
               icon={<UsersIcon />}
-              title="ยังไม่มีนักศึกษาที่ทำข้อสอบบทนี้เสร็จ"
+              title="ยังไม่มีนักศึกษาที่ทำข้อสอบหมวดนี้เสร็จ"
               description={s.inProgress > 0 ? `มี ${s.inProgress} รอบที่กำลังทำอยู่ ผลจะแสดงเมื่อส่งหรือหมดเวลา` : "เมื่อนักศึกษาส่งรอบแรก ผลจะแสดงที่นี่"}
             />
           </CardContent>

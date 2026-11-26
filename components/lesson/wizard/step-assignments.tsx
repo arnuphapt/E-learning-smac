@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { saveAssignmentWithRubric, useDeleteAssignment } from "@/components/lesson/assignment-actions"
+import { MaterialPicker } from "@/components/master/materials/material-picker"
 import { getTodayStr, maskTime, parseCriteria, type AssignmentRow, type LessonRow, type RubricCriterion, type RubricRow } from "@/components/lesson/types"
 
 function OptionCheck({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (v: boolean) => void }) {
@@ -270,14 +271,17 @@ export function StepAssignments({
           <h3 className="text-sm font-semibold">ใบงานในบทเรียน ({assignments.length})</h3>
           <p className="text-xs text-muted-foreground">เลือกใบงานเพื่อแก้ไขรายละเอียดและเกณฑ์การให้คะแนน</p>
         </div>
-        <Button type="button" size="sm" onClick={() => setEditing({})}>
-          <PlusIcon />
-          เพิ่มใบงาน
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <MaterialPicker kind="assignment" lessonId={lesson.id} onCopied={onReload} />
+          <Button type="button" size="sm" onClick={() => setEditing({})}>
+            <PlusIcon />
+            เพิ่มใบงาน
+          </Button>
+        </div>
       </div>
 
       {assignments.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-4 py-6 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-center">
           <p className="text-sm text-muted-foreground">ยังไม่มีใบงานในบทเรียนนี้</p>
           <Button type="button" variant="outline" size="sm" onClick={() => setEditing({})}>
             <PlusIcon />
@@ -285,7 +289,7 @@ export function StepAssignments({
           </Button>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="divide-y divide-border/70 rounded-xl border border-border/80 bg-card">
           {assignments.map((a) => {
             const rubric = a.rubric_id ? rubrics.find((r) => r.id === a.rubric_id) : null
             const criteriaCount = parseCriteria(rubric?.criteria).length

@@ -80,6 +80,7 @@ export type MasterBulkDelete<T> = {
 export function MasterListPage<T extends { id: string }>({
   title,
   description,
+  kicker = "ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)",
   note,
   addLabel,
   onAdd,
@@ -96,6 +97,7 @@ export function MasterListPage<T extends { id: string }>({
 }: {
   title: string
   description: string
+  kicker?: string
   /** Small line above the table (old table description). */
   note?: string
   addLabel: string
@@ -151,7 +153,7 @@ export function MasterListPage<T extends { id: string }>({
   return (
     <PageContainer>
       <PageHeader
-        kicker="ระบบหลังบ้าน · ข้อมูลหลัก (Master Data)"
+        kicker={kicker}
         title={title}
         description={description}
         actions={

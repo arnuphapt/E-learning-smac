@@ -161,6 +161,8 @@ function InstructorLessonContent() {
         {lesson.has_assignment && (
           <TabsContent value="assign" forceMount className="data-[state=inactive]:hidden">
             <AssignmentList
+              lessonId={lesson.id}
+              onReload={reload}
               assignments={data.assignments}
               onSelect={setActiveAssignment}
               onDelete={async (a) => {

@@ -23,12 +23,12 @@ export function setColumns(onOpen: (set: TutorSetSummary) => void): DataTableCol
     },
     {
       accessorKey: "lessonCount",
-      header: ({ column }) => <ColumnHeader column={column} title="บทเรียน" />,
+      header: ({ column }) => <ColumnHeader column={column} title="หมวดติว" />,
       cell: ({ row }) => {
         const c: TutorSetSummary = row.original
         return (
           <span className="whitespace-nowrap tabular-nums">
-            {c.lessonCount} บท{c.lessonCount > 0 && <span className="text-muted-foreground"> · เผยแพร่ {c.published}</span>}
+            {c.lessonCount} หมวด{c.lessonCount > 0 && <span className="text-muted-foreground"> · เผยแพร่ {c.published}</span>}
           </span>
         )
       },
@@ -41,7 +41,7 @@ export function setColumns(onOpen: (set: TutorSetSummary) => void): DataTableCol
         return (
           <div className="tabular-nums">
             {c.questions} ข้อ
-            {c.short > 0 && <div className="text-xs font-semibold text-warning">{c.short} บทคลังไม่พอ</div>}
+            {c.short > 0 && <div className="text-xs font-semibold text-warning">{c.short} หมวดคลังไม่พอ</div>}
           </div>
         )
       },

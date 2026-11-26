@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/common/states"
 import { masterActionsColumn } from "@/components/master/list-page"
 import { Button } from "@/components/ui/button"
 import type { AssignmentRow } from "./types"
+import { MaterialPicker } from "@/components/master/materials/material-picker"
 
 function assignmentColumns(onSelect: (a: AssignmentRow) => void, onDelete: (a: AssignmentRow) => void): DataTableColumnDef[] {
   return [
@@ -50,21 +51,28 @@ export function AssignmentList({
   onSelect,
   onDelete,
   onAdd,
+  lessonId,
+  onReload,
 }: {
   assignments: AssignmentRow[]
   onSelect: (a: AssignmentRow) => void
   onDelete: (a: AssignmentRow) => void
   onAdd: () => void
+  lessonId: string
+  onReload: () => void
 }) {
   const columns = useMemo(() => assignmentColumns(onSelect, onDelete), [onSelect, onDelete])
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-bold">ใบงานในบทเรียนนี้ ({assignments.length})</h2>
-        <Button onClick={onAdd}>
-          <PlusIcon />
-          เพิ่มใบงานใหม่
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <MaterialPicker kind="assignment" lessonId={lessonId} onCopied={onReload} />
+          <Button onClick={onAdd}>
+            <PlusIcon />
+            เพิ่มใบงานใหม่
+          </Button>
+        </div>
       </div>
       <DataTable.Root data={assignments} columns={columns} getRowId={(a: AssignmentRow) => a.id} searchKeys={["title"]}>
         <DataTable.Toolbar>

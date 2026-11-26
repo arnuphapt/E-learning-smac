@@ -23,14 +23,14 @@ export function ImportPreview({
 }) {
   const allOn = rows.length > 0 && rows.every((q) => picked.has(q.row))
   return (
-    <div className="overflow-hidden rounded-md border">
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-card">
       <div className="flex items-center gap-3 border-b bg-muted px-3.5 py-2.5 text-xs font-semibold text-muted-foreground">
         <Checkbox checked={allOn} onCheckedChange={onToggleAll} disabled={busy} aria-label="เลือกทุกข้อ" />
         <span className="w-10">แถว</span>
         <span className="flex-1">โจทย์ / ตัวเลือก</span>
         <span className="hidden w-32 sm:block">หัวข้อ</span>
       </div>
-      <div className="max-h-96 overflow-y-auto">
+      <div className="modal-scroll max-h-96 overflow-y-auto">
         {rows.map((q) => (
           <Label
             key={q.row}

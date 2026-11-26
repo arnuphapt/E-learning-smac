@@ -14,7 +14,7 @@ function Fig({ label, value, unit }: { label: string; value: string | number; un
   )
 }
 
-/** "ภาพรวมบทนี้": four figures and the weak / fair / strong spread bar. */
+/** "ภาพรวมหมวดนี้": four figures and the weak / fair / strong spread bar. */
 export function ResultsOverview({ s }: { s: LessonSummary }) {
   const total = s.spread.weak + s.spread.fair + s.spread.strong
   const segments = [
@@ -25,8 +25,8 @@ export function ResultsOverview({ s }: { s: LessonSummary }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>ภาพรวมบทนี้</CardTitle>
-        <CardDescription>นับเฉพาะรอบที่ส่งแล้วหรือหมดเวลา ใช้รอบที่ได้คะแนนดีที่สุดของนักศึกษาแต่ละคน และแสดงเฉพาะนักศึกษาที่เคยทำบทนี้</CardDescription>
+        <CardTitle>ภาพรวมหมวดนี้</CardTitle>
+        <CardDescription>นับเฉพาะรอบที่ส่งแล้วหรือหมดเวลา ใช้รอบที่ได้คะแนนดีที่สุดของนักศึกษาแต่ละคน และแสดงเฉพาะนักศึกษาที่เคยทำหมวดนี้</CardDescription>
       </CardHeader>
       <CardContent>
         <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">

@@ -66,7 +66,7 @@ export function getAllowedEmails(access: TutorCourse["access"]): string[] {
 
 // Checkable year levels. courses.year_level is integer[]: a school level locks by its number (read from the label), a
 // level of an external domain by student_grades.year_no (the same key for every prefix of one label in that domain).
-const yearOptionsOf = (grades: readonly GradeRule[]): YearOption[] => {
+export const yearOptionsOf = (grades: readonly GradeRule[]): YearOption[] => {
   const seen = new Map<number, YearOption>()
   for (const g of grades) {
     const domain = g.domain || DEFAULT_DOMAIN

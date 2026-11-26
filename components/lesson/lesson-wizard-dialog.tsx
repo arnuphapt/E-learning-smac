@@ -3,8 +3,9 @@
 import { useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { CheckIcon, ClipboardListIcon, FileTextIcon, FolderIcon, Loader2Icon, VideoIcon } from "lucide-react"
+import { BookOpenIcon, CheckIcon, ClipboardListIcon, FileTextIcon, FolderIcon, Loader2Icon, VideoIcon } from "lucide-react"
 import { LoadingState } from "@/components/common/states"
+import { ToneBadge } from "@/components/common/status-badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
@@ -169,12 +170,32 @@ export function LessonWizardDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-12 sm:px-6">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-w-4xl">
+        <DialogHeader className="shrink-0 border-b border-border/80 bg-card px-6 py-4 pr-14 text-left">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <DialogTitle className="truncate">{headerTitle}</DialogTitle>
-              <DialogDescription>{headerDesc}</DialogDescription>
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              {lesson ? (
+                <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-sm font-semibold tabular-nums text-primary-soft-foreground">
+                  {String(lesson.index).padStart(2, "0")}
+                </div>
+              ) : (
+                <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                  <BookOpenIcon className="size-5" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="truncate text-base font-semibold tracking-tight">{headerTitle}</DialogTitle>
+                <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                  <DialogDescription className={course?.code ? "font-mono text-xs text-muted-foreground" : "text-xs text-muted-foreground"}>
+                    {headerDesc}
+                  </DialogDescription>
+                  {lesson && (
+                    <ToneBadge tone={lesson.status === "active" ? "success" : "muted"}>
+                      {lesson.status === "active" ? "เผยแพร่แล้ว" : "ฉบับร่าง"}
+                    </ToneBadge>
+                  )}
+                </div>
+              </div>
             </div>
             {lesson && isTutor && (
               <Button variant="outline" size="sm" asChild>
@@ -188,15 +209,19 @@ export function LessonWizardDialog({
         </DialogHeader>
 
         {lesson && tabs.length > 1 && (
-          <div className="overflow-x-auto border-b border-border/60 bg-muted/20 px-5 py-2 sm:px-6">
+          <div className="shrink-0 overflow-x-auto border-b border-border/80 bg-muted/30 px-6">
             <Tabs value={activeTab} onValueChange={(v) => void handleTabChange(v)}>
-              <TabsList>
+              <TabsList variant="line" className="h-11 gap-2 p-0">
                 {tabs.map((t) => (
-                  <TabsTrigger key={t.key} value={t.key}>
+                  <TabsTrigger
+                    key={t.key}
+                    value={t.key}
+                    className="h-11 rounded-none px-3 text-sm after:bottom-0 after:bg-primary data-[state=active]:text-primary"
+                  >
                     {t.icon}
                     <span>{t.label}</span>
                     {t.hint && (
-                      <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
+                      <span className="ml-1 rounded-full border border-border/80 bg-card px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
                         {t.hint}
                       </span>
                     )}
@@ -207,7 +232,7 @@ export function LessonWizardDialog({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+        <div className="modal-scroll flex-1 overflow-y-auto bg-card px-6 py-5">
           {loading ? (
             <LoadingState className="min-h-60" />
           ) : (
@@ -259,8 +284,19 @@ export function LessonWizardDialog({
           )}
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 bg-background px-5 py-3.5 sm:px-6">
-          <span className="text-xs text-muted-foreground tabular-nums">{saveLabel}</span>
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border/80 bg-muted/35 px-6 py-3.5">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+            {saveState.status === "saving" ? (
+              <Loader2Icon className="size-3.5 animate-spin text-primary" />
+            ) : saveState.status === "dirty" ? (
+              <span aria-hidden className="size-2 rounded-full bg-warning" />
+            ) : saveState.status === "saved" ? (
+              <span aria-hidden className="size-2 rounded-full bg-success" />
+            ) : (
+              <span aria-hidden className="size-2 rounded-full bg-muted-foreground/40" />
+            )}
+            <span>{saveLabel}</span>
+          </div>
           <div className="flex items-center gap-2">
             {!lesson ? (
               <>

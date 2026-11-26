@@ -7,7 +7,7 @@ import type { TutorResult } from "@/lib/tutor-analysis"
 import { LoadingState } from "@/components/common/states"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { fmtDate } from "./format"
 import { RoundReview, type ReviewQuestion } from "./round-review"
@@ -58,64 +58,87 @@ export function StudentRounds({ student, user, lesson, attempts, onClose }: Stud
   }, [picked, lesson.id, detail])
 
   const round = rounds.find((r) => r.id === picked)
+  const initial = (user?.name?.trim()?.[0] || "น").toUpperCase()
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full gap-0 sm:max-w-2xl" aria-label={"ผลของ " + (user?.name || "นักศึกษา")}>
-        <SheetHeader className="border-b">
-          <SheetTitle className="truncate">{user?.name || "(ไม่พบผู้ใช้)"}</SheetTitle>
-          <SheetDescription>
-            {user?.student_no ? <span className="font-mono">{user.student_no}</span> : "ไม่มีรหัสนักศึกษา"} · บทที่ {lesson.index} {lesson.title}
-          </SheetDescription>
+      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl" aria-label={"ผลของ " + (user?.name || "นักศึกษา")}>
+        <SheetHeader className="shrink-0 border-b border-border/80 bg-card px-6 py-4 pr-14 text-left">
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary-soft-foreground">
+              {initial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <SheetTitle className="truncate text-base font-semibold tracking-tight">{user?.name || "(ไม่พบผู้ใช้)"}</SheetTitle>
+              <SheetDescription className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                {user?.student_no ? <span className="font-mono">{user.student_no}</span> : "ไม่มีรหัสนักศึกษา"} · หมวดที่ {lesson.index} {lesson.title}
+              </SheetDescription>
+            </div>
+          </div>
         </SheetHeader>
 
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="p-4">
-            <div className="mb-2 text-sm font-semibold">รอบที่ทำแล้ว ({rounds.length})</div>
-            <div className="flex flex-wrap gap-2">
-              {rounds.map((r) => (
-                <Button
-                  key={r.id}
-                  variant={r.id === picked ? "secondary" : "outline"}
-                  className={cn("h-auto flex-col items-start gap-0.5 px-3 py-2 text-left", r.id === picked && "border-primary")}
-                  onClick={() => setPicked(r.id)}
-                  aria-pressed={r.id === picked}
-                >
-                  <b>รอบที่ {r.number}</b>
-                  <span className="text-xs font-normal">
-                    {r.score}/{r.total} · {r.percent}%
-                  </span>
-                  <span className="text-xs font-normal text-muted-foreground">{formatDuration(r.seconds)}</span>
-                  {r.id === student.best.id && <em className="text-xs font-semibold not-italic text-success">ดีที่สุด</em>}
-                </Button>
-              ))}
-            </div>
-            {round && (
-              <div className="mt-2 text-sm text-muted-foreground">
-                {fmtDate(round.submittedAt || round.startedAt, true)} · ใช้เวลา {formatDuration(round.seconds)}
-                {round.status === "expired" ? " · หมดเวลา ระบบส่งให้" : ""}
+        <ScrollArea className="min-h-0 flex-1 bg-card">
+          <div className="space-y-5 px-6 py-5">
+            <section className="grid gap-2.5">
+              <div className="text-sm font-semibold text-foreground tabular-nums">รอบที่ทำแล้ว ({rounds.length})</div>
+              <div className="flex flex-wrap gap-2">
+                {rounds.map((r) => (
+                  <Button
+                    key={r.id}
+                    variant={r.id === picked ? "secondary" : "outline"}
+                    className={cn(
+                      "h-auto flex-col items-start gap-0.5 rounded-xl px-3.5 py-2 text-left tabular-nums",
+                      r.id === picked && "border-primary bg-primary-soft/45",
+                    )}
+                    onClick={() => setPicked(r.id)}
+                    aria-pressed={r.id === picked}
+                  >
+                    <b>รอบที่ {r.number}</b>
+                    <span className="text-xs font-normal">
+                      {r.score}/{r.total} · {r.percent}%
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">{formatDuration(r.seconds)}</span>
+                    {r.id === student.best.id && <em className="text-xs font-semibold not-italic text-success">ดีที่สุด</em>}
+                  </Button>
+                ))}
               </div>
-            )}
+              {round && (
+                <div className="rounded-lg border border-border/70 bg-muted/25 px-3.5 py-2 text-xs text-muted-foreground tabular-nums">
+                  {fmtDate(round.submittedAt || round.startedAt, true)} · ใช้เวลา {formatDuration(round.seconds)}
+                  {round.status === "expired" ? " · หมดเวลา ระบบส่งให้" : ""}
+                </div>
+              )}
+            </section>
 
             {!cur && <LoadingState />}
             {cur?.error && (
-              <div role="alert" className="mt-4 rounded-lg bg-warning-soft p-3 text-sm text-warning">
+              <div role="alert" className="rounded-xl bg-warning-soft p-3.5 text-sm text-warning">
                 โหลดผลของรอบนี้ไม่สำเร็จ ลองเลือกรอบอีกครั้ง
               </div>
             )}
             {cur?.result && (
               <>
-                <div className="mb-2 mt-5 text-sm font-semibold">ผลรายหัวข้อ</div>
-                <TopicBars bars={cur.result.analysis.groups.map((g) => ({ key: g.topic_id ?? "none", name: g.name, percent: g.percent, status: g.status }))} />
-                <div className="mb-1 mt-5 text-sm font-semibold">ทบทวนรายข้อ ({cur.result.rows.length} ข้อ)</div>
-                <div className="grid gap-3">
-                  {cur.result.rows.map((row, i) => (
-                    <RoundReview key={row.question_id + i} n={i + 1} row={row} q={cur.qs.get(row.question_id)} />
-                  ))}
-                </div>
+                <section className="grid gap-2">
+                  <div className="text-sm font-semibold text-foreground">ผลรายหัวข้อ</div>
+                  <TopicBars bars={cur.result.analysis.groups.map((g) => ({ key: g.topic_id ?? "none", name: g.name, percent: g.percent, status: g.status }))} />
+                </section>
+                <section className="grid gap-2.5">
+                  <div className="text-sm font-semibold text-foreground tabular-nums">ทบทวนรายข้อ ({cur.result.rows.length} ข้อ)</div>
+                  <div className="grid gap-3">
+                    {cur.result.rows.map((row, i) => (
+                      <RoundReview key={row.question_id + i} n={i + 1} row={row} q={cur.qs.get(row.question_id)} />
+                    ))}
+                  </div>
+                </section>
               </>
             )}
           </div>
         </ScrollArea>
+
+        <SheetFooter className="shrink-0 flex-row justify-end border-t border-border/80 bg-muted/35 px-6 py-3.5">
+          <Button type="button" variant="outline" onClick={onClose}>
+            ปิด
+          </Button>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   )

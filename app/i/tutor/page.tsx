@@ -81,7 +81,7 @@ export default function InstructorTutorSets() {
       <PageHeader
         kicker="โหมดติว"
         title="ชุดติว"
-        description="ชุดติวแยกจากรายวิชาปกติ ตรวจได้ว่านักศึกษาเข้าชุดไหนได้ และบทไหนที่คลังข้อสอบยังไม่พอ"
+        description="ชุดติวแยกจากรายวิชาปกติ ตรวจได้ว่านักศึกษาเข้าชุดไหนได้ และหมวดไหนที่คลังข้อสอบยังไม่พอ"
         actions={
           canCreate && (
             <Button onClick={() => setCreating(true)}>
@@ -96,7 +96,7 @@ export default function InstructorTutorSets() {
           { label: "ชุดติว", value: list.length, icon: <AwardIcon /> },
           { label: "ข้อสอบในคลัง", value: list.reduce((n, s) => n + s.questions, 0), icon: <ClipboardListIcon /> },
           { label: "ยังไม่มีนักศึกษาเข้าได้", value: list.filter((s) => !lockSummary(s).open).length, icon: <LockIcon />, tone: "warning" },
-          { label: "บทที่คลังไม่พอ", value: list.reduce((n, s) => n + s.short, 0), icon: <TriangleAlertIcon />, tone: "warning" },
+          { label: "หมวดคลังไม่พอ", value: list.reduce((n, s) => n + s.short, 0), icon: <TriangleAlertIcon />, tone: "warning" },
         ]}
       />
       <DataTable.Root data={list} columns={columns} getRowId={(r: TutorSetSummary) => r.id} searchKeys={["title", "code"]}>

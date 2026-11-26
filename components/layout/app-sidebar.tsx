@@ -32,7 +32,7 @@ import { displayRole, initials } from "./user-info"
 type User = (Parameters<typeof hasPermission>[0] & { role?: string | null }) | undefined
 
 const activeItemClass =
-  "relative data-[active=true]:bg-sidebar-primary/45 data-[active=true]:font-semibold data-[active=true]:text-white data-[active=true]:hover:bg-sidebar-primary/50 data-[active=true]:before:absolute data-[active=true]:before:inset-y-1.5 data-[active=true]:before:left-0 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-ring"
+  "data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground data-[active=true]:hover:bg-sidebar-accent data-[active=true]:[&_svg]:text-sidebar-primary"
 
 /** Drop entries the user may not see; empty submenus and groups go too. */
 function visibleGroups(config: NavConfig, user: User): NavGroup[] {
@@ -80,7 +80,7 @@ export function AppSidebar({ config }: { config: NavConfig }) {
                 </div>
                 <div className="grid flex-1 text-left leading-tight">
                   <span className="truncate font-semibold">E-learning</span>
-                  <span className="truncate text-xs text-sidebar-foreground/75">{subtitle}</span>
+                  <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -147,7 +147,7 @@ export function AppSidebar({ config }: { config: NavConfig }) {
         ))}
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-2 p-2">
@@ -157,7 +157,7 @@ export function AppSidebar({ config }: { config: NavConfig }) {
               </Avatar>
               <div className="grid min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-semibold">{user?.name || "กำลังโหลด..."}</span>
-                <span className="truncate text-xs text-sidebar-foreground/75">{displayRole(user?.role, config.roleFallback)}</span>
+                <span className="truncate text-xs text-muted-foreground">{displayRole(user?.role, config.roleFallback)}</span>
               </div>
               <Button
                 variant="ghost"

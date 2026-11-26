@@ -44,6 +44,16 @@ export const instructorNav: NavConfig = {
           ],
         },
         {
+          title: "คลังการสอน",
+          icon: Library,
+          permission: PERMISSIONS.COURSES_VIEW,
+          items: [
+            { title: "แบบทดสอบก่อนเรียน", href: "/i/master/pretests", icon: ClipboardList, permission: PERMISSIONS.COURSES_VIEW },
+            { title: "แบบทดสอบหลังเรียน", href: "/i/master/posttests", icon: ListChecks, permission: PERMISSIONS.COURSES_VIEW },
+            { title: "ใบงาน", href: "/i/master/worksheets", icon: FileCheck, permission: PERMISSIONS.COURSES_VIEW },
+          ],
+        },
+        {
           title: "รวมเกม",
           icon: Target,
           permission: PERMISSIONS.COURSES_VIEW,

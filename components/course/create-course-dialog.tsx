@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2Icon, PlusIcon } from "lucide-react";
+import { BookOpenIcon, Loader2Icon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_DOMAIN } from "@/lib/course-access";
@@ -221,39 +221,72 @@ export function CreateCourseDialog({
     }
   };
 
+  const readinessHint = loading
+    ? "กำลังโหลดข้อมูลเริ่มต้น…"
+    : !draft.title.trim() || !draft.code.trim()
+      ? "กรุณากรอกชื่อรายวิชาและรหัสวิชา"
+      : !draft.term
+        ? "กรุณาเลือกภาคเรียน"
+        : mainManagers.length === 0
+          ? "กรุณาเลือกอาจารย์ผู้รับผิดชอบหลักอย่างน้อย 1 คน"
+          : null;
+
   return (
     <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <form noValidate className="grid gap-4" onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>สร้างรายวิชาใหม่</DialogTitle>
-            <DialogDescription>กรอกข้อมูลพื้นฐานของรายวิชา จากนั้นจึงเพิ่มบทเรียน วิดีโอ และแบบทดสอบได้</DialogDescription>
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-w-2xl">
+        <form noValidate className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
+          <DialogHeader className="shrink-0 border-b border-border/80 bg-card px-6 py-4 pr-14 text-left">
+            <div className="flex items-start gap-3">
+              <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+                <BookOpenIcon className="size-4.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-base font-semibold tracking-tight">สร้างรายวิชาใหม่</DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
+                  กรอกข้อมูลพื้นฐานของรายวิชา จากนั้นจึงเพิ่มบทเรียน วิดีโอ และแบบทดสอบได้
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          {loading ? (
-            <LoadingState className="min-h-60" />
-          ) : (
-            <CourseInfoCard
-              draft={draft}
-              mainManagers={mainManagers}
-              onChange={patch}
-              groups={filteredGroups}
-              groupLocked={isCourseManagerOnly && filteredGroups.length <= 1}
-              terms={terms}
-              sections={sections}
-              instructors={instructors}
-              yearLabels={masterYearLabels}
-            />
-          )}
+          <div className="modal-scroll flex-1 overflow-y-auto bg-card px-6 py-5">
+            {loading ? (
+              <LoadingState className="min-h-60" />
+            ) : (
+              <CourseInfoCard
+                draft={draft}
+                mainManagers={mainManagers}
+                onChange={patch}
+                groups={filteredGroups}
+                groupLocked={isCourseManagerOnly && filteredGroups.length <= 1}
+                terms={terms}
+                sections={sections}
+                instructors={instructors}
+                yearLabels={masterYearLabels}
+              />
+            )}
+          </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-              ยกเลิก
-            </Button>
-            <Button type="submit" disabled={loading || submitting || !draft.title || !draft.code || !draft.term || mainManagers.length === 0}>
-              {submitting ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
-              สร้างรายวิชา
-            </Button>
+          <DialogFooter className="shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border/80 bg-muted/35 px-6 py-3.5 sm:justify-between">
+            <div className="flex items-center gap-2 text-xs">
+              {readinessHint ? (
+                <span className="text-muted-foreground">{readinessHint}</span>
+              ) : (
+                <>
+                  <span aria-hidden className="size-2 rounded-full bg-success" />
+                  <span className="font-medium text-success">พร้อมสร้างรายวิชา</span>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+                ยกเลิก
+              </Button>
+              <Button type="submit" disabled={loading || submitting || !draft.title || !draft.code || !draft.term || mainManagers.length === 0}>
+                {submitting ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
+                สร้างรายวิชา
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

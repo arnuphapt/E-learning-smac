@@ -93,11 +93,11 @@ export function StepDocs({
       </div>
 
       {docs.length === 0 ? (
-        <div className="rounded-lg border border-dashed px-4 py-5 text-center text-xs text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 px-4 py-5 text-center text-xs text-muted-foreground">
           ยังไม่มีไฟล์ในส่วนนี้
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="divide-y divide-border/70 rounded-xl border border-border/80 bg-card">
           {docs.map((doc, idx) => (
             <li key={`${doc.path ?? doc.name}-${idx}`} className="flex items-center justify-between gap-3 px-3 py-2.5">
               <div className="flex min-w-0 items-center gap-2.5">
