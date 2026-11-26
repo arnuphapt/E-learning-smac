@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { InfoIcon, SendIcon } from "lucide-react"
 import type { Database } from "@/lib/database.types"
+import { DatePicker } from "@/components/common/date-picker"
 import { FormField } from "@/components/common/form-field"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -142,7 +143,7 @@ export function BroadcastDialog({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="วันหมดอายุ (ไม่บังคับ)" htmlFor="bc-expires">
-          <Input id="bc-expires" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+          <DatePicker id="bc-expires" value={expiresAt} onChange={setExpiresAt} clearable />
         </FormField>
         <div className="flex items-end gap-2 pb-2">
           <Checkbox id="bc-pinned" checked={pinned} onCheckedChange={(c) => setPinned(c === true)} />

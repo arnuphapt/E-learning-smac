@@ -2,7 +2,9 @@
 
 import { useState } from "react"
 import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { DatePicker } from "@/components/common/date-picker"
 import { FormField } from "@/components/common/form-field"
+import { TimePicker } from "@/components/common/time-picker"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
@@ -14,7 +16,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { QuestionDialog } from "@/components/lesson/question-dialog"
 import { SwitchRow } from "@/components/lesson/switch-row"
 import { deleteTestQuestion, emptyQuestion, formFrom, saveTestQuestion, saveTestSettings, type TestForm, type TestKind } from "@/components/lesson/test-actions"
-import { maskTime, parseChoices, parseTestConfig, type LessonRow, type OnSaveLesson, type QuestionEditorItem, type QuestionRow } from "@/components/lesson/types"
+import { parseChoices, parseTestConfig, type LessonRow, type OnSaveLesson, type QuestionEditorItem, type QuestionRow } from "@/components/lesson/types"
 import { cn } from "@/lib/utils"
 import { MaterialPicker } from "@/components/master/materials/material-picker"
 
@@ -131,10 +133,10 @@ export function StepTest({
           <CollapsibleContent className="grid gap-3 pt-2">
             <div className="grid gap-3 sm:grid-cols-2">
               <FormField label="กำหนดส่ง (วันที่)" htmlFor="wizard-test-due">
-                <Input id="wizard-test-due" type="date" value={form.due} onChange={(e) => patch({ due: e.target.value })} />
+                <DatePicker id="wizard-test-due" value={form.due} onChange={(v) => patch({ due: v })} />
               </FormField>
               <FormField label="เวลาที่กำหนดส่ง" htmlFor="wizard-test-due-time">
-                <Input id="wizard-test-due-time" value={form.dueTime} onChange={(e) => patch({ dueTime: maskTime(e.target.value) })} placeholder="23:59" />
+                <TimePicker id="wizard-test-due-time" value={form.dueTime} onChange={(v) => patch({ dueTime: v })} />
               </FormField>
             </div>
             <div>

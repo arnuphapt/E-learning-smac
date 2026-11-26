@@ -5,11 +5,12 @@ import Link from "next/link"
 import { LibraryIcon, Loader2Icon } from "lucide-react"
 import { toast } from "sonner"
 import { ColumnHeader, DataTable, type DataTableColumnDef } from "@/components/common/data-table"
+import { DatePicker } from "@/components/common/date-picker"
 import { FormField } from "@/components/common/form-field"
 import { EmptyState, ErrorState } from "@/components/common/states"
+import { TimePicker } from "@/components/common/time-picker"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { getTodayStr } from "@/components/lesson/types"
 import { MATERIAL_LABELS, type MaterialKind, type MaterialPayload, validateMaterial } from "@/lib/lesson-materials"
 import { listMaterials, type MaterialRow } from "@/lib/lesson-materials-client"
@@ -85,9 +86,9 @@ function PickerDialog({ kind, lessonId, onClose, onCopied }: {
             : `${(selected.payload as unknown as MaterialPayload).questions.length} คำถาม`}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label={kind === "assignment" ? "กำหนดส่งใบงาน" : "วันครบกำหนด (เว้นว่างได้)"} htmlFor="material-due" required={kind === "assignment"}>
-              <Input id="material-due" type="date" value={due} disabled={busy} onChange={(e) => setDue(e.target.value)} />
+              <DatePicker id="material-due" value={due} disabled={busy} clearable={kind !== "assignment"} onChange={setDue} />
             </FormField>
-            <FormField label="เวลา" htmlFor="material-due-time"><Input id="material-due-time" type="time" value={dueTime} disabled={busy} onChange={(e) => setDueTime(e.target.value)} /></FormField>
+            <FormField label="เวลา" htmlFor="material-due-time"><TimePicker id="material-due-time" value={dueTime} disabled={busy} onChange={setDueTime} /></FormField>
           </div>
         </div>}
         {error && <ErrorState description={error} onRetry={() => setReloadKey((k) => k + 1)} />}

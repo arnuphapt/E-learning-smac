@@ -2,8 +2,10 @@
 
 import { useState } from "react"
 import { ArrowLeftIcon, CheckIcon, FileIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { DatePicker } from "@/components/common/date-picker"
 import { FormField } from "@/components/common/form-field"
 import { ToneBadge } from "@/components/common/status-badge"
+import { TimePicker } from "@/components/common/time-picker"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -12,7 +14,7 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { saveAssignmentWithRubric, useDeleteAssignment } from "@/components/lesson/assignment-actions"
 import { MaterialPicker } from "@/components/master/materials/material-picker"
-import { getTodayStr, maskTime, parseCriteria, type AssignmentRow, type LessonRow, type RubricCriterion, type RubricRow } from "@/components/lesson/types"
+import { getTodayStr, parseCriteria, type AssignmentRow, type LessonRow, type RubricCriterion, type RubricRow } from "@/components/lesson/types"
 
 function OptionCheck({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -131,10 +133,10 @@ function AssignmentDetailForm({
 
         <div className="grid gap-3 sm:grid-cols-3">
           <FormField label="กำหนดส่ง" htmlFor="wizard-asg-due">
-            <Input id="wizard-asg-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+            <DatePicker id="wizard-asg-due" value={due} onChange={setDue} />
           </FormField>
           <FormField label="เวลา" htmlFor="wizard-asg-due-time">
-            <Input id="wizard-asg-due-time" value={dueTime} onChange={(e) => setDueTime(maskTime(e.target.value))} placeholder="23:59" />
+            <TimePicker id="wizard-asg-due-time" value={dueTime} onChange={setDueTime} />
           </FormField>
           <FormField label="คะแนนเต็ม" htmlFor="wizard-asg-points">
             <Input id="wizard-asg-points" value={total} readOnly />

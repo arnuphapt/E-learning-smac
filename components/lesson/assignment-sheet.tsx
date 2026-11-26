@@ -2,8 +2,10 @@
 
 import { useState } from "react"
 import { CheckIcon, PlusIcon, TargetIcon, Trash2Icon } from "lucide-react"
+import { DatePicker } from "@/components/common/date-picker"
 import { FormField } from "@/components/common/form-field"
 import { ToneBadge } from "@/components/common/status-badge"
+import { TimePicker } from "@/components/common/time-picker"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -12,7 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { saveAssignmentWithRubric, useDeleteAssignment } from "./assignment-actions"
-import { getTodayStr, maskTime, parseCriteria, type AssignmentRow, type LessonRow, type RubricCriterion, type RubricRow } from "./types"
+import { getTodayStr, parseCriteria, type AssignmentRow, type LessonRow, type RubricCriterion, type RubricRow } from "./types"
 
 function OptionCheck({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -103,10 +105,10 @@ export function AssignmentSheet({
               </FormField>
               <div className="grid gap-3 sm:grid-cols-3">
                 <FormField label="กำหนดส่ง" htmlFor="asg-due-date">
-                  <Input id="asg-due-date" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+                  <DatePicker id="asg-due-date" value={due} onChange={setDue} />
                 </FormField>
                 <FormField label="เวลา" htmlFor="asg-due-time">
-                  <Input id="asg-due-time" value={dueTime} onChange={(e) => setDueTime(maskTime(e.target.value))} placeholder="23:59" />
+                  <TimePicker id="asg-due-time" value={dueTime} onChange={setDueTime} />
                 </FormField>
                 <FormField label="คะแนนเต็ม" htmlFor="asg-total-points">
                   <Input id="asg-total-points" value={total} readOnly />

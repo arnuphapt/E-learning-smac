@@ -4,8 +4,8 @@ import { useState } from "react"
 import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { formatThaiDate, parseThaiDateToISO } from "@/lib/thai-date"
+import { DatePicker } from "@/components/common/date-picker"
 import { FormField } from "@/components/common/form-field"
-import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MasterFormDialog } from "@/components/master/form-dialog"
 import { StatusField } from "@/components/master/status"
@@ -79,10 +79,10 @@ export function YearDialog({
       </FormField>
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="วันเริ่มต้น" htmlFor="year-start">
-          <Input id="year-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <DatePicker id="year-start" value={startDate} onChange={setStartDate} clearable />
         </FormField>
         <FormField label="วันสิ้นสุด" htmlFor="year-end">
-          <Input id="year-end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <DatePicker id="year-end" value={endDate} onChange={setEndDate} clearable />
         </FormField>
       </div>
       <StatusField value={status} onChange={setStatus} />

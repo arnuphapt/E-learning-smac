@@ -8,7 +8,14 @@ import type { QuizProblem } from "@/lib/live";
 import { FormField } from "@/components/common/form-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,7 +45,7 @@ function RadioCard({ value, id, title, desc }: { value: string; id: string; titl
   return (
     <Label
       htmlFor={id}
-      className="items-start gap-3 rounded-lg border p-3 font-normal has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary-soft"
+      className="items-start gap-2.5 rounded-lg border p-2.5 font-normal has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary-soft"
     >
       <RadioGroupItem value={value} id={id} className="mt-0.5" />
       <div className="flex flex-col gap-0.5">
@@ -49,14 +56,17 @@ function RadioCard({ value, id, title, desc }: { value: string; id: string; titl
   );
 }
 
-export function OpenRoomForm({
+/** Dialog for opening a new live quiz room; mount only while open. */
+export function OpenRoomDialog({
   quizzes,
   courses,
   preselectedQuizId,
+  onClose,
 }: {
   quizzes: QuizOption[];
   courses: CourseOption[];
   preselectedQuizId: string;
+  onClose: () => void;
 }) {
   const router = useRouter();
   const [selectedQuiz, setSelectedQuiz] = useState(preselectedQuizId);
@@ -132,13 +142,14 @@ export function OpenRoomForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">เปิดห้องควิซใหม่</CardTitle>
-        <CardDescription>เลือกชุดคำถามและรายวิชาเพื่อรับ PIN เข้าห้อง</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleCreateSession} className="flex flex-col gap-5">
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <form onSubmit={handleCreateSession} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>เปิดห้องควิซใหม่</DialogTitle>
+            <DialogDescription>เลือกชุดคำถามและรายวิชาเพื่อรับ PIN เข้าห้อง</DialogDescription>
+          </DialogHeader>
+
           <FormField label="ชุดควิซ" htmlFor="live-quiz-select" required>
             {quizzes.length === 0 ? (
               <div className="rounded-md border bg-muted p-3 text-xs text-muted-foreground">
@@ -150,7 +161,7 @@ export function OpenRoomForm({
             ) : (
               <Select value={selectedQuiz} onValueChange={setSelectedQuiz}>
                 <SelectTrigger id="live-quiz-select" className="w-full">
-                  <SelectValue placeholder="-- เลือกชุดควิซ --" />
+                  <SelectValue placeholder="เลือกชุดควิซ" />
                 </SelectTrigger>
                 <SelectContent>
                   {quizzes.map((q) => (
@@ -166,7 +177,7 @@ export function OpenRoomForm({
           <FormField label="รายวิชาที่สอน" htmlFor="live-course-select" required>
             <Select value={selectedCourse} onValueChange={setPickedCourse}>
               <SelectTrigger id="live-course-select" className="w-full">
-                <SelectValue placeholder="-- เลือกรายวิชา --" />
+                <SelectValue placeholder="เลือกรายวิชา" />
               </SelectTrigger>
               <SelectContent>
                 {courses.map((c) => (
@@ -259,12 +270,17 @@ export function OpenRoomForm({
             </Alert>
           )}
 
-          <Button type="submit" disabled={submitting || quizzes.length === 0} className="w-full">
-            {submitting ? <Loader2Icon className="animate-spin" /> : <PlayIcon />}
-            {submitting ? "กำลังเปิดห้อง…" : "เปิดห้องควิซ (สร้าง PIN)"}
-          </Button>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+              ยกเลิก
+            </Button>
+            <Button type="submit" disabled={submitting || quizzes.length === 0}>
+              {submitting ? <Loader2Icon className="animate-spin" /> : <PlayIcon />}
+              {submitting ? "กำลังเปิดห้อง…" : "เปิดห้องควิซ (สร้าง PIN)"}
+            </Button>
+          </DialogFooter>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { uniqueChoiceId } from "@/lib/questions"
 import { cn } from "@/lib/utils"
+import { ComboboxInput } from "@/components/common/combobox-input"
 import { FormField } from "@/components/common/form-field"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -200,18 +201,15 @@ export function BankQuestionDialog({
               </FormField>
 
               <FormField label={<>หัวข้อ {hint("พิมพ์เองหรือเลือกจากหัวข้อที่ใช้แล้วในหมวดนี้ (เว้นว่างได้)")}</>} htmlFor="bank-q-topic">
-                <Input
+                <ComboboxInput
                   id="bank-q-topic"
-                  list="tutor-topics"
                   value={topicName}
-                  onChange={(e) => setTopicName(e.target.value)}
+                  onChange={setTopicName}
+                  options={topics.map((t) => t.name)}
                   placeholder="เช่น ภาวะหัวใจล้มเหลว"
+                  searchPlaceholder="ค้นหาหรือพิมพ์หัวข้อใหม่…"
+                  emptyText="ยังไม่มีหัวข้อในหมวดนี้"
                 />
-                <datalist id="tutor-topics">
-                  {topics.map((t) => (
-                    <option key={t.id} value={t.name} />
-                  ))}
-                </datalist>
               </FormField>
             </section>
           </div>

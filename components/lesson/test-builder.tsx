@@ -3,7 +3,9 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { CheckIcon, PlusIcon } from "lucide-react"
+import { DatePicker } from "@/components/common/date-picker"
 import { FormField } from "@/components/common/form-field"
+import { TimePicker } from "@/components/common/time-picker"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,7 +17,6 @@ import { QuestionDialog } from "./question-dialog"
 import { SwitchRow } from "./switch-row"
 import { deleteTestQuestion, emptyQuestion, formFrom, saveTestQuestion, saveTestSettings, type TestForm, type TestKind } from "./test-actions"
 import {
-  maskTime,
   parseChoices,
   parseTestConfig,
   type LessonRow,
@@ -143,10 +144,10 @@ export function TestBuilder({ lesson, questions, onLoad, onSaveSettings }: { les
             </Select>
           </FormField>
           <FormField label="กำหนดส่ง (วันที่)" htmlFor="test-due-date">
-            <Input id="test-due-date" type="date" value={form.due} onChange={(e) => patch({ due: e.target.value })} />
+            <DatePicker id="test-due-date" value={form.due} onChange={(v) => patch({ due: v })} />
           </FormField>
           <FormField label="เวลาที่กำหนดส่ง" htmlFor="test-due-time">
-            <Input id="test-due-time" value={form.dueTime} onChange={(e) => patch({ dueTime: maskTime(e.target.value) })} placeholder="23:59" />
+            <TimePicker id="test-due-time" value={form.dueTime} onChange={(v) => patch({ dueTime: v })} />
           </FormField>
           <div>
             <SwitchRow label={which === "pre" ? "ต้องทำ Pre-test ก่อนเข้าเรียน/ดูวิดีโอ" : "ต้องทำ Post-test หลังเรียน"} on={form.required} onChange={(val) => patch({ required: val })} />
