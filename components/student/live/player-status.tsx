@@ -19,7 +19,7 @@ export function PlayerLoadError({ message, onRetry }: { message: string; onRetry
           <div className="flex items-center justify-center gap-3 pt-2">
             <Button onClick={onRetry}>ลองใหม่อีกครั้ง</Button>
             <Button asChild variant="outline">
-              <Link href="/s/live">กลับหน้ารายการ</Link>
+              <Link href="/s/live/quiz">กลับหน้ารายการ</Link>
             </Button>
           </div>
         </CardContent>

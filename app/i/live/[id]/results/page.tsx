@@ -96,7 +96,7 @@ export default function LiveQuizResultsPage() {
         <ErrorState title="ไม่สามารถแสดงผลการแข่งขันได้" description={error} />
         <div className="flex justify-center">
           <Button asChild variant="outline">
-            <Link href="/i/live">
+            <Link href="/i/live/hubs">
               <ArrowLeftIcon />
               กลับหน้ารายการห้อง
             </Link>
@@ -116,7 +116,7 @@ export default function LiveQuizResultsPage() {
         actions={
           <>
             <Button asChild variant="outline">
-              <Link href="/i/live">
+              <Link href="/i/live/hubs">
                 <ArrowLeftIcon />
                 กลับหน้ารายการห้อง
               </Link>

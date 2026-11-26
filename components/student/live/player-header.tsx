@@ -25,7 +25,7 @@ export function PlayerHeader({
   return (
     <header className="relative z-10 flex items-center justify-between gap-2 border-b pb-3">
       <div className="flex min-w-0 items-center gap-2">
-        <Link href="/s/live" className="shrink-0 text-xs font-medium text-muted-foreground transition hover:text-foreground">
+        <Link href="/s/live/quiz" className="shrink-0 text-xs font-medium text-muted-foreground transition hover:text-foreground">
           ← ออก
         </Link>
         <span className="text-xs text-border">|</span>

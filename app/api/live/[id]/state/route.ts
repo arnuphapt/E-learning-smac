@@ -3,6 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { rankRows } from "@/lib/live";
 import { json, getLiveCaller, readLiveRows } from "@/lib/live-server";
+import {
+  summarizeDragonPointGrant,
+  type DragonGrantSummary,
+} from "@/lib/dragon-growth";
 
 interface LiveSessionInfo {
   id: string;
@@ -422,6 +426,27 @@ export async function GET(
       case "ended": {
         const standings = await computeStandings(db, session.id, callerId);
 
+        let dragonSummary: DragonGrantSummary | null = null;
+        if (!isHost) {
+          const { data: grant, error: gErr } = await db
+            .from("dragon_point_grants")
+            .select("points, points_before, points_after, overflow, first_egg")
+            .eq("session_id", session.id)
+            .eq("user_id", callerId)
+            .maybeSingle();
+          if (gErr) throw gErr;
+
+          if (grant) {
+            dragonSummary = summarizeDragonPointGrant({
+              points: grant.points,
+              pointsBefore: grant.points_before,
+              pointsAfter: grant.points_after,
+              overflow: grant.overflow,
+              firstEgg: grant.first_egg,
+            });
+          }
+        }
+
         const teamBoard = session.team_mode ? standings.teamBoard : undefined;
         const meTeam = session.team_mode ? standings.meTeam : undefined;
         const teams = session.team_mode ? standings.teams : undefined;
@@ -440,6 +465,7 @@ export async function GET(
           rank: standings.meRank,
           playerCount: standings.playerCount,
           ...(session.team_mode && !isHost ? { team: meTeam } : {}),
+          ...(isHost ? {} : { dragon_summary: dragonSummary }),
         };
         break;
       }

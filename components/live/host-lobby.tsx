@@ -124,7 +124,7 @@ export function HostLobby({
     <div className="mx-auto my-auto w-full max-w-4xl py-6 text-center">
       <Card className="mb-6 inline-flex rounded-full px-6 py-3 shadow-sm">
         <p className="text-base font-medium text-foreground sm:text-xl">
-          เข้า <span className="font-bold text-primary underline underline-offset-4">{siteUrl || "/s/live"}</span> แล้วกรอก PIN
+          เข้า <span className="font-bold text-primary underline underline-offset-4">{siteUrl || "/s/live/quiz"}</span> แล้วกรอก PIN
         </p>
       </Card>
 

@@ -1,3 +1,11 @@
+declare module "@/lib/dragon/asset-base.mjs" {
+  export function assetUrl(path: string): string;
+}
+
+declare module "@/lib/dragon/hatchery.mjs" {
+  export const HATCHERY_KEY: string;
+}
+
 declare module "@/lib/dragon/engine.mjs" {
   export interface DragonBaseCallbacks {
     signal?: AbortSignal;
@@ -5,6 +13,9 @@ declare module "@/lib/dragon/engine.mjs" {
     onCamera?: (camera: unknown) => void;
     onInspect?: (item: unknown) => void;
     onInteract?: (event: { kind: string; actorId?: string; roomID?: string }) => void;
+    storage?: Pick<Storage, "getItem" | "setItem"> | null;
+    viewOnly?: boolean;
+    fogEnabled?: boolean;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,6 +45,8 @@ declare module "@/lib/dragon/hatchery-panel.mjs" {
     open: boolean;
     onClose?: () => void;
     nurseryOnly?: boolean;
+    storage?: Pick<Storage, "getItem" | "setItem"> | null;
+    viewOnly?: boolean;
   }>;
 }
 

@@ -105,6 +105,38 @@ export function canStudentOpenLesson(
     : canStudentAccessCourse(course, student, sections, grades);
 }
 
+function matchesAllowedYearLevel(
+  allowed: readonly (number | string)[] | null | undefined,
+  student: StudentAccessInput,
+  grades?: readonly GradeRule[] | null
+): boolean {
+  if (!allowed || allowed.length === 0) return true; // no restriction
+
+  const email = student.email || "";
+  const match = email.match(/^(\d+)@/);
+  const tutorOnly = !!student.tutorOnly;
+  const prefix = match ? match[1].substring(0, 2) : "";
+  const domain = tutorOnly ? emailDomain(email) : DEFAULT_DOMAIN;
+  const domainGrades = (grades || []).filter((g) => (g.domain || DEFAULT_DOMAIN) === domain);
+  const exact = prefix ? domainGrades.find((g) => g.prefix === prefix) : undefined;
+  const mapping = exact || (tutorOnly ? domainGrades.find((g) => g.prefix === "") : undefined);
+  const studentLabel = !tutorOnly && mapping ? mapping.year_label : null;
+  const studyYear = tutorOnly ? (mapping?.year_no ?? null) : student.studyYear ? Number(student.studyYear) : null;
+
+  return allowed.some((ay) => {
+    if (typeof ay === "number" || !isNaN(Number(ay))) return Number(ay) === studyYear;
+    return ay === studentLabel;
+  });
+}
+
+export function canStudentAccessHub(
+  yearLevel: readonly (number | string)[] | null | undefined,
+  student: StudentAccessInput,
+  grades?: readonly GradeRule[] | null
+): boolean {
+  return matchesAllowedYearLevel(yearLevel, student, grades);
+}
+
 // course: { section, year_level, access: { allowedEmails } }
 // student: { email, studentNo, section, studyYear, tutorOnly }  (studentNo falls back to the digits before "@" in the email)
 // grades: student_grades rows { prefix, year_label, domain, year_no }; sections: sections rows
@@ -135,19 +167,5 @@ export function canStudentAccessCourse(
     }
   }
 
-  const allowed = course.year_level;
-  if (!allowed || allowed.length === 0) return true; // no restriction
-
-  const prefix = match ? match[1].substring(0, 2) : "";
-  const domain = tutorOnly ? emailDomain(email) : DEFAULT_DOMAIN;
-  const domainGrades = (grades || []).filter((g) => (g.domain || DEFAULT_DOMAIN) === domain);
-  const exact = prefix ? domainGrades.find((g) => g.prefix === prefix) : undefined;
-  const mapping = exact || (tutorOnly ? domainGrades.find((g) => g.prefix === "") : undefined);
-  const studentLabel = !tutorOnly && mapping ? mapping.year_label : null;
-  const studyYear = tutorOnly ? (mapping?.year_no ?? null) : student.studyYear ? Number(student.studyYear) : null;
-
-  return allowed.some((ay) => {
-    if (typeof ay === "number" || !isNaN(Number(ay))) return Number(ay) === studyYear;
-    return ay === studentLabel;
-  });
+  return matchesAllowedYearLevel(course.year_level, student, grades);
 }

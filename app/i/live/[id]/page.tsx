@@ -195,7 +195,7 @@ export default function HostLiveSessionPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setSiteUrl(`${window.location.origin}/s/live`);
+      setSiteUrl(`${window.location.origin}/s/live/quiz`);
     }
   }, []);
 
@@ -250,7 +250,7 @@ export default function HostLiveSessionPage() {
           className="max-w-md"
         />
         <Button asChild variant="outline" className="absolute bottom-10">
-          <Link href="/i/live">กลับหน้ารายการห้อง</Link>
+          <Link href="/i/live/hubs">กลับหน้ารายการห้อง</Link>
         </Button>
       </div>
     );
@@ -283,7 +283,7 @@ export default function HostLiveSessionPage() {
       <header className="relative z-10 flex items-center justify-between gap-4 border-b pb-3">
         <div className="flex min-w-0 items-center gap-3">
           <Button asChild variant="outline" size="sm" className="shrink-0">
-            <Link href="/i/live">
+            <Link href="/i/live/hubs">
               <ArrowLeftIcon />
               หน้ารายการห้อง
             </Link>

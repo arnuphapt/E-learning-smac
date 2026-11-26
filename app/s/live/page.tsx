@@ -1,22 +1,30 @@
 "use client";
 
+import { RadioIcon } from "lucide-react";
+import { GameCardGrid, type GameCardItem } from "@/components/common/game-card";
 import { PageContainer } from "@/components/common/page-container";
 import { PageHeader } from "@/components/common/page-header";
-import { Separator } from "@/components/ui/separator";
-import StudentQuizHistory from "@/components/live/student-quiz-history";
-import { JoinPinForm } from "@/components/student/live/join-pin-form";
+
+const STUDENT_GAMES: GameCardItem[] = [
+  {
+    id: "live-quiz",
+    title: "ควิซสด",
+    description: "กรอก PIN เพื่อเข้าร่วมห้องควิซสด ตอบคำถามแบบเรียลไทม์ และดูประวัติคะแนนของคุณ",
+    href: "/s/live/quiz",
+    ctaLabel: "เข้าเล่นควิซสด",
+    badge: "พร้อมเล่น",
+    icon: <RadioIcon className="size-5" />,
+  },
+];
 
 export default function StudentLiveIndexPage() {
   return (
     <PageContainer>
       <PageHeader
-        kicker="กิจกรรมการเรียนรู้"
         title="รวมเกม"
-        description="กรอก PIN เพื่อเข้าร่วมห้องควิซสดและตอบคำถามแข่งขันแบบเรียลไทม์"
+        description="เลือกเกมที่ต้องการเข้าร่วมเพื่อฝึกทบทวนและสะสมคะแนน"
       />
-      <JoinPinForm />
-      <Separator className="mb-6" />
-      <StudentQuizHistory />
+      <GameCardGrid games={STUDENT_GAMES} />
     </PageContainer>
   );
 }

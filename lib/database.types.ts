@@ -400,6 +400,174 @@ export type Database = {
         }
         Relationships: []
       }
+      dragon_point_grants: {
+        Row: {
+          dragon_id: string | null
+          first_egg: boolean | null
+          granted_at: string
+          overflow: number | null
+          points: number
+          points_after: number | null
+          points_before: number | null
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          dragon_id?: string | null
+          first_egg?: boolean | null
+          granted_at?: string
+          overflow?: number | null
+          points: number
+          points_after?: number | null
+          points_before?: number | null
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          dragon_id?: string | null
+          first_egg?: boolean | null
+          granted_at?: string
+          overflow?: number | null
+          points?: number
+          points_after?: number | null
+          points_before?: number | null
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dragon_point_grants_dragon_id_fkey"
+            columns: ["dragon_id"]
+            isOneToOne: false
+            referencedRelation: "dragons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dragon_point_grants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dragon_point_grants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dragon_point_grants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dragon_species: {
+        Row: {
+          id: string
+          rarity: string
+          weight: number
+        }
+        Insert: {
+          id: string
+          rarity: string
+          weight: number
+        }
+        Update: {
+          id?: string
+          rarity?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      dragon_wallets: {
+        Row: {
+          balance: number
+          lifetime: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          lifetime?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          lifetime?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dragon_wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dragon_wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dragons: {
+        Row: {
+          created_at: string
+          id: string
+          is_partner: boolean
+          points: number
+          species_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_partner?: boolean
+          points?: number
+          species_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_partner?: boolean
+          points?: number
+          species_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dragons_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "dragon_species"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dragons_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dragons_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lessons: {
         Row: {
           ai_documents: Json | null
@@ -555,6 +723,88 @@ export type Database = {
           {
             foreignKeyName: "live_answers_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_hub_members: {
+        Row: {
+          first_played_at: string
+          hub_id: string
+          user_id: string
+        }
+        Insert: {
+          first_played_at?: string
+          hub_id: string
+          user_id: string
+        }
+        Update: {
+          first_played_at?: string
+          hub_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_hub_members_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "live_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_hub_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_hub_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_hubs: {
+        Row: {
+          created_at: string
+          host_id: string
+          id: string
+          name: string
+          updated_at: string
+          year_level: number[]
+        }
+        Insert: {
+          created_at?: string
+          host_id: string
+          id?: string
+          name: string
+          updated_at?: string
+          year_level?: number[]
+        }
+        Update: {
+          created_at?: string
+          host_id?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          year_level?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_hubs_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_hubs_host_id_fkey"
+            columns: ["host_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -739,6 +989,7 @@ export type Database = {
           current_index: number
           ended_at: string | null
           host_id: string
+          hub_id: string | null
           id: string
           phase: string
           pin: string
@@ -756,6 +1007,7 @@ export type Database = {
           current_index?: number
           ended_at?: string | null
           host_id: string
+          hub_id?: string | null
           id?: string
           phase?: string
           pin: string
@@ -773,6 +1025,7 @@ export type Database = {
           current_index?: number
           ended_at?: string | null
           host_id?: string
+          hub_id?: string | null
           id?: string
           phase?: string
           pin?: string
@@ -811,6 +1064,13 @@ export type Database = {
             columns: ["host_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_sessions_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "live_hubs"
             referencedColumns: ["id"]
           },
           {
@@ -1620,6 +1880,32 @@ export type Database = {
       }
       current_user_id: { Args: never; Returns: string }
       current_user_role: { Args: never; Returns: string }
+      dragon_buy_egg: { Args: { p_user: string }; Returns: string }
+      dragon_egg_price: { Args: never; Returns: number }
+      dragon_grant_session: { Args: { p_session: string }; Returns: undefined }
+      dragon_growth_thresholds: {
+        Args: never
+        Returns: {
+          adult_at: number
+          egg_price: number
+          hatch_at: number
+          lvl1_at: number
+          lvl2_at: number
+          lvl3_at: number
+          lvl4_at: number
+          lvl5_at: number
+        }[]
+      }
+      dragon_hub_scene: {
+        Args: { p_hub: string; p_limit?: number }
+        Returns: Json
+      }
+      dragon_pick_weighted_species: { Args: never; Returns: string }
+      dragon_points_cap: { Args: never; Returns: number }
+      dragon_set_partner: {
+        Args: { p_dragon: string; p_user: string }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
       is_instructor: { Args: never; Returns: boolean }
       live_answer_submit: {
@@ -1673,6 +1959,7 @@ export type Database = {
         Args: {
           p_course: string
           p_host: string
+          p_hub: string
           p_pin: string
           p_quiz: string
           p_restrict?: boolean
@@ -1700,11 +1987,11 @@ export type Database = {
       live_standings: {
         Args: { p_session: string; p_user: string }
         Returns: {
-          me_rank: number | null
+          me_rank: number
           me_score: number
-          me_team_id: string | null
+          me_team_id: string
           player_count: number
-          teams: Json | null
+          teams: Json
           top: Json
         }[]
       }

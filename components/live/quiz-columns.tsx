@@ -81,7 +81,7 @@ export function quizColumns(
           <div className="flex items-center justify-end gap-2">
             {quiz.validation?.ok && (
               <Button asChild size="sm">
-                <Link href={`/i/live?quiz=${quiz.id}`}>
+                <Link href={`/i/live/hubs?quiz=${quiz.id}`}>
                   <PlayIcon />
                   เปิดห้อง
                 </Link>

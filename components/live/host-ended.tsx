@@ -192,7 +192,7 @@ export function HostEnded({ state }: { state: HostEndedState }) {
 
       <div className="flex items-center justify-center gap-4 pt-4">
         <Button asChild variant="outline" size="lg" className="rounded-full">
-          <Link href="/i/live">กลับหน้ารายการห้อง</Link>
+          <Link href="/i/live/hubs">กลับหน้ารายการห้อง</Link>
         </Button>
         <Button asChild size="lg" className="rounded-full px-8 shadow-md">
           <Link href={`/i/live/${state.id}/results`}>ดูรายงานผลคะแนน</Link>

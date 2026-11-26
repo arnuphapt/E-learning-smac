@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { isStaffRole } from "@/lib/roles";
-import { canStudentAccessCourse } from "@/lib/course-access";
+import { canStudentAccessCourse, canStudentAccessHub } from "@/lib/course-access";
 import { loadStudentContext } from "@/lib/file-access";
 import { json, getLiveCaller } from "@/lib/live-server";
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     const { data: session, error: sErr } = await db
       .from("live_sessions")
-      .select("id, course_id, restrict_to_course, phase, team_mode")
+      .select("id, course_id, hub_id, restrict_to_course, phase, team_mode")
       .eq("pin", pin)
       .neq("phase", "ended")
       .maybeSingle();
@@ -51,18 +51,38 @@ export async function POST(req: NextRequest) {
     }
 
     const staff = isStaffRole(dbUser.role);
-    if (session.restrict_to_course && !staff) {
-      const [{ data: course }, ctx] = await Promise.all([
-        db
-          .from("courses_all")
-          .select("id, kind, section, year_level, access")
-          .eq("id", session.course_id)
-          .maybeSingle(),
+    if (!staff && (session.restrict_to_course || session.hub_id)) {
+      const [ctx, courseRes, hubRes] = await Promise.all([
         loadStudentContext(db, callerId, token.email || ""),
+        session.restrict_to_course
+          ? db
+              .from("courses_all")
+              .select("id, kind, section, year_level, access")
+              .eq("id", session.course_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        session.hub_id
+          ? db
+              .from("live_hubs")
+              .select("id, year_level")
+              .eq("id", session.hub_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
 
-      if (!ctx.ok || !course || !canStudentAccessCourse(course, ctx.student, ctx.sections, ctx.grades)) {
-        return json({ error: "ห้องนี้เฉพาะนักศึกษาในรายวิชา" }, 403);
+      if (courseRes.error) throw courseRes.error;
+      if (hubRes.error) throw hubRes.error;
+
+      if (session.hub_id) {
+        if (!ctx.ok || !hubRes.data || !canStudentAccessHub(hubRes.data.year_level, ctx.student, ctx.grades)) {
+          return json({ error: "ห้องนี้เปิดเฉพาะชั้นปีที่กำหนดใน Hub" }, 403);
+        }
+      }
+
+      if (session.restrict_to_course) {
+        if (!ctx.ok || !courseRes.data || !canStudentAccessCourse(courseRes.data, ctx.student, ctx.sections, ctx.grades)) {
+          return json({ error: "ห้องนี้เฉพาะนักศึกษาในรายวิชา" }, 403);
+        }
       }
     }
 
