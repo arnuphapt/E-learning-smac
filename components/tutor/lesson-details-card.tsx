@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { CheckIcon, Loader2Icon, UploadIcon } from "lucide-react"
 import { fileHref } from "@/lib/files"
 import { FormField } from "@/components/common/form-field"
+import { VideoPlayer } from "@/components/common/video-player"
 import { FilePickButton } from "@/components/lesson/file-pick-button"
 import { uploadToStorage } from "@/components/lesson/upload"
 import { Button } from "@/components/ui/button"
@@ -71,7 +72,7 @@ export function LessonDetailsCard({ lesson, save }: { lesson: TutorLessonItem; s
         <div className="grid gap-2">
           <Label>วิดีโอประกอบ</Label>
           {(preview || lesson.video_url) && (
-            <video src={preview || fileHref(lesson.video_url) || undefined} controls className="aspect-video w-full max-w-xl rounded-lg bg-black" />
+            <VideoPlayer src={preview || fileHref(lesson.video_url)} className="aspect-video w-full max-w-xl rounded-lg bg-black" />
           )}
           <div className="flex flex-wrap items-center gap-3">
             <FilePickButton label="เลือกไฟล์วิดีโอ" accept="video/mp4,video/webm" variant="outline" disabled={saving} icon={<UploadIcon />} onFile={pickFile}>

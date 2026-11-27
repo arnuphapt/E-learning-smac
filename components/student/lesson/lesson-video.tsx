@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef } from "react"
 import { fileHref } from "@/lib/files"
+import { VideoPlayer } from "@/components/common/video-player"
 import { LockedNotice } from "./locked-notice"
 import type { LessonRow } from "./types"
 
@@ -21,17 +21,11 @@ export function LessonVideo({
   preCount: number
   onProgress: (pct: number) => void
 }) {
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-
   if (gated) return <LockedNotice variant="video" lessonId={lesson.id} pastDue={pastDue} dueText={dueText} preCount={preCount} />
 
-  const handleTimeUpdate = () => {
-    const v = videoRef.current
-    if (v && v.duration > 0) onProgress(Math.floor((v.currentTime / v.duration) * 100))
-  }
   return (
     <div className="aspect-video overflow-hidden rounded-xl bg-black">
-      <video ref={videoRef} src={fileHref(lesson.video_url) ?? undefined} controls className="block size-full outline-none" onTimeUpdate={handleTimeUpdate} />
+      <VideoPlayer src={fileHref(lesson.video_url)} onProgress={onProgress} className="block size-full outline-none" />
     </div>
   )
 }

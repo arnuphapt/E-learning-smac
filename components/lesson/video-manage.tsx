@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { CheckIcon, LoaderCircleIcon, UploadIcon, VideoIcon } from "lucide-react"
 import { fileHref } from "@/lib/files"
 import { FormField } from "@/components/common/form-field"
+import { VideoPlayer } from "@/components/common/video-player"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -132,7 +133,7 @@ export const VideoManage = forwardRef<
           </CardHeader>
           <CardContent className="grid gap-4">
             {previewUrl || lesson.video_url ? (
-              <video src={previewUrl || fileHref(lesson.video_url) || undefined} controls className="aspect-video w-full rounded-xl bg-black" />
+              <VideoPlayer src={previewUrl || fileHref(lesson.video_url)} className="aspect-video w-full rounded-xl bg-black" />
             ) : (
               <div className="grid aspect-video w-full place-items-center rounded-xl border border-dashed bg-muted text-sm text-muted-foreground">วิดีโอบทเรียน · 16:9</div>
             )}

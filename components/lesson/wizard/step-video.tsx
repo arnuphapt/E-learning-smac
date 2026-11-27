@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { LinkIcon, LoaderCircleIcon, Trash2Icon, UploadIcon, VideoIcon } from "lucide-react"
 import { fileHref } from "@/lib/files"
 import { FormField } from "@/components/common/form-field"
+import { VideoPlayer } from "@/components/common/video-player"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
@@ -123,7 +124,7 @@ export const StepVideo = forwardRef<
 
       {activePreview && (
         <div className="grid gap-2">
-          <video src={activePreview} controls className="aspect-video w-full rounded-xl bg-black" />
+          <VideoPlayer src={activePreview} className="aspect-video w-full rounded-xl bg-black" />
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span className="truncate">{currentName ?? "วิดีโอที่บันทึกไว้"}</span>
             {lesson.video && (
@@ -172,7 +173,7 @@ export const StepVideo = forwardRef<
         </div>
       ) : (
         <div className="grid gap-3">
-          <FormField label="ลิงก์วิดีโอ" htmlFor="wizard-video-url" description="วาง URL ของไฟล์วิดีโอที่โฮสต์ไว้ภายนอก">
+          <FormField label="ลิงก์วิดีโอ" htmlFor="wizard-video-url" description="วางลิงก์ YouTube หรือ URL ของไฟล์วิดีโอโดยตรง (.mp4, .webm)">
             <Input
               id="wizard-video-url"
               type="url"
@@ -182,7 +183,7 @@ export const StepVideo = forwardRef<
                 onMarkDirty()
               }}
               onBlur={() => void saveUrl(true)}
-              placeholder="https://example.com/lesson.mp4"
+              placeholder="https://www.youtube.com/watch?v=... หรือ https://example.com/lesson.mp4"
             />
           </FormField>
           <div className="flex justify-end">

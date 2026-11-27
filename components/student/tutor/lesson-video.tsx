@@ -1,7 +1,8 @@
 import { fileHref } from "@/lib/files"
+import { VideoPlayer } from "@/components/common/video-player"
 import { Card, CardContent } from "@/components/ui/card"
 
-/** Tutor lesson video (R2 via /api/files), or a short note when the lesson has none. */
+/** Tutor lesson video (R2 via /api/files or external link), or a short note when the lesson has none. */
 export function TutorLessonVideo({ src }: { src: string | null }) {
   if (!src) {
     return (
@@ -12,7 +13,7 @@ export function TutorLessonVideo({ src }: { src: string | null }) {
   }
   return (
     <div className="mb-4 aspect-video overflow-hidden rounded-xl bg-black">
-      <video src={fileHref(src) ?? undefined} controls className="block size-full outline-none" />
+      <VideoPlayer src={fileHref(src)} className="block size-full outline-none" />
     </div>
   )
 }

@@ -23,6 +23,7 @@ import { roundSize } from "@/lib/tutor-draw"
 import { useConfirm } from "@/components/common/confirm"
 import { FormField } from "@/components/common/form-field"
 import { ToneBadge } from "@/components/common/status-badge"
+import { VideoPlayer } from "@/components/common/video-player"
 import { FilePickButton } from "@/components/lesson/file-pick-button"
 import { formatBytes, uploadToStorage } from "@/components/lesson/upload"
 import { Button } from "@/components/ui/button"
@@ -445,7 +446,7 @@ export function TutorLessonDialog({
 
                     {activeVideoSrc && (
                       <div className="grid gap-2">
-                        <video src={activeVideoSrc} controls className="aspect-video w-full rounded-xl bg-black" />
+                        <VideoPlayer src={activeVideoSrc} className="aspect-video w-full rounded-xl bg-black" />
                         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                           <span className="truncate">{currentVideoName ?? "วิดีโอที่บันทึกไว้"}</span>
                           {lesson.video_url && (
