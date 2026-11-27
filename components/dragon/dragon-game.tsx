@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { DragonBaseApi } from "@/lib/dragon/engine.mjs";
+import { DRAGON_GROWTH_THRESHOLDS } from "@/lib/dragon-growth";
 import {
   toHatcherySave,
+  toSummoningHatcherySave,
   type DragonSceneInputItem,
   type DragonSourceMap,
 } from "@/lib/dragon-scene";
@@ -22,6 +25,10 @@ interface DragonViewUi {
 
 export interface DragonSceneViewProps {
   dragons: readonly DragonSceneInputItem[];
+  allowHatch?: boolean;
+  summonFirstEgg?: boolean;
+  onHatched?: () => void | Promise<void>;
+  onLoadError?: (message: string) => void;
 }
 
 function createMemoryStorage(initialEntries: Record<string, string>) {
@@ -34,8 +41,22 @@ function createMemoryStorage(initialEntries: Record<string, string>) {
   };
 }
 
-export function DragonSceneView({ dragons }: DragonSceneViewProps) {
+export function DragonSceneView({
+  dragons,
+  allowHatch = false,
+  summonFirstEgg = false,
+  onHatched,
+  onLoadError,
+}: DragonSceneViewProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const dragonsRef = useRef(dragons);
+  const onHatchedRef = useRef(onHatched);
+  const onLoadErrorRef = useRef(onLoadError);
+  useEffect(() => {
+    dragonsRef.current = dragons;
+    onHatchedRef.current = onHatched;
+    onLoadErrorRef.current = onLoadError;
+  }, [dragons, onHatched, onLoadError]);
   const [api, setApi] = useState<DragonBaseApi | null>(null);
   const [ui, setUi] = useState<DragonViewUi | null>(null);
   const [memoryStorage, setMemoryStorage] = useState<ReturnType<
@@ -88,7 +109,10 @@ export function DragonSceneView({ dragons }: DragonSceneViewProps) {
         const map = (await mapRes.json()) as DragonSourceMap;
         if (controller.signal.aborted) return;
 
-        const save = toHatcherySave(dragons, map);
+        const save =
+          summonFirstEgg && dragons.length > 0
+            ? toSummoningHatcherySave(dragons[0], map)
+            : toHatcherySave(dragons, map);
         const storage = createMemoryStorage({
           [HATCHERY_KEY]: JSON.stringify(save),
         });
@@ -108,6 +132,7 @@ export function DragonSceneView({ dragons }: DragonSceneViewProps) {
           signal: controller.signal,
           storage,
           viewOnly: true,
+          allowHatch,
           fogEnabled: false,
           onProgress: (loaded, total) => setProgress([loaded, total]),
           onInteract,
@@ -119,22 +144,79 @@ export function DragonSceneView({ dragons }: DragonSceneViewProps) {
           return;
         }
 
+        if (summonFirstEgg) {
+          nextApi.focusAt("IncubatorEggMarker", 14);
+        }
+
+        (window as { __dragonSceneApi?: DragonBaseApi }).__dragonSceneApi =
+          nextApi;
         setApi(nextApi);
       } catch (err) {
         if ((err as { name?: string })?.name !== "AbortError") {
-          setError(
-            err instanceof Error ? err.message : "ไม่สามารถเปิดฐานมังกรได้"
-          );
+          const msg =
+            err instanceof Error ? err.message : "ไม่สามารถเปิดฐานมังกรได้";
+          setError(msg);
+          onLoadErrorRef.current?.(msg);
         }
       }
     })();
 
     return () => {
       controller.abort();
+      if (
+        (window as { __dragonSceneApi?: DragonBaseApi }).__dragonSceneApi ===
+        engine
+      ) {
+        delete (window as { __dragonSceneApi?: DragonBaseApi }).__dragonSceneApi;
+      }
       engine?.destroy();
       setApi(null);
     };
-  }, [dragons, onInteract]);
+  }, [dragons, allowHatch, summonFirstEgg, onInteract]);
+
+  const handleHatch = useCallback(async (dragonId: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/dragon/hatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dragonId }),
+      });
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        toast.error(body?.error || "ไม่สามารถฟักไข่ได้");
+        return false;
+      }
+      return true;
+    } catch {
+      toast.error("ไม่สามารถฟักไข่ได้");
+      return false;
+    }
+  }, []);
+
+  const handleHatchNotReady = useCallback((dragonId: string) => {
+    const dragon = dragonsRef.current.find((d) => d.id === dragonId);
+    const needed = Math.max(
+      0,
+      DRAGON_GROWTH_THRESHOLDS.hatch - (dragon?.points ?? 0),
+    );
+    toast.info(`ต้องการอีก ${needed.toLocaleString("th-TH")} แต้มจึงจะฟักได้`);
+  }, []);
+
+  const handleHatchComplete = useCallback(async () => {
+    async function runRefresh(): Promise<void> {
+      try {
+        await onHatchedRef.current?.();
+      } catch {
+        toast.error("ฟักไข่สำเร็จแล้ว แต่โหลดข้อมูลใหม่ไม่สำเร็จ", {
+          action: {
+            label: "ลองใหม่",
+            onClick: () => void runRefresh(),
+          },
+        });
+      }
+    }
+    await runRefresh();
+  }, []);
 
   const closeHatchery = useCallback(() => {
     setSelectedOpen(false);
@@ -170,6 +252,11 @@ export function DragonSceneView({ dragons }: DragonSceneViewProps) {
           interaction={interaction}
           storage={memoryStorage}
           viewOnly
+          allowHatch={allowHatch}
+          allowSummonTick={summonFirstEgg}
+          onHatch={handleHatch}
+          onHatchNotReady={handleHatchNotReady}
+          onHatchComplete={handleHatchComplete}
           onClose={closeHatchery}
         />
       )}

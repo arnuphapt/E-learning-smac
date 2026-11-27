@@ -4,6 +4,8 @@ import type { Database } from "@/lib/database.types";
 import { rankRows } from "@/lib/live";
 import { json, getLiveCaller, readLiveRows } from "@/lib/live-server";
 import {
+  DRAGON_GROWTH_THRESHOLDS,
+  READY_TO_HATCH_SUMMARY_THAI,
   summarizeDragonPointGrant,
   type DragonGrantSummary,
 } from "@/lib/dragon-growth";
@@ -430,20 +432,50 @@ export async function GET(
         if (!isHost) {
           const { data: grant, error: gErr } = await db
             .from("dragon_point_grants")
-            .select("points, points_before, points_after, overflow, first_egg")
+            .select("dragon_id, points, points_before, points_after, overflow, first_egg")
             .eq("session_id", session.id)
             .eq("user_id", callerId)
             .maybeSingle();
           if (gErr) throw gErr;
 
           if (grant) {
-            dragonSummary = summarizeDragonPointGrant({
+            let hatched = true;
+            let hasReadyUnhatchedEgg = false;
+            if (grant.dragon_id) {
+              const { data: dragonRow, error: drErr } = await db
+                .from("dragons")
+                .select("hatched_at")
+                .eq("id", grant.dragon_id)
+                .maybeSingle();
+              if (drErr) throw drErr;
+              if (dragonRow) {
+                hatched = dragonRow.hatched_at !== null;
+              }
+            } else {
+              const { data: unhatchedEgg, error: eggErr } = await db
+                .from("dragons")
+                .select("points")
+                .eq("user_id", callerId)
+                .is("hatched_at", null)
+                .limit(1)
+                .maybeSingle();
+              if (eggErr) throw eggErr;
+              hasReadyUnhatchedEgg =
+                Boolean(unhatchedEgg) &&
+                unhatchedEgg!.points >= DRAGON_GROWTH_THRESHOLDS.hatch;
+            }
+            const baseSummary = summarizeDragonPointGrant({
               points: grant.points,
               pointsBefore: grant.points_before,
               pointsAfter: grant.points_after,
               overflow: grant.overflow,
               firstEgg: grant.first_egg,
+              hatched,
             });
+            dragonSummary =
+              hasReadyUnhatchedEgg && !baseSummary.message
+                ? { ...baseSummary, message: READY_TO_HATCH_SUMMARY_THAI }
+                : baseSummary;
           }
         }
 

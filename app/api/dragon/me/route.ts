@@ -12,6 +12,8 @@ export interface DragonMeItem {
   points: number;
   is_partner: boolean;
   created_at: string;
+  hatched_at: string | null;
+  readyToHatch: boolean;
   growth: DragonGrowthState;
 }
 
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest) {
       await Promise.all([
         db
           .from("dragons")
-          .select("id, species_id, points, is_partner, created_at")
+          .select("id, species_id, points, is_partner, created_at, hatched_at")
           .eq("user_id", callerId)
           .order("created_at", { ascending: false })
           .order("id", { ascending: false }),
@@ -39,14 +41,19 @@ export async function GET(req: NextRequest) {
     if (dErr) throw dErr;
     if (wErr) throw wErr;
 
-    const dragons: DragonMeItem[] = (dragonRows ?? []).map((row) => ({
-      id: row.id,
-      species_id: row.species_id,
-      points: row.points,
-      is_partner: row.is_partner,
-      created_at: row.created_at,
-      growth: getDragonGrowthState(row.points),
-    }));
+    const dragons: DragonMeItem[] = (dragonRows ?? []).map((row) => {
+      const growth = getDragonGrowthState(row.points, row.hatched_at !== null);
+      return {
+        id: row.id,
+        species_id: row.species_id,
+        points: row.points,
+        is_partner: row.is_partner,
+        created_at: row.created_at,
+        hatched_at: row.hatched_at,
+        readyToHatch: growth.readyToHatch,
+        growth,
+      };
+    });
 
     // Rows are ordered newest-first; the first dragon below MAX_DRAGON_POINTS is the growing one.
     const growingDragonId =

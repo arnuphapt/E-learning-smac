@@ -22,7 +22,10 @@ export interface PlayerEndedState {
 }
 
 function describeDragonChange(summary: DragonGrantSummary): string {
-  const { before, after, first_egg, overflow } = summary;
+  const { before, after, first_egg, overflow, message } = summary;
+  if (message) {
+    return message;
+  }
   if (!before || !after) {
     return overflow > 0
       ? `มังกรโตเต็มที่แล้ว (ส่วนเกิน ${overflow.toLocaleString("th-TH")} แต้มเข้ากระเป๋า)`

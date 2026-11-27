@@ -522,6 +522,7 @@ export type Database = {
       dragons: {
         Row: {
           created_at: string
+          hatched_at: string | null
           id: string
           is_partner: boolean
           points: number
@@ -530,6 +531,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          hatched_at?: string | null
           id?: string
           is_partner?: boolean
           points?: number
@@ -538,6 +540,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          hatched_at?: string | null
           id?: string
           is_partner?: boolean
           points?: number
@@ -1882,7 +1885,12 @@ export type Database = {
       current_user_role: { Args: never; Returns: string }
       dragon_buy_egg: { Args: { p_user: string }; Returns: string }
       dragon_egg_price: { Args: never; Returns: number }
+      dragon_grant_first_egg: { Args: { p_user: string }; Returns: boolean }
       dragon_grant_session: { Args: { p_session: string }; Returns: undefined }
+      dragon_hatch: {
+        Args: { p_user: string; p_dragon: string }
+        Returns: Json
+      }
       dragon_growth_thresholds: {
         Args: never
         Returns: {

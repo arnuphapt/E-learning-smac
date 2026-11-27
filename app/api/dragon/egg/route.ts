@@ -12,6 +12,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
+      if (error.message?.includes("incubator_occupied") || error.code === "P0002") {
+        return json(
+          { error: "ยังมีไข่ที่ยังไม่ฟัก ฟักไข่ใบเดิมก่อนจึงจะสุ่มไข่ใบใหม่ได้" },
+          409,
+        );
+      }
       if (error.message?.includes("insufficient_balance") || error.code === "P0001") {
         return json({ error: "แต้มไม่พอ" }, 400);
       }

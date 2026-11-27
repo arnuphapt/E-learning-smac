@@ -6,6 +6,7 @@ import {
   getDragonGrowthState,
   applyDragonPointGrant,
   canBuyDragonEgg,
+  formatDragonGrowthThai,
 } from "../lib/dragon-growth.ts";
 
 test("threshold table exposes expected values", () => {
@@ -17,36 +18,55 @@ test("threshold table exposes expected values", () => {
 });
 
 test("growth boundaries: egg -> baby -> adult -> levels 1..5", () => {
-  assert.deepEqual(getDragonGrowthState(0), { stage: "egg", level: 0, nextAt: 1_000, toNext: 1_000 });
-  assert.deepEqual(getDragonGrowthState(999), { stage: "egg", level: 0, nextAt: 1_000, toNext: 1 });
+  assert.deepEqual(getDragonGrowthState(0), { stage: "egg", level: 0, nextAt: 1_000, toNext: 1_000, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(999), { stage: "egg", level: 0, nextAt: 1_000, toNext: 1, readyToHatch: false });
 
-  assert.deepEqual(getDragonGrowthState(1_000), { stage: "baby", level: 0, nextAt: 5_000, toNext: 4_000 });
-  assert.deepEqual(getDragonGrowthState(1_001), { stage: "baby", level: 0, nextAt: 5_000, toNext: 3_999 });
-  assert.deepEqual(getDragonGrowthState(4_999), { stage: "baby", level: 0, nextAt: 5_000, toNext: 1 });
+  assert.deepEqual(getDragonGrowthState(1_000), { stage: "baby", level: 0, nextAt: 5_000, toNext: 4_000, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(1_001), { stage: "baby", level: 0, nextAt: 5_000, toNext: 3_999, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(4_999), { stage: "baby", level: 0, nextAt: 5_000, toNext: 1, readyToHatch: false });
 
-  assert.deepEqual(getDragonGrowthState(5_000), { stage: "adult", level: 0, nextAt: 10_000, toNext: 5_000 });
-  assert.deepEqual(getDragonGrowthState(5_001), { stage: "adult", level: 0, nextAt: 10_000, toNext: 4_999 });
-  assert.deepEqual(getDragonGrowthState(9_999), { stage: "adult", level: 0, nextAt: 10_000, toNext: 1 });
+  assert.deepEqual(getDragonGrowthState(5_000), { stage: "adult", level: 0, nextAt: 10_000, toNext: 5_000, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(5_001), { stage: "adult", level: 0, nextAt: 10_000, toNext: 4_999, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(9_999), { stage: "adult", level: 0, nextAt: 10_000, toNext: 1, readyToHatch: false });
 
-  assert.deepEqual(getDragonGrowthState(10_000), { stage: "adult", level: 1, nextAt: 20_000, toNext: 10_000 });
-  assert.deepEqual(getDragonGrowthState(10_001), { stage: "adult", level: 1, nextAt: 20_000, toNext: 9_999 });
-  assert.deepEqual(getDragonGrowthState(19_999), { stage: "adult", level: 1, nextAt: 20_000, toNext: 1 });
+  assert.deepEqual(getDragonGrowthState(10_000), { stage: "adult", level: 1, nextAt: 20_000, toNext: 10_000, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(10_001), { stage: "adult", level: 1, nextAt: 20_000, toNext: 9_999, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(19_999), { stage: "adult", level: 1, nextAt: 20_000, toNext: 1, readyToHatch: false });
 
-  assert.deepEqual(getDragonGrowthState(20_000), { stage: "adult", level: 2, nextAt: 35_000, toNext: 15_000 });
-  assert.deepEqual(getDragonGrowthState(20_001), { stage: "adult", level: 2, nextAt: 35_000, toNext: 14_999 });
-  assert.deepEqual(getDragonGrowthState(34_999), { stage: "adult", level: 2, nextAt: 35_000, toNext: 1 });
+  assert.deepEqual(getDragonGrowthState(20_000), { stage: "adult", level: 2, nextAt: 35_000, toNext: 15_000, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(20_001), { stage: "adult", level: 2, nextAt: 35_000, toNext: 14_999, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(34_999), { stage: "adult", level: 2, nextAt: 35_000, toNext: 1, readyToHatch: false });
 
-  assert.deepEqual(getDragonGrowthState(35_000), { stage: "adult", level: 3, nextAt: 55_000, toNext: 20_000 });
-  assert.deepEqual(getDragonGrowthState(35_001), { stage: "adult", level: 3, nextAt: 55_000, toNext: 19_999 });
-  assert.deepEqual(getDragonGrowthState(54_999), { stage: "adult", level: 3, nextAt: 55_000, toNext: 1 });
+  assert.deepEqual(getDragonGrowthState(35_000), { stage: "adult", level: 3, nextAt: 55_000, toNext: 20_000, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(35_001), { stage: "adult", level: 3, nextAt: 55_000, toNext: 19_999, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(54_999), { stage: "adult", level: 3, nextAt: 55_000, toNext: 1, readyToHatch: false });
 
-  assert.deepEqual(getDragonGrowthState(55_000), { stage: "adult", level: 4, nextAt: 80_000, toNext: 25_000 });
-  assert.deepEqual(getDragonGrowthState(55_001), { stage: "adult", level: 4, nextAt: 80_000, toNext: 24_999 });
-  assert.deepEqual(getDragonGrowthState(79_999), { stage: "adult", level: 4, nextAt: 80_000, toNext: 1 });
+  assert.deepEqual(getDragonGrowthState(55_000), { stage: "adult", level: 4, nextAt: 80_000, toNext: 25_000, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(55_001), { stage: "adult", level: 4, nextAt: 80_000, toNext: 24_999, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(79_999), { stage: "adult", level: 4, nextAt: 80_000, toNext: 1, readyToHatch: false });
 
-  assert.deepEqual(getDragonGrowthState(80_000), { stage: "adult", level: 5, nextAt: null, toNext: 0 });
-  assert.deepEqual(getDragonGrowthState(80_001), { stage: "adult", level: 5, nextAt: null, toNext: 0 });
-  assert.deepEqual(getDragonGrowthState(150_000), { stage: "adult", level: 5, nextAt: null, toNext: 0 });
+  assert.deepEqual(getDragonGrowthState(80_000), { stage: "adult", level: 5, nextAt: null, toNext: 0, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(80_001), { stage: "adult", level: 5, nextAt: null, toNext: 0, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(150_000), { stage: "adult", level: 5, nextAt: null, toNext: 0, readyToHatch: false });
+});
+
+test("unhatched dragon stays egg at any points and sets readyToHatch at threshold", () => {
+  assert.deepEqual(getDragonGrowthState(0, false), { stage: "egg", level: 0, nextAt: 1_000, toNext: 1_000, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(999, false), { stage: "egg", level: 0, nextAt: 1_000, toNext: 1, readyToHatch: false });
+  assert.deepEqual(getDragonGrowthState(1_000, false), { stage: "egg", level: 0, nextAt: 1_000, toNext: 0, readyToHatch: true });
+  assert.deepEqual(getDragonGrowthState(25_000, false), { stage: "egg", level: 0, nextAt: 1_000, toNext: 0, readyToHatch: true });
+  assert.deepEqual(getDragonGrowthState(80_000, false), { stage: "egg", level: 0, nextAt: 1_000, toNext: 0, readyToHatch: true });
+
+  assert.equal(formatDragonGrowthThai(getDragonGrowthState(999, false)), "ไข่");
+  assert.equal(formatDragonGrowthThai(getDragonGrowthState(1_000, false)), "ไข่ (พร้อมฟัก)");
+});
+
+test("hatched dragon with accumulated points jumps straight to later stage", () => {
+  const skippedToAdult = getDragonGrowthState(25_000, true);
+  assert.equal(skippedToAdult.stage, "adult");
+  assert.equal(skippedToAdult.level, 2);
+  assert.equal(skippedToAdult.readyToHatch, false);
+  assert.equal(formatDragonGrowthThai(skippedToAdult), "ตัวเต็มวัย เลเวล 2");
 });
 
 test("applyDragonPointGrant caps at level 5 and splits overflow", () => {

@@ -10,6 +10,7 @@ export const HUB_SCENE_DRAGON_LIMIT = 40;
 export interface HubDragonSceneItem {
   species_id: string;
   points: number;
+  hatched_at: string | null;
   growth: DragonGrowthState;
 }
 
@@ -97,16 +98,20 @@ export async function getHubDragons(
     rawScene && typeof rawScene === "object" && !Array.isArray(rawScene)
       ? (rawScene as {
           total_members?: number;
-          dragons?: Array<{ species_id: string; points: number }>;
+          dragons?: Array<{ species_id: string; points: number; hatched_at?: string | null }>;
         })
       : null;
 
   const totalMembers = scene?.total_members ?? 0;
-  const dragons: HubDragonSceneItem[] = (scene?.dragons ?? []).map((d) => ({
-    species_id: d.species_id,
-    points: d.points,
-    growth: getDragonGrowthState(d.points),
-  }));
+  const dragons: HubDragonSceneItem[] = (scene?.dragons ?? []).map((d) => {
+    const hatchedAt = d.hatched_at ?? null;
+    return {
+      species_id: d.species_id,
+      points: d.points,
+      hatched_at: hatchedAt,
+      growth: getDragonGrowthState(d.points, hatchedAt !== null),
+    };
+  });
 
   return {
     status: 200,

@@ -70,6 +70,8 @@ const tag = `test_dg_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
 const hostId = randomUUID();
 const student1Id = randomUUID();
 const student2Id = randomUUID();
+const student3Id = randomUUID();
+const student4Id = randomUUID();
 let hubId = null;
 const sessionIds = [];
 
@@ -143,13 +145,45 @@ async function seedSession({ title, hubIdValue, questionsCount, student1PointsPe
 
 async function run() {
   try {
-    // 1. Create tagged host + 2 students
+    // 1. Create tagged host + 4 students
     const { error: usersErr } = await admin.from("users").insert([
       { id: hostId, name: `${tag}_host`, email: `${tag}_host@example.test`, role: "instructor" },
       { id: student1Id, name: `${tag}_s1`, email: `${tag}_s1@example.test`, role: "student" },
       { id: student2Id, name: `${tag}_s2`, email: `${tag}_s2@example.test`, role: "student" },
+      { id: student3Id, name: `${tag}_s3`, email: `${tag}_s3@example.test`, role: "student" },
+      { id: student4Id, name: `${tag}_s4`, email: `${tag}_s4@example.test`, role: "student" },
     ]);
     if (usersErr) throw new Error(`Insert users failed: ${usersErr.message}`);
+
+    // 1b. First-join egg grant: first call grants one egg, repeat & concurrent calls grant none
+    const { data: firstGrant, error: fgErr } = await admin.rpc("dragon_grant_first_egg", {
+      p_user: student3Id,
+    });
+    assert.equal(fgErr, null, `dragon_grant_first_egg(s3) error: ${fgErr?.message}`);
+    assert.equal(firstGrant, true, "First join must grant an egg (true)");
+
+    const { data: repeatGrant, error: rgErr } = await admin.rpc("dragon_grant_first_egg", {
+      p_user: student3Id,
+    });
+    assert.equal(rgErr, null);
+    assert.equal(repeatGrant, false, "Repeat join must not grant another egg (false)");
+
+    const { data: s3Dragons } = await admin.from("dragons").select("*").eq("user_id", student3Id);
+    assert.equal(s3Dragons?.length, 1, "Student 3 must have exactly 1 egg");
+    assert.equal(s3Dragons[0].is_partner, true);
+    assert.equal(s3Dragons[0].points, 0);
+    assert.equal(s3Dragons[0].hatched_at, null, "First-join dragon must be an unhatched egg");
+
+    const [c1, c2] = await Promise.all([
+      admin.rpc("dragon_grant_first_egg", { p_user: student4Id }),
+      admin.rpc("dragon_grant_first_egg", { p_user: student4Id }),
+    ]);
+    assert.equal(c1.error, null);
+    assert.equal(c2.error, null);
+    const grantedCount = [c1.data, c2.data].filter((v) => v === true).length;
+    assert.equal(grantedCount, 1, "Exactly one concurrent first-join call must grant an egg");
+    const { data: s4Dragons } = await admin.from("dragons").select("id").eq("user_id", student4Id);
+    assert.equal(s4Dragons?.length, 1, "Concurrent joins must create only 1 egg");
 
     // 2. Create tagged hub
     const { data: hub, error: hubErr } = await admin
@@ -196,11 +230,13 @@ async function run() {
     assert.equal(s1Dragons?.length, 1, "Student 1 should have 1 partner dragon");
     assert.equal(s1Dragons[0].is_partner, true);
     assert.equal(s1Dragons[0].points, 2000);
+    assert.equal(s1Dragons[0].hatched_at, null, "Points above hatch threshold must accrue to unhatched egg");
     assert.ok(validSpecies.has(s1Dragons[0].species_id), "Student 1 dragon species must be valid");
 
     assert.equal(s2Dragons?.length, 1, "Student 2 (0 pts) should still receive first partner egg");
     assert.equal(s2Dragons[0].is_partner, true);
     assert.equal(s2Dragons[0].points, 0);
+    assert.equal(s2Dragons[0].hatched_at, null);
     assert.ok(validSpecies.has(s2Dragons[0].species_id), "Student 2 dragon species must be valid");
 
     const { data: s1Wallet1 } = await admin.from("dragon_wallets").select("*").eq("user_id", student1Id).single();
@@ -249,6 +285,19 @@ async function run() {
     // (d) Verify level-5 cap (80000) + wallet overflow (7000) + lifetime (87000)
     const { data: s1Dragon2 } = await admin.from("dragons").select("*").eq("user_id", student1Id).single();
     assert.equal(s1Dragon2.points, 80000, "Dragon points must cap at 80000");
+    assert.equal(s1Dragon2.hatched_at, null, "Unhatched egg stays unhatched until dragon_hatch is called");
+
+    // Verify dragon_hub_scene includes hatched_at per dragon
+    const { data: hubScene, error: hubSceneErr } = await admin.rpc("dragon_hub_scene", {
+      p_hub: hubId,
+      p_limit: 40,
+    });
+    assert.equal(hubSceneErr, null, `dragon_hub_scene error: ${hubSceneErr?.message}`);
+    assert.equal(hubScene?.dragons?.length, 2);
+    assert.ok(
+      hubScene.dragons.every((d) => Object.prototype.hasOwnProperty.call(d, "hatched_at")),
+      "dragon_hub_scene must include hatched_at on each dragon",
+    );
 
     const { data: s1Wallet2 } = await admin.from("dragon_wallets").select("*").eq("user_id", student1Id).single();
     assert.equal(s1Wallet2.balance, 7000, "Overflow past 80000 must go to wallet balance");
@@ -335,7 +384,7 @@ async function run() {
     if (hubId) {
       await admin.from("live_hubs").delete().eq("id", hubId);
     }
-    await admin.from("users").delete().in("id", [hostId, student1Id, student2Id]);
+    await admin.from("users").delete().in("id", [hostId, student1Id, student2Id, student3Id, student4Id]);
   }
 }
 

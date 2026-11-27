@@ -165,7 +165,7 @@ export default function StudentDragonPage() {
           </Card>
 
           <div className="h-[calc(100dvh-19rem)] min-h-[460px] w-full">
-            <DragonSceneView dragons={data.dragons} />
+            <DragonSceneView dragons={data.dragons} allowHatch onHatched={refresh} />
           </div>
 
           <DragonHubActions

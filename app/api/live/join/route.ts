@@ -98,7 +98,24 @@ export async function POST(req: NextRequest) {
       return json({ error: "ไม่พบห้อง" }, 404);
     }
 
-    return json({ id: session.id });
+    let firstEgg = false;
+    try {
+      const { data: eggGranted, error: eggErr } = await db.rpc("dragon_grant_first_egg", {
+        p_user: callerId,
+      });
+      if (eggErr) {
+        console.error("dragon_grant_first_egg failed:", eggErr.message);
+      } else {
+        firstEgg = eggGranted === true;
+      }
+    } catch (eggErr) {
+      console.error(
+        "dragon_grant_first_egg failed:",
+        eggErr instanceof Error ? eggErr.message : eggErr,
+      );
+    }
+
+    return json({ id: session.id, firstEgg });
   } catch (e) {
     console.error("Live join failed:", e instanceof Error ? e.message : e);
     return json({ error: "Failed to join live session" }, 500);

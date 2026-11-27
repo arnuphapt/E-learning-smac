@@ -15,6 +15,7 @@ declare module "@/lib/dragon/engine.mjs" {
     onInteract?: (event: { kind: string; actorId?: string; roomID?: string }) => void;
     storage?: Pick<Storage, "getItem" | "setItem"> | null;
     viewOnly?: boolean;
+    allowHatch?: boolean;
     fogEnabled?: boolean;
   }
 
@@ -47,6 +48,11 @@ declare module "@/lib/dragon/hatchery-panel.mjs" {
     nurseryOnly?: boolean;
     storage?: Pick<Storage, "getItem" | "setItem"> | null;
     viewOnly?: boolean;
+    allowHatch?: boolean;
+    allowSummonTick?: boolean;
+    onHatch?: (dragonId: string) => Promise<boolean | void> | boolean | void;
+    onHatchNotReady?: (dragonId: string) => void;
+    onHatchComplete?: (dragonId: string) => void;
   }>;
 }
 

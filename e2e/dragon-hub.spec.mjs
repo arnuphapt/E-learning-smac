@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { DRAGON_GROWTH_THRESHOLDS } from "../lib/dragon-growth.ts";
 import { adminDb, FX, STATE } from "./fixtures.mjs";
 
 const CATALOG_PATH = path.resolve("public/dragon/generated/hatching/catalog.json");
@@ -155,11 +156,26 @@ test.describe("dragon hub phase 2 E2E", () => {
       expect(join2Res.status()).toBe(403);
       await expect(student2Page.getByText(/ชั้นปี/)).toBeVisible();
 
-      // 4. Year-1 student joins by PIN, answers, and instructor ends room
+      // 4. Year-1 student joins by PIN -> lobby shows first-egg card, /api/dragon/me has hatched_at: null
       await student1Page.goto("/s/live/quiz");
       await student1Page.getByPlaceholder("123456").fill(pin);
+      const join1Promise = student1Page.waitForResponse(
+        (r) => r.url().includes("/api/live/join") && r.request().method() === "POST"
+      );
       await student1Page.getByRole("button", { name: /เข้าร่วม/i }).click();
+      const join1Res = await join1Promise;
+      expect(join1Res.ok()).toBe(true);
+      const join1Body = await join1Res.json();
+      expect(join1Body.firstEgg).toBe(true);
       await expect(student1Page).toHaveURL(new RegExp(`/s/live/${createdSessionId}$`));
+      await expect(student1Page.getByText("ได้ไข่มังกรใบแรกแล้ว")).toBeVisible({ timeout: 15_000 });
+
+      const meBeforeEndRes = await student1Page.request.get("/api/dragon/me");
+      expect(meBeforeEndRes.ok()).toBe(true);
+      const meBeforeEnd = await meBeforeEndRes.json();
+      expect(meBeforeEnd.dragons.length).toBe(1);
+      expect(meBeforeEnd.dragons[0].hatched_at).toBeNull();
+      expect(meBeforeEnd.dragons[0].readyToHatch).toBe(false);
 
       // Advance lobby -> question 0
       const advRes = await instructorPage.request.post(`/api/live/${createdSessionId}/advance`, {
@@ -176,20 +192,91 @@ test.describe("dragon hub phase 2 E2E", () => {
       const answerRes = await answerPromise;
       expect(answerRes.ok()).toBe(true);
 
+      // Seed answer points past the hatch threshold so room end makes the egg ready to hatch
+      const hatchTargetPoints = DRAGON_GROWTH_THRESHOLDS.hatch + 200;
+      must(
+        await adminDb()
+          .from("live_answers")
+          .update({ points: hatchTargetPoints })
+          .eq("session_id", createdSessionId)
+          .eq("user_id", FX.student.id),
+        "seed answer points >= hatch threshold"
+      );
+
       // End the room
       const endRes = await instructorPage.request.post(`/api/live/${createdSessionId}/advance`, {
         data: { action: "end" },
       });
       expect(endRes.ok()).toBe(true);
 
-      // Student end screen shows dragon summary (first egg, positive time-scaled points)
+      // Student end screen shows ready-to-hatch summary
       await expect(student1Page.getByText(/\+[1-9][\d,]* แต้มมังกร/)).toBeVisible({ timeout: 15_000 });
-      await expect(student1Page.getByText(/ได้รับมังกรตัวแรก|ได้รับไข่มังกรใบแรกแล้ว/)).toBeVisible();
+      await expect(student1Page.getByText("ไข่พร้อมฟักแล้ว ไปกดฟักที่หน้ามังกร")).toBeVisible();
 
-      // 5. Personal dragon hub (/s/dragon) shows 1 dragon and canvas loads cleanly
+      // 5. Personal dragon hub (/s/dragon): random-egg button disabled before hatch, then tap ready egg to hatch
       await student1Page.goto("/s/dragon");
       await expect(student1Page.getByText(/ทั้งหมด 1 ตัว/)).toBeVisible({ timeout: 15_000 });
-      await expect(student1Page.locator(".dragon-game .world canvas")).toBeVisible({ timeout: 30_000 });
+      await expect(student1Page.getByRole("button", { name: /สุ่มไข่ใบใหม่/ })).toBeDisabled();
+      await expect(
+        student1Page.getByText("ยังมีไข่ที่ยังไม่ฟัก ฟักไข่ใบเดิมก่อนจึงจะสุ่มไข่ใบใหม่ได้")
+      ).toBeVisible();
+
+      const canvas = student1Page.locator(".dragon-game .world canvas");
+      await expect(canvas).toBeVisible({ timeout: 30_000 });
+
+      // Wait for engine + hatchery assets + rendered egg actor. eggProjection() lands just below the egg's
+      // hit area at this zoom, so locate the egg by scanning the canvas with the renderer's own hit-test
+      // (same test a real pointer click uses) and click the centroid of the hit area.
+      const eggPointHandle = await student1Page.waitForFunction(
+        () => {
+          const api = window.__dragonSceneApi;
+          const snap = window.hatchery?.getSnapshot?.();
+          if (!api?.focusAt || !api?.hatcheryRenderer?.hit || snap?.active?.status !== "ready") {
+            return null;
+          }
+          api.focusAt("IncubatorEggMarker", 14);
+          const view = document.querySelector(".dragon-game .world canvas");
+          const hits = [];
+          for (let x = 0; x < (view?.clientWidth ?? 0); x += 4) {
+            for (let y = 0; y < (view?.clientHeight ?? 0); y += 4) {
+              if (api.hatcheryRenderer.hit({ x, y })?.kind === "egg") hits.push([x, y]);
+            }
+          }
+          if (!hits.length) return null;
+          return {
+            x: hits.reduce((n, p) => n + p[0], 0) / hits.length,
+            y: hits.reduce((n, p) => n + p[1], 0) / hits.length,
+          };
+        },
+        null,
+        { timeout: 30_000 }
+      );
+      const proj = await eggPointHandle.jsonValue();
+      expect(proj).toBeTruthy();
+
+      const box = await canvas.boundingBox();
+      expect(box).toBeTruthy();
+      const hatchPromise = student1Page.waitForResponse(
+        (r) => r.url().includes("/api/dragon/hatch") && r.request().method() === "POST"
+      );
+      await student1Page.mouse.click(box.x + proj.x, box.y + proj.y);
+      const hatchRes = await hatchPromise;
+      expect(hatchRes.ok()).toBe(true);
+
+      // Wait for post-animation refetch and verify hatched_at is set and stage is past egg
+      await expect
+        .poll(
+          async () => {
+            const res = await student1Page.request.get("/api/dragon/me");
+            if (!res.ok()) return null;
+            const body = await res.json();
+            const d = body.dragons?.[0];
+            return d ? { hatched: d.hatched_at !== null, stage: d.growth?.stage } : null;
+          },
+          { timeout: 20_000 }
+        )
+        .toEqual({ hatched: true, stage: "baby" });
+
       expect(pageErrors).toEqual([]);
       expect(consoleErrors).toEqual([]);
 

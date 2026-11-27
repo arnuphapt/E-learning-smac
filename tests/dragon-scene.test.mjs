@@ -2,7 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { toHatcherySave } from "../lib/dragon-scene.ts";
+import {
+  ARRIVAL_DURATION_MS,
+  SUMMON_DURATION_MS,
+  toHatcherySave,
+  toSummoningHatcherySave,
+} from "../lib/dragon-scene.ts";
 import { createHatchery, HATCHERY_KEY } from "../lib/dragon/hatchery.mjs";
 
 const MAP_PATH = path.resolve("public/dragon/data/source-map.json");
@@ -139,4 +144,131 @@ test("toHatcherySave flags eggs beyond the first as eggs, never babies", (t) => 
   const storage = createMemoryStorage({ [HATCHERY_KEY]: JSON.stringify(save) });
   const hatchery = createHatchery({ catalog, map, storage, now: () => 1_000 });
   assert.equal(hatchery.getSnapshot().babies.filter((b) => b.isEgg).length, 2);
+});
+
+test("toHatcherySave sets readyAt in the past for ready unhatched eggs and far future for not-ready eggs", (t) => {
+  if (!fs.existsSync(MAP_PATH) || !fs.existsSync(CATALOG_PATH)) {
+    t.skip("public/dragon assets are not built");
+    return;
+  }
+
+  const map = JSON.parse(fs.readFileSync(MAP_PATH, "utf8"));
+  const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8"));
+
+  const notReadySave = toHatcherySave(
+    [{ id: "egg-low", species_id: "001", points: 999, hatched_at: null }],
+    map
+  );
+  assert.equal(notReadySave.active?.phase, "incubating");
+  assert.ok((notReadySave.active?.readyAt ?? 0) > Date.now());
+
+  const notReadyHatchery = createHatchery({
+    catalog,
+    map,
+    storage: createMemoryStorage({ [HATCHERY_KEY]: JSON.stringify(notReadySave) }),
+    now: () => 10_000,
+  });
+  assert.equal(notReadyHatchery.getSnapshot().active?.status, "incubating");
+
+  const readySave = toHatcherySave(
+    [{ id: "egg-high", species_id: "001", points: 25_000, hatched_at: null }],
+    map
+  );
+  assert.equal(readySave.active?.id, "egg-high");
+  assert.equal(readySave.active?.phase, "incubating");
+  assert.ok((readySave.active?.readyAt ?? 9_999_999_999_999) <= 10_000);
+  assert.equal(readySave.adults.length, 0);
+
+  const readyHatchery = createHatchery({
+    catalog,
+    map,
+    storage: createMemoryStorage({ [HATCHERY_KEY]: JSON.stringify(readySave) }),
+    now: () => 10_000,
+  });
+  assert.equal(readyHatchery.getSnapshot().active?.status, "ready");
+});
+
+test("toHatcherySave renders a hub mix of multiple unhatched eggs and hatched dragons", (t) => {
+  if (!fs.existsSync(MAP_PATH) || !fs.existsSync(CATALOG_PATH)) {
+    t.skip("public/dragon assets are not built");
+    return;
+  }
+
+  const map = JSON.parse(fs.readFileSync(MAP_PATH, "utf8"));
+  const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8"));
+  const save = toHatcherySave(
+    [
+      { id: "s1-egg-ready", species_id: "001", points: 25_000, hatched_at: null },
+      { id: "s2-egg-low", species_id: "002", points: 300, hatched_at: null },
+      { id: "s3-baby", species_id: "003", points: 2_000, hatched_at: "2026-11-26T00:00:00Z" },
+      { id: "s4-adult", species_id: "001", points: 35_000, hatched_at: "2026-11-26T00:00:00Z" },
+    ],
+    map
+  );
+
+  assert.equal(save.active?.id, "s1-egg-ready");
+  assert.equal(save.active?.phase, "incubating");
+  assert.deepEqual(
+    save.babies.map((b) => [b.id, b.isEgg === true]),
+    [
+      ["s2-egg-low", true],
+      ["s3-baby", false],
+    ]
+  );
+  assert.equal(save.adults.length, 1);
+  assert.equal(save.adults[0].id, "s4-adult");
+  assert.equal(save.adults[0].level, 3);
+
+  const hatchery = createHatchery({
+    catalog,
+    map,
+    storage: createMemoryStorage({ [HATCHERY_KEY]: JSON.stringify(save) }),
+    now: () => 10_000,
+  });
+  const snap = hatchery.getSnapshot();
+  assert.equal(snap.active?.id, "s1-egg-ready");
+  assert.equal(snap.babies.filter((b) => b.isEgg).length, 1);
+  assert.equal(snap.adults.length, 1);
+});
+
+test("toSummoningHatcherySave starts DB egg in summoning and advances summoning -> arriving -> incubating", (t) => {
+  if (!fs.existsSync(MAP_PATH) || !fs.existsSync(CATALOG_PATH)) {
+    t.skip("public/dragon assets are not built");
+    return;
+  }
+
+  const map = JSON.parse(fs.readFileSync(MAP_PATH, "utf8"));
+  const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8"));
+
+  let nowMs = 10_000;
+  const save = toSummoningHatcherySave(
+    { id: "db-egg-1", species_id: "002", points: 0, hatched_at: null },
+    map,
+    nowMs
+  );
+
+  assert.equal(save.active?.id, "db-egg-1");
+  assert.equal(save.active?.speciesId, "002");
+  assert.equal(save.active?.phase, "summoning");
+  assert.equal(save.active?.summonDoneAt, nowMs + SUMMON_DURATION_MS);
+  assert.equal(save.active?.startedAt, nowMs + SUMMON_DURATION_MS + ARRIVAL_DURATION_MS);
+
+  const store = new Map([[HATCHERY_KEY, JSON.stringify(save)]]);
+  const hatchery = createHatchery({
+    catalog,
+    map,
+    storage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) },
+    now: () => nowMs,
+  });
+
+  assert.equal(hatchery.getSnapshot().active?.status, "summoning");
+
+  nowMs = 10_000 + SUMMON_DURATION_MS;
+  hatchery.tick();
+  assert.equal(hatchery.getSnapshot().active?.status, "arriving");
+
+  nowMs = 10_000 + SUMMON_DURATION_MS + ARRIVAL_DURATION_MS;
+  hatchery.tick();
+  assert.equal(hatchery.getSnapshot().active?.status, "incubating");
+  assert.equal(hatchery.getSnapshot().active?.speciesId, "002");
 });

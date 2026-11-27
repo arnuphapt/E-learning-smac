@@ -4,6 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { toHatcherySave } from "../lib/dragon-scene.ts";
 import { createHatchery, HATCHERY_KEY } from "../lib/dragon/hatchery.mjs";
+import {
+  getViewOnlySummonDeadline,
+  handleViewOnlyHatchInteraction,
+} from "../lib/dragon/hatchery-panel.mjs";
 import { createWallet } from "../lib/dragon/wallet.mjs";
 
 const MAP_PATH = path.resolve("public/dragon/data/source-map.json");
@@ -81,4 +85,144 @@ test("viewOnly hatchery + wallet path with in-memory storage never touches globa
       delete globalThis.localStorage;
     }
   }
+});
+
+test("handleViewOnlyHatchInteraction respects allowHatch, readiness, API failure, and repeat-tap guard", async (t) => {
+  if (!fs.existsSync(MAP_PATH) || !fs.existsSync(CATALOG_PATH)) {
+    t.skip("public/dragon assets are not built");
+    return;
+  }
+
+  const map = JSON.parse(fs.readFileSync(MAP_PATH, "utf8"));
+  const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8"));
+  const makeHatchery = (points) => {
+    const save = toHatcherySave(
+      [{ id: "egg-1", species_id: "001", points, hatched_at: null }],
+      map
+    );
+    const store = new Map([[HATCHERY_KEY, JSON.stringify(save)]]);
+    return createHatchery({
+      catalog,
+      map,
+      storage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) },
+      now: () => 10_000,
+    });
+  };
+
+  // 1. allowHatch = false -> tap ignored
+  {
+    const h = makeHatchery(2_000);
+    let hatchCalls = 0;
+    let notReadyCalls = 0;
+    let inFlight = false;
+    const ran = await handleViewOnlyHatchInteraction({
+      active: h.getSnapshot().active,
+      actorId: "egg-1",
+      allowHatch: false,
+      hatchingInFlight: inFlight,
+      setHatchingInFlight: (v) => { inFlight = v; },
+      hatch: () => h.hatch(),
+      onHatch: () => { hatchCalls++; },
+      onHatchNotReady: () => { notReadyCalls++; },
+    });
+    assert.equal(ran, false);
+    assert.equal(hatchCalls, 0);
+    assert.equal(notReadyCalls, 0);
+    assert.equal(h.getSnapshot().active?.status, "ready");
+  }
+
+  // 2. allowHatch = true + not ready -> fires onHatchNotReady, does not hatch
+  {
+    const h = makeHatchery(500);
+    let hatchCalls = 0;
+    const notReadyIds = [];
+    let inFlight = false;
+    const ran = await handleViewOnlyHatchInteraction({
+      active: h.getSnapshot().active,
+      actorId: "egg-1",
+      allowHatch: true,
+      hatchingInFlight: inFlight,
+      setHatchingInFlight: (v) => { inFlight = v; },
+      hatch: () => h.hatch(),
+      onHatch: () => { hatchCalls++; },
+      onHatchNotReady: (id) => { notReadyIds.push(id); },
+    });
+    assert.equal(ran, false);
+    assert.equal(hatchCalls, 0);
+    assert.deepEqual(notReadyIds, ["egg-1"]);
+    assert.equal(h.getSnapshot().active?.status, "incubating");
+  }
+
+  // 3. allowHatch = true + onHatch returns false -> does not hatch, resets guard
+  {
+    const h = makeHatchery(2_000);
+    let inFlight = false;
+    const ran = await handleViewOnlyHatchInteraction({
+      active: h.getSnapshot().active,
+      actorId: "egg-1",
+      allowHatch: true,
+      hatchingInFlight: inFlight,
+      setHatchingInFlight: (v) => { inFlight = v; },
+      hatch: () => h.hatch(),
+      onHatch: async () => false,
+    });
+    assert.equal(ran, false);
+    assert.equal(inFlight, false);
+    assert.equal(h.getSnapshot().active?.status, "ready");
+  }
+
+  // 4. allowHatch = true + ready -> calls onHatch, runs hatch(), schedules onHatchComplete, blocks repeat tap
+  {
+    const h = makeHatchery(2_000);
+    const hatchedIds = [];
+    const completedIds = [];
+    const scheduled = [];
+    let inFlight = false;
+    const ran = await handleViewOnlyHatchInteraction({
+      active: h.getSnapshot().active,
+      actorId: "egg-1",
+      allowHatch: true,
+      hatchingInFlight: inFlight,
+      setHatchingInFlight: (v) => { inFlight = v; },
+      hatch: () => h.hatch(),
+      onHatch: async (id) => {
+        hatchedIds.push(id);
+        return true;
+      },
+      onHatchComplete: (id) => { completedIds.push(id); },
+      schedule: (fn, ms) => { scheduled.push({ fn, ms }); },
+      now: () => 10_000,
+    });
+    assert.equal(ran, true);
+    assert.deepEqual(hatchedIds, ["egg-1"]);
+    assert.equal(h.getSnapshot().active?.status, "hatching");
+    assert.equal(scheduled.length, 1);
+
+    const repeat = await handleViewOnlyHatchInteraction({
+      active: h.getSnapshot().active,
+      actorId: "egg-1",
+      allowHatch: true,
+      hatchingInFlight: inFlight,
+      setHatchingInFlight: (v) => { inFlight = v; },
+      hatch: () => h.hatch(),
+      onHatch: async (id) => { hatchedIds.push(id); return true; },
+    });
+    assert.equal(repeat, false);
+    assert.deepEqual(hatchedIds, ["egg-1"]);
+
+    scheduled[0].fn();
+    assert.deepEqual(completedIds, ["egg-1"]);
+  }
+});
+
+test("getViewOnlySummonDeadline only schedules summon phases when allowSummonTick is on", () => {
+  const summoning = { status: "summoning", summonDoneAt: 5_000, startedAt: 7_000 };
+  const arriving = { status: "arriving", summonDoneAt: 5_000, startedAt: 7_000 };
+  const incubating = { status: "incubating", summonDoneAt: 5_000, startedAt: 7_000 };
+
+  assert.equal(getViewOnlySummonDeadline(summoning, false), null);
+  assert.equal(getViewOnlySummonDeadline(arriving, false), null);
+  assert.equal(getViewOnlySummonDeadline(summoning, true), 5_000);
+  assert.equal(getViewOnlySummonDeadline(arriving, true), 7_000);
+  assert.equal(getViewOnlySummonDeadline(incubating, true), null);
 });

@@ -5,6 +5,7 @@ export interface DragonSceneInputItem {
   species_id: string;
   points: number;
   created_at?: string | null;
+  hatched_at?: string | null;
 }
 
 export interface DragonMapItem {
@@ -25,7 +26,10 @@ export interface HatcheryActiveEggV2 {
   id: string;
   speciesId: string;
   slotGUID: string;
-  phase: "incubating";
+  phase: "summoning" | "incubating";
+  summonAt?: number;
+  summonDoneAt?: number;
+  appearanceAt?: number;
   startedAt: number;
   readyAt: number;
 }
@@ -67,7 +71,42 @@ export interface HatcherySaveV2 {
   adults: HatcheryAdultV2[];
 }
 
+const PAST_READY_AT = 0;
 const FAR_FUTURE_READY_AT = 9_999_999_999_999;
+export const SUMMON_DURATION_MS = 6_800;
+export const ARRIVAL_DURATION_MS = 2_000;
+
+/** Build a v2 hatchery save whose active egg starts in `phase: "summoning"` for the first-join lobby effect. */
+export function toSummoningHatcherySave(
+  dragon: DragonSceneInputItem,
+  map: DragonSourceMap,
+  nowMs = Date.now()
+): HatcherySaveV2 {
+  const { slots } = extractDragonMapMarkers(map);
+  if (slots.length === 0) {
+    throw new Error("Source map has no Egg_Slot markers");
+  }
+  const summonAt = nowMs;
+  const summonDoneAt = summonAt + SUMMON_DURATION_MS;
+  const startedAt = summonDoneAt + ARRIVAL_DURATION_MS;
+  return {
+    version: 2,
+    summoned: 1,
+    active: {
+      id: dragon.id || "dragon-0",
+      speciesId: dragon.species_id,
+      slotGUID: slots[0].GUID,
+      phase: "summoning",
+      summonAt,
+      summonDoneAt,
+      appearanceAt: summonDoneAt,
+      startedAt,
+      readyAt: FAR_FUTURE_READY_AT,
+    },
+    babies: [],
+    adults: [],
+  };
+}
 
 function sortNewestFirst(
   items: readonly DragonSceneInputItem[]
@@ -132,7 +171,7 @@ export function toHatcherySave(
   const { slots, perches } = extractDragonMapMarkers(map);
 
   const ordered = sortNewestFirst(dragons);
-  const eggs: Array<{ item: DragonSceneInputItem; id: string }> = [];
+  const eggs: Array<{ item: DragonSceneInputItem; id: string; readyToHatch: boolean }> = [];
   const babiesList: Array<{ item: DragonSceneInputItem; id: string }> = [];
   const adultsList: Array<{
     item: DragonSceneInputItem;
@@ -143,9 +182,10 @@ export function toHatcherySave(
   for (let i = 0; i < ordered.length; i++) {
     const item = ordered[i];
     const id = item.id || `dragon-${i}`;
-    const growth = getDragonGrowthState(item.points);
+    const hatched = item.hatched_at !== null;
+    const growth = getDragonGrowthState(item.points, hatched);
     if (growth.stage === "egg") {
-      eggs.push({ item, id });
+      eggs.push({ item, id, readyToHatch: growth.readyToHatch });
     } else if (growth.stage === "baby") {
       babiesList.push({ item, id });
     } else {
@@ -190,7 +230,7 @@ export function toHatcherySave(
       slotGUID: slots[slotCursor++].GUID,
       phase: "incubating",
       startedAt: 0,
-      readyAt: FAR_FUTURE_READY_AT,
+      readyAt: firstEgg.readyToHatch ? PAST_READY_AT : FAR_FUTURE_READY_AT,
     };
     // Extra eggs ride in nursery slots; `isEgg` makes the renderer draw eggs.
     for (const extra of extraEggs) {

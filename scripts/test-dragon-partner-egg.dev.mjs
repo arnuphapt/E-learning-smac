@@ -50,15 +50,16 @@ async function run() {
     ]);
     if (usersErr) throw new Error(`Insert users failed: ${usersErr.message}`);
 
-    // Seed 2 dragons for studentA (d1 is partner, d2 is not) + 1 dragon for studentB
+    // Seed 2 hatched dragons for studentA (d1 is partner, d2 is not) + 1 unhatched egg for studentB
+    const hatchedAtSeed = new Date().toISOString();
     const { data: insertedDragons, error: dErr } = await admin
       .from("dragons")
       .insert([
-        { user_id: studentA, species_id: "001", points: 5000, is_partner: true },
-        { user_id: studentA, species_id: "002", points: 1000, is_partner: false },
-        { user_id: studentB, species_id: "003", points: 0, is_partner: true },
+        { user_id: studentA, species_id: "001", points: 5000, is_partner: true, hatched_at: hatchedAtSeed },
+        { user_id: studentA, species_id: "002", points: 1000, is_partner: false, hatched_at: hatchedAtSeed },
+        { user_id: studentB, species_id: "003", points: 0, is_partner: true, hatched_at: null },
       ])
-      .select("id, user_id, is_partner");
+      .select("id, user_id, is_partner, hatched_at");
     if (dErr) throw new Error(`Insert dragons failed: ${dErr.message}`);
 
     const a1 = insertedDragons.find((d) => d.user_id === studentA && d.is_partner);
@@ -111,7 +112,58 @@ async function run() {
       .single();
     assert.equal(wLow.balance, eggPrice - 1);
 
-    // 4. Buy egg with balance = price when partner already exists -> new dragon has is_partner = false
+    // 4. Buy egg rejected while unhatched egg exists (studentB has b1 with hatched_at = null)
+    const { error: buyOccupiedErr } = await admin.rpc("dragon_buy_egg", { p_user: studentB });
+    assert.ok(buyOccupiedErr, "Expected error when user has an unhatched egg");
+    assert.ok(
+      buyOccupiedErr.message?.includes("incubator_occupied") || buyOccupiedErr.code === "P0002",
+      `Expected incubator_occupied, got: ${buyOccupiedErr.code} ${buyOccupiedErr.message}`,
+    );
+    const { data: wBOccupied } = await admin
+      .from("dragon_wallets")
+      .select("balance")
+      .eq("user_id", studentB)
+      .single();
+    assert.equal(wBOccupied.balance, eggPrice, "Balance must be unchanged when incubator is occupied");
+
+    // 4b. dragon_hatch rejects below threshold and non-owner
+    const { error: hatchLowErr } = await admin.rpc("dragon_hatch", {
+      p_user: studentB,
+      p_dragon: b1.id,
+    });
+    assert.ok(hatchLowErr, "dragon_hatch must reject when points < hatch threshold");
+
+    const { error: hatchNotOwnerErr } = await admin.rpc("dragon_hatch", {
+      p_user: studentA,
+      p_dragon: b1.id,
+    });
+    assert.ok(hatchNotOwnerErr, "dragon_hatch must reject when caller is not the owner");
+
+    // 4c. dragon_hatch succeeds at hatch threshold and is idempotent on repeat/concurrent calls
+    const { error: updPtsErr } = await admin
+      .from("dragons")
+      .update({ points: DRAGON_GROWTH_THRESHOLDS.hatch })
+      .eq("id", b1.id);
+    assert.equal(updPtsErr, null);
+
+    const { data: hatchRes1, error: hatchErr1 } = await admin.rpc("dragon_hatch", {
+      p_user: studentB,
+      p_dragon: b1.id,
+    });
+    assert.equal(hatchErr1, null, `dragon_hatch failed: ${hatchErr1?.message}`);
+    assert.equal(hatchRes1?.id, b1.id);
+    assert.ok(hatchRes1?.hatched_at, "dragon_hatch must set hatched_at");
+
+    const [hatchRepeat, hatchConcurrent] = await Promise.all([
+      admin.rpc("dragon_hatch", { p_user: studentB, p_dragon: b1.id }),
+      admin.rpc("dragon_hatch", { p_user: studentB, p_dragon: b1.id }),
+    ]);
+    assert.equal(hatchRepeat.error, null);
+    assert.equal(hatchConcurrent.error, null);
+    assert.equal(hatchRepeat.data?.hatched_at, hatchRes1.hatched_at, "Repeat hatch must keep same hatched_at");
+    assert.equal(hatchConcurrent.data?.hatched_at, hatchRes1.hatched_at, "Concurrent hatch must keep same hatched_at");
+
+    // 4d. Buy egg with balance = price when incubator is empty and partner already exists -> is_partner = false
     const { data: boughtB, error: buyBErr } = await admin.rpc("dragon_buy_egg", { p_user: studentB });
     assert.equal(buyBErr, null, `dragon_buy_egg(B) failed: ${buyBErr?.message}`);
     assert.ok(boughtB);
@@ -125,10 +177,12 @@ async function run() {
 
     const { data: bDragons } = await admin
       .from("dragons")
-      .select("id, is_partner")
+      .select("id, is_partner, hatched_at")
       .eq("user_id", studentB);
     assert.equal(bDragons.length, 2);
-    assert.equal(bDragons.find((d) => d.id === boughtB)?.is_partner, false);
+    const boughtBRow = bDragons.find((d) => d.id === boughtB);
+    assert.equal(boughtBRow?.is_partner, false);
+    assert.equal(boughtBRow?.hatched_at, null);
 
     // 5. Delete studentB's partner, reset balance = eggPrice, buy -> becomes partner since none existed
     await admin.from("dragons").delete().eq("user_id", studentB);

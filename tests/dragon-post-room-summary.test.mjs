@@ -81,4 +81,34 @@ test("summarizeDragonPointGrant: legacy row (all nulls) gives points only", () =
   assert.equal(res.after, null);
   assert.equal(res.first_egg, false);
   assert.equal(res.overflow, 0);
+  assert.equal(res.message, null);
+});
+
+test("summarizeDragonPointGrant: unhatched egg reaching hatch threshold shows ready-to-hatch message", () => {
+  const res = summarizeDragonPointGrant({
+    points: 500,
+    pointsBefore: 700,
+    pointsAfter: 1_200,
+    overflow: 0,
+    firstEgg: false,
+    hatched: false,
+  });
+  assert.equal(res.before?.stage, "egg");
+  assert.equal(res.after?.stage, "egg");
+  assert.equal(res.after?.readyToHatch, true);
+  assert.equal(res.message, "ไข่พร้อมฟักแล้ว ไปกดฟักที่หน้ามังกร");
+});
+
+test("summarizeDragonPointGrant: unhatched egg below hatch threshold does not show ready-to-hatch message", () => {
+  const res = summarizeDragonPointGrant({
+    points: 200,
+    pointsBefore: 700,
+    pointsAfter: 900,
+    overflow: 0,
+    firstEgg: false,
+    hatched: false,
+  });
+  assert.equal(res.after?.stage, "egg");
+  assert.equal(res.after?.readyToHatch, false);
+  assert.equal(res.message, null);
 });

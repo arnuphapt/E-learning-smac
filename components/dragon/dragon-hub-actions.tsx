@@ -29,6 +29,7 @@ export interface DragonHubItem {
   points: number;
   is_partner: boolean;
   created_at: string;
+  hatched_at?: string | null;
   growth: DragonGrowthState;
 }
 
@@ -55,7 +56,8 @@ export function DragonHubActions({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const eggPrice = DRAGON_GROWTH_THRESHOLDS.eggPrice;
-  const canBuyEgg = walletBalance >= eggPrice;
+  const hasUnhatchedEgg = dragons.some((d) => d.hatched_at === null);
+  const canBuyEgg = walletBalance >= eggPrice && !hasUnhatchedEgg;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -134,36 +136,43 @@ export function DragonHubActions({
           มังกรของฉัน ({dragons.length} ตัว)
         </CardTitle>
 
-        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <AlertDialogTrigger asChild>
-            <Button size="sm" disabled={!canBuyEgg || buyingEgg}>
-              {buyingEgg
-                ? "กำลังสุ่มไข่…"
-                : `สุ่มไข่ใบใหม่ (${eggPrice.toLocaleString("th-TH")} แต้ม)`}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>ยืนยันสุ่มไข่ใบใหม่</AlertDialogTitle>
-              <AlertDialogDescription>
-                ใช้ {eggPrice.toLocaleString("th-TH")} แต้มจากแต้มคงเหลือ
-                เพื่อสุ่มไข่มังกรใบใหม่ ไข่ใบใหม่จะกลายเป็นมังกรที่กำลังเลี้ยง
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={buyingEgg}>ยกเลิก</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={buyingEgg}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void handleBuyEgg();
-                }}
-              >
-                {buyingEgg ? "กำลังสุ่ม…" : "สุ่มไข่"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <div className="flex flex-col items-end gap-1">
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" disabled={!canBuyEgg || buyingEgg}>
+                {buyingEgg
+                  ? "กำลังสุ่มไข่…"
+                  : `สุ่มไข่ใบใหม่ (${eggPrice.toLocaleString("th-TH")} แต้ม)`}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>ยืนยันสุ่มไข่ใบใหม่</AlertDialogTitle>
+                <AlertDialogDescription>
+                  ใช้ {eggPrice.toLocaleString("th-TH")} แต้มจากแต้มคงเหลือ
+                  เพื่อสุ่มไข่มังกรใบใหม่ ไข่ใบใหม่จะกลายเป็นมังกรที่กำลังเลี้ยง
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={buyingEgg}>ยกเลิก</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={buyingEgg}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleBuyEgg();
+                  }}
+                >
+                  {buyingEgg ? "กำลังสุ่ม…" : "สุ่มไข่"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          {hasUnhatchedEgg && (
+            <p className="text-xs text-muted-foreground">
+              ยังมีไข่ที่ยังไม่ฟัก ฟักไข่ใบเดิมก่อนจึงจะสุ่มไข่ใบใหม่ได้
+            </p>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent className="grid gap-2 pb-4 sm:grid-cols-2 lg:grid-cols-3">

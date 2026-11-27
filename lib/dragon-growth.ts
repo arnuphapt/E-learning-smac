@@ -6,6 +6,7 @@ export interface DragonGrowthState {
   level: DragonLevel;
   nextAt: number | null;
   toNext: number;
+  readyToHatch: boolean;
 }
 
 export interface DragonPointGrantResult {
@@ -29,17 +30,42 @@ function assertNonNegativeInt(value: number, name: string): void {
   }
 }
 
-/** Derive a dragon's stage, level (0-5), and points needed for the next step. */
-export function getDragonGrowthState(points: number): DragonGrowthState {
+/** Derive a dragon's stage, level (0-5), hatch readiness, and points needed for the next step. */
+export function getDragonGrowthState(
+  points: number,
+  hatched = true
+): DragonGrowthState {
   assertNonNegativeInt(points, "points");
 
   const { hatch, adult, levels } = DRAGON_GROWTH_THRESHOLDS;
 
+  if (!hatched) {
+    return {
+      stage: "egg",
+      level: 0,
+      nextAt: hatch,
+      toNext: Math.max(0, hatch - points),
+      readyToHatch: points >= hatch,
+    };
+  }
+
   if (points < hatch) {
-    return { stage: "egg", level: 0, nextAt: hatch, toNext: hatch - points };
+    return {
+      stage: "egg",
+      level: 0,
+      nextAt: hatch,
+      toNext: hatch - points,
+      readyToHatch: false,
+    };
   }
   if (points < adult) {
-    return { stage: "baby", level: 0, nextAt: adult, toNext: adult - points };
+    return {
+      stage: "baby",
+      level: 0,
+      nextAt: adult,
+      toNext: adult - points,
+      readyToHatch: false,
+    };
   }
 
   for (let i = 0; i < levels.length; i++) {
@@ -50,11 +76,18 @@ export function getDragonGrowthState(points: number): DragonGrowthState {
         level: i as DragonLevel,
         nextAt: threshold,
         toNext: threshold - points,
+        readyToHatch: false,
       };
     }
   }
 
-  return { stage: "adult", level: 5, nextAt: null, toNext: 0 };
+  return {
+    stage: "adult",
+    level: 5,
+    nextAt: null,
+    toNext: 0,
+    readyToHatch: false,
+  };
 }
 
 /** Split a quiz-point grant into capped dragon points (up to level 5) and wallet overflow. */
@@ -80,9 +113,14 @@ export function canBuyDragonEgg(balance: number): boolean {
   return balance >= DRAGON_GROWTH_THRESHOLDS.eggPrice;
 }
 
+export const READY_TO_HATCH_SUMMARY_THAI =
+  "ไข่พร้อมฟักแล้ว ไปกดฟักที่หน้ามังกร";
+
 /** Format a dragon's stage/level in Thai for UI badges and summaries. */
 export function formatDragonGrowthThai(growth: DragonGrowthState): string {
-  if (growth.stage === "egg") return "ไข่";
+  if (growth.stage === "egg") {
+    return growth.readyToHatch ? "ไข่ (พร้อมฟัก)" : "ไข่";
+  }
   if (growth.stage === "baby") return "ลูกมังกร";
   return `ตัวเต็มวัย เลเวล ${growth.level}`;
 }
@@ -94,6 +132,7 @@ export interface DragonGrantSummary {
   after: DragonGrowthState | null;
   first_egg: boolean;
   overflow: number;
+  message: string | null;
 }
 
 /**
@@ -107,20 +146,25 @@ export function summarizeDragonPointGrant({
   pointsAfter,
   overflow,
   firstEgg,
+  hatched = true,
 }: {
   points: number;
   pointsBefore: number | null;
   pointsAfter: number | null;
   overflow: number | null;
   firstEgg: boolean | null;
+  hatched?: boolean;
 }): DragonGrantSummary {
   assertNonNegativeInt(points, "points");
   const known = pointsBefore !== null && pointsAfter !== null;
+  const before = known ? getDragonGrowthState(pointsBefore, hatched) : null;
+  const after = known ? getDragonGrowthState(pointsAfter, hatched) : null;
   return {
     points,
-    before: known ? getDragonGrowthState(pointsBefore) : null,
-    after: known ? getDragonGrowthState(pointsAfter) : null,
+    before,
+    after,
     first_egg: known && firstEgg === true,
     overflow: overflow ?? 0,
+    message: after?.readyToHatch ? READY_TO_HATCH_SUMMARY_THAI : null,
   };
 }
