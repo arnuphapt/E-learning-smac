@@ -1,7 +1,7 @@
 // Server-only: Cloudflare R2 access. Never import this from a "use client" file.
 // DB columns (lessons.video_url, documents[].url, ai_documents[].url, submissions.file)
 // now hold the R2 object KEY. Old rows still hold a full public URL; toKey() accepts both.
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { isTutorOnlyRole } from "./roles.ts";
 
@@ -62,12 +62,23 @@ export function toKey(ref: string | null | undefined): string | null {
   return ref.includes("/") ? ref : null; // plain filenames (seed data) are not keys
 }
 
-export async function signGet(key: string): Promise<string> {
+async function signObject(
+  Command: typeof GetObjectCommand | typeof HeadObjectCommand,
+  key: string,
+  expiresIn: number,
+): Promise<string> {
   const r2 = getR2();
   if (!r2) throw new Error("R2 is not configured");
-  const { s3, bucket } = r2;
-  const expiresIn = VIDEO_RE.test(key) ? VIDEO_TTL : FILE_TTL;
-  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn });
+  return getSignedUrl(r2.s3, new Command({ Bucket: r2.bucket, Key: key }), { expiresIn });
+}
+
+export async function signGet(key: string, ttlSeconds?: number): Promise<string> {
+  const expiresIn = ttlSeconds ?? (VIDEO_RE.test(key) ? VIDEO_TTL : FILE_TTL);
+  return signObject(GetObjectCommand, key, expiresIn);
+}
+
+export async function signHead(key: string, ttlSeconds = FILE_TTL): Promise<string> {
+  return signObject(HeadObjectCommand, key, ttlSeconds);
 }
 
 // Server-side read for the AI (credentials stay on the server). Returns a Buffer or null.
