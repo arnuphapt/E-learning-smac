@@ -15,4 +15,12 @@ test('every adult renders as the single adult look with level UI hidden',()=>{
  assert.equal(menu.nodes.find(n=>n.id===d.fullParent).active,false);
  for(const pipId of d.fullPips)assert.equal(menu.nodes.find(n=>n.id===pipId).active,false);
  assert.equal(menu.texts.find(t=>t.node===b.title).text,sp.name);
+ assert.equal(menu.nodes.find(n=>n.id===b.currencyContainer).active,true);
+ assert.equal(menu.nodes.find(n=>n.id===b.timeContainer).active,true);
+
+ const viewOnlyMenu=adultStatusMenu(source,adult,sp,{viewOnly:true});
+ assert.equal(viewOnlyMenu.nodes.find(n=>n.id===b.currencyContainer).active,false);
+ assert.equal(viewOnlyMenu.nodes.find(n=>n.id===b.timeContainer).active,false);
+ assert.equal(viewOnlyMenu.nodes.find(n=>n.id===b.descContainer).active,true);
+ assert.equal(viewOnlyMenu.texts.find(t=>t.node===b.description).text,`${sp.name} ตัวเต็มวัย`);
 });

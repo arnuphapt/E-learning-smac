@@ -356,6 +356,7 @@
   font-size: 15px;
   font-weight: 700;
   line-height: 1.2;
+  white-space: nowrap;
   text-shadow: 0 2px 4px #00170c;
   box-shadow: 0 4px 16px #00150d66;
   cursor: pointer;
@@ -442,4 +443,22 @@
 .dragon-game .egg-partner-info span {
   font-size: 13px;
   color: var(--text-muted, #a2bab8);
+}
+
+@media (max-width: 639px) {
+  .dragon-game .native-baby-status:has(.native-partner-bar) {
+    min-height: 124px;
+    background: linear-gradient(to top, #192126f2 56px, transparent 56px);
+  }
+
+  .dragon-game .native-baby-status:has(.native-partner-bar) > div:first-child {
+    bottom: 44px !important;
+  }
+
+  .dragon-game .native-baby-status .native-partner-bar {
+    left: 50%;
+    right: auto;
+    bottom: 6px;
+    transform: translateX(-50%);
+  }
 }

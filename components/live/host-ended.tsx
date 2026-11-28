@@ -43,24 +43,24 @@ export interface HostEndedState {
 const PODIUM = {
   1: {
     label: "border-[var(--rim)] bg-amber-400 text-amber-950",
-    name: "line-clamp-2 mt-1 max-w-40 text-base font-black break-words text-[var(--text)] sm:max-w-56 sm:text-xl lg:text-2xl",
-    score: "text-sm font-black text-[var(--gold)] sm:text-lg lg:text-xl",
-    step: "h-[clamp(96px,17.5vh,220px)] rounded-t-[var(--radius-lg)] border-[var(--rim)] bg-amber-400 shadow-lg",
-    rank: "text-5xl text-amber-950 sm:text-7xl lg:text-8xl",
+    name: "line-clamp-2 mt-0.5 max-w-40 text-sm font-black break-words text-[var(--text)] sm:max-w-56 sm:text-lg lg:text-xl",
+    score: "text-xs font-black text-[var(--gold)] sm:text-base lg:text-lg",
+    step: "h-[clamp(58px,10.5dvh,190px)] rounded-t-[var(--radius-lg)] border-[var(--rim)] bg-amber-400 shadow-lg",
+    rank: "text-4xl text-amber-950 sm:text-5xl lg:text-7xl",
   },
   2: {
     label: "border-[var(--rim)] bg-slate-200 text-slate-900",
-    name: "line-clamp-2 mt-1 max-w-36 text-sm font-bold break-words text-[var(--text)] sm:max-w-44 sm:text-lg lg:text-xl",
-    score: "text-xs font-bold text-[var(--text-strong)] sm:text-base lg:text-lg",
-    step: "h-[clamp(76px,13.5vh,170px)] rounded-t-[var(--radius-md)] border-[var(--rim)] bg-slate-200 shadow-md",
-    rank: "text-4xl text-slate-900 sm:text-5xl lg:text-6xl",
+    name: "line-clamp-2 mt-0.5 max-w-36 text-xs font-bold break-words text-[var(--text)] sm:max-w-44 sm:text-base lg:text-lg",
+    score: "text-xs font-bold text-[var(--text-strong)] sm:text-sm lg:text-base",
+    step: "h-[clamp(48px,8dvh,148px)] rounded-t-[var(--radius-md)] border-[var(--rim)] bg-slate-200 shadow-md",
+    rank: "text-3xl text-slate-900 sm:text-4xl lg:text-5xl",
   },
   3: {
     label: "border-[var(--rim)] bg-orange-300 text-orange-950",
-    name: "line-clamp-2 mt-1 max-w-36 text-sm font-bold break-words text-[var(--text)] sm:max-w-44 sm:text-lg lg:text-xl",
-    score: "text-xs font-bold text-[var(--text-strong)] sm:text-base lg:text-lg",
-    step: "h-[clamp(60px,10.5vh,132px)] rounded-t-[var(--radius-md)] border-[var(--rim)] bg-orange-300 shadow-md",
-    rank: "text-3xl text-orange-950 sm:text-4xl lg:text-5xl",
+    name: "line-clamp-2 mt-0.5 max-w-36 text-xs font-bold break-words text-[var(--text)] sm:max-w-44 sm:text-base lg:text-lg",
+    score: "text-xs font-bold text-[var(--text-strong)] sm:text-sm lg:text-base",
+    step: "h-[clamp(40px,6.5dvh,116px)] rounded-t-[var(--radius-md)] border-[var(--rim)] bg-orange-300 shadow-md",
+    rank: "text-2xl text-orange-950 sm:text-3xl lg:text-4xl",
   },
 } as const;
 
@@ -76,7 +76,7 @@ function PodiumPlace({
   const t = PODIUM[place];
   return (
     <div className={cn("flex min-w-0 flex-1 flex-col items-center", place === 1 && "z-10")}>
-      <div className="db-panel mb-1.5 w-full max-w-56 px-3 py-2 text-center">
+      <div className="db-panel db-panel--compact-plate mb-1 w-full max-w-56 text-center">
         <span className={cn("inline-block rounded-[var(--radius-sm)] border-2 px-3 py-0.5 text-xs font-bold sm:text-sm", t.label)}>
           อันดับ {place}
         </span>
@@ -120,17 +120,17 @@ export function HostEnded({ state }: { state: HostEndedState }) {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-between overflow-x-clip py-1">
-      <div className="flex flex-col items-center gap-1 text-center">
-        <Badge className="db-chip border-[var(--accept)] bg-[var(--accept)] px-4 py-1 text-sm font-bold text-[var(--text)]">
+      <div className="flex flex-col items-center gap-0.5 text-center">
+        <Badge className="db-chip border-[var(--accept)] bg-[var(--accept)] px-3.5 py-0.5 text-xs font-bold text-[var(--text)] sm:text-sm">
           จบการแข่งขันแล้ว
         </Badge>
-        <h2 className="db-world-label text-2xl font-black tracking-wide text-[var(--text)] sm:text-4xl lg:text-5xl">แท่นรับรางวัล</h2>
+        <h2 className="db-world-label text-2xl font-black tracking-wide text-[var(--text)] sm:text-3xl lg:text-4xl">แท่นรับรางวัล</h2>
         <p className="db-world-label text-xs text-[var(--text)] sm:text-sm">
           ควิซสด {total} ข้อ · ผู้เข้าแข่งขันทั้งหมด {playerCount} คน
         </p>
       </div>
 
-      <div className="mx-auto my-1 flex w-full max-w-3xl items-end justify-center gap-3 px-4 sm:my-2 sm:gap-6">
+      <div className="mx-auto my-0.5 flex w-full max-w-3xl items-end justify-center gap-3 px-4 sm:my-1 sm:gap-6">
         {second && <PodiumPlace place={2} player={second} entryGroup={entryGroup} />}
         {first && <PodiumPlace place={1} player={first} entryGroup={entryGroup} />}
         {third && <PodiumPlace place={3} player={third} entryGroup={entryGroup} />}
@@ -207,11 +207,14 @@ export function HostEnded({ state }: { state: HostEndedState }) {
         </div>
       ) : (
         top5.length > 3 && (
-          <Card className="db-panel mx-auto mt-2 w-full max-w-xl gap-2 p-4">
+          <Card className="db-panel db-panel--compact mx-auto mt-1 w-full max-w-xl gap-1.5">
             <div className="text-xs font-semibold text-[var(--text-muted)]">อันดับ 4 - 5</div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {top5.slice(3, 5).map((p, idx) => (
-                <div key={p.userId || idx} className="db-row flex items-center justify-between px-3 py-2 text-sm sm:text-base">
+                <div
+                  key={p.userId || idx}
+                  className="db-row db-row--compact flex items-center justify-between text-sm"
+                >
                   <span className="font-semibold text-[var(--text)] tabular-nums">
                     {p.rank ?? idx + 4}. {p.name}
                   </span>
@@ -223,11 +226,20 @@ export function HostEnded({ state }: { state: HostEndedState }) {
         )
       )}
 
-      <div className="flex items-center justify-center gap-4 pt-2">
-        <Button asChild variant="outline" size="lg" className="db-btn db-btn--default h-auto px-6 py-3 text-base font-bold">
+      <div className="flex items-center justify-center gap-4 pt-1.5">
+        <Button
+          asChild
+          variant="outline"
+          size="lg"
+          className="db-btn db-btn--default db-btn--podium h-auto font-bold"
+        >
           <Link href="/i/live/hubs">กลับหน้ารายการห้อง</Link>
         </Button>
-        <Button asChild size="lg" className="db-btn db-btn--accept h-auto px-8 py-3 text-[19px] font-bold">
+        <Button
+          asChild
+          size="lg"
+          className="db-btn db-btn--accept db-btn--podium-primary h-auto font-bold"
+        >
           <Link href={`/i/live/${state.id}/results`}>ดูรายงานผลคะแนน</Link>
         </Button>
       </div>

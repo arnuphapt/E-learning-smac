@@ -15,9 +15,9 @@ export interface PodiumDragonProps {
 }
 
 const PLACE_SIZE: Record<1 | 2 | 3, string> = {
-  1: "h-[clamp(100px,17vh,176px)] w-[min(100%,clamp(160px,24vw,300px))]",
-  2: "h-[clamp(72px,11.5vh,124px)] w-[min(100%,clamp(108px,16vw,184px))]",
-  3: "h-[clamp(56px,9vh,96px)] w-[min(100%,clamp(88px,13vw,148px))]",
+  1: "h-[clamp(76px,12dvh,160px)] w-[min(100%,clamp(160px,24vw,300px))]",
+  2: "h-[clamp(54px,8.5dvh,112px)] w-[min(100%,clamp(108px,16vw,184px))]",
+  3: "h-[clamp(44px,7dvh,90px)] w-[min(100%,clamp(88px,13vw,148px))]",
 };
 
 export function PodiumDragon({

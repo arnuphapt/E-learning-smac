@@ -82,6 +82,14 @@
   position: relative;
 }
 
+.dragon-base .db-panel.db-panel--compact {
+  padding: 8px 12px;
+}
+
+.dragon-base .db-panel.db-panel--compact-plate {
+  padding: 6px 10px;
+}
+
 [data-slot="alert-dialog-overlay"]:has(+ .dragon-base) {
   background: #061416cc;
 }
@@ -146,6 +154,10 @@
   color: var(--text);
   text-align: left;
   font-family: var(--font-sans);
+}
+
+.dragon-base .db-row.db-row--compact {
+  padding: 5px 10px;
 }
 
 .dragon-base .db-row:focus-visible {
@@ -224,6 +236,18 @@
   font: 700 19px/24px var(--font-sans);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
+}
+
+.dragon-base .db-btn.db-btn--podium {
+  padding: 8px 18px;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.dragon-base .db-btn.db-btn--podium-primary {
+  padding: 8px 22px;
+  font-size: 16px;
+  line-height: 22px;
 }
 
 .dragon-base .db-btn:hover:not(:disabled) {
