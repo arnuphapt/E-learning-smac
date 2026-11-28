@@ -44,11 +44,23 @@ export function JoinPinForm() {
         body: JSON.stringify({ pin: trimmedPin, name: trimmedName }),
       });
 
-      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        id?: string;
+        firstEgg?: boolean;
+        error?: string;
+      };
       if (!res.ok) {
         setPinError(data.error || "ไม่สามารถเข้าร่วมห้องได้");
         setJoining(false);
         return;
+      }
+
+      if (data.id && data.firstEgg === true) {
+        try {
+          sessionStorage.setItem(`live-first-egg:${data.id}`, "1");
+        } catch {
+          // Ignore storage failures (e.g. private browsing restrictions)
+        }
       }
 
       router.push(`/s/live/${data.id}`);

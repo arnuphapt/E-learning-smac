@@ -1,4 +1,4 @@
-import { Award, Bell, Bot, BookOpen, CalendarDays, ClipboardList, Target, UserRound } from "lucide-react"
+import { Award, Bell, Bot, BookOpen, CalendarDays, ClipboardList, Egg, Radio, Target, UserRound } from "lucide-react"
 import type { NavConfig } from "./types.ts"
 
 export const studentNav: NavConfig = {
@@ -22,7 +22,15 @@ export const studentNav: NavConfig = {
           match: ["/s/course/[id]", "/s/lesson/[id]/**", "/s/test/**"],
         },
         { title: "ชุดติว", href: "/s/tutor", icon: Award, tutorOk: true, match: ["/s/tutor/[id]", "/s/tutor/lesson/[id]/**"] },
-        { title: "รวมเกม", href: "/s/live", icon: Target, match: ["/s/live/[id]"] },
+        {
+          title: "รวมเกม",
+          icon: Target,
+          items: [
+            { title: "เลือกเกม", href: "/s/live", icon: Target, match: ["/s/live/[id]"] },
+            { title: "ควิซสด", href: "/s/live/quiz", icon: Radio, match: ["/s/live/hubs/[id]"] },
+          ],
+        },
+        { title: "มังกร", href: "/s/dragon", icon: Egg },
         { title: "ใบงาน", href: "/s/assignments", icon: ClipboardList, match: ["/s/assignment/[id]"] },
       ],
     },

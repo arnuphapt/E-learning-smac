@@ -62,11 +62,13 @@ export function OpenRoomDialog({
   courses,
   preselectedQuizId,
   onClose,
+  hubId,
 }: {
   quizzes: QuizOption[];
   courses: CourseOption[];
   preselectedQuizId: string;
   onClose: () => void;
+  hubId?: string;
 }) {
   const router = useRouter();
   const [selectedQuiz, setSelectedQuiz] = useState(preselectedQuizId);
@@ -105,6 +107,7 @@ export function OpenRoomDialog({
         body: JSON.stringify({
           quiz_id: selectedQuiz,
           course_id: selectedCourse,
+          hub_id: hubId,
           restrict_to_course: restrictToCourse,
           team_mode: teamMode,
           team_count: teamMode ? Number(teamCount) : undefined,

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { CheckIcon, MinusIcon, XIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import * as sound from "@/lib/live-sound";
 
@@ -44,45 +44,43 @@ export function PlayerReveal({ state }: { state: PlayerRevealState }) {
 
   return (
     <div className="mx-auto flex h-full w-full max-w-lg flex-1 flex-col justify-between py-2 sm:py-4">
-      <div className="flex items-center justify-between px-2 pb-3">
-        <span className="text-sm font-semibold text-muted-foreground">
+      <div className="db-panel flex items-center justify-between gap-2 px-3 py-2">
+        <span className="text-sm font-bold text-[var(--text-strong)] tabular-nums">
           ผลลัพธ์ข้อที่ {index + 1} จาก {total}
         </span>
-        <Badge variant="secondary">เฉลยแล้ว</Badge>
+        <Badge variant="secondary" className="db-chip px-2.5 py-0.5 text-xs font-semibold">เฉลยแล้ว</Badge>
       </div>
-      <Separator />
 
       <div className="my-auto py-4">
         <Card
           className={cn(
-            "gap-0 border-2 p-6 text-center shadow-md sm:p-8",
-            isCorrect && "border-success/40 bg-success-soft text-success",
-            !isCorrect && hasAnswered && "border-destructive/40 bg-destructive/10 text-destructive",
-            !isCorrect && !hasAnswered && "text-muted-foreground",
+            "db-panel gap-0 p-6 text-center sm:p-8",
+            isCorrect && "border-t-[var(--accept)] border-b-[var(--accept)]",
+            !isCorrect && hasAnswered && "border-t-[var(--cancel-ink)] border-b-[var(--cancel-ink)]",
           )}
         >
           <div
             className={cn(
-              "mx-auto mb-4 flex size-16 items-center justify-center rounded-full text-3xl shadow-sm sm:size-20 sm:text-4xl",
-              isCorrect && "bg-success text-white ring-4 ring-success/20",
-              !isCorrect && hasAnswered && "bg-destructive text-white ring-4 ring-destructive/20",
-              !isCorrect && !hasAnswered && "border bg-muted text-muted-foreground",
+              "mx-auto mb-4 flex size-16 items-center justify-center rounded-full shadow-sm sm:size-20",
+              isCorrect && "bg-[var(--accept)] text-[var(--text)] ring-4 ring-[var(--accept)]/25",
+              !isCorrect && hasAnswered && "bg-[var(--cancel-ink)] text-[var(--text)] ring-4 ring-[var(--cancel-ink)]/25",
+              !isCorrect && !hasAnswered && "border border-[var(--frame-soft)] bg-[var(--surface-1)] text-[var(--text-muted)]",
             )}
             aria-hidden
           >
-            {isCorrect ? "✓" : hasAnswered ? "✕" : "—"}
+            {isCorrect ? <CheckIcon className="size-9" /> : hasAnswered ? <XIcon className="size-9" /> : <MinusIcon className="size-8" />}
           </div>
 
-          <h2 className="mb-1 text-2xl font-black sm:text-3xl">
+          <h2 className="mb-1 text-2xl font-black text-[var(--text)] sm:text-3xl">
             {isCorrect ? "ถูกต้อง!" : hasAnswered ? "ตอบผิด" : "ไม่ได้ส่งคำตอบ"}
           </h2>
 
           <div
             className={cn(
-              "mx-auto mt-2 w-fit rounded-full border bg-card px-4 py-1.5 font-mono text-base font-bold shadow-xs sm:text-lg",
-              isCorrect && "border-success/30 text-success",
-              !isCorrect && hasAnswered && "border-destructive/30 text-destructive",
-              !isCorrect && !hasAnswered && "text-muted-foreground",
+              "db-chip mx-auto mt-2 w-fit px-4 py-1.5 font-mono text-base font-bold tabular-nums sm:text-lg",
+              isCorrect && "border-[var(--accept)] text-[var(--gold)]",
+              !isCorrect && hasAnswered && "border-[var(--cancel-ink)] text-[var(--warn)]",
+              !isCorrect && !hasAnswered && "text-[var(--text-muted)]",
             )}
           >
             +{points.toLocaleString()} คะแนน
@@ -90,25 +88,24 @@ export function PlayerReveal({ state }: { state: PlayerRevealState }) {
         </Card>
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
-          <Card className="gap-0 p-4 text-center">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">คะแนนรวม</span>
-            <span className="font-mono text-2xl font-black text-primary tabular-nums sm:text-3xl">
+          <Card className="db-panel gap-0 p-4 text-center">
+            <span className="mb-1 block text-xs font-medium text-[var(--text-muted)]">คะแนนรวม</span>
+            <span className="font-mono text-2xl font-black text-[var(--gold)] tabular-nums sm:text-3xl">
               {totalScore.toLocaleString()}
             </span>
           </Card>
 
-          <Card className="gap-0 p-4 text-center">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">อันดับปัจจุบัน</span>
-            <span className="font-mono text-2xl font-black text-foreground tabular-nums sm:text-3xl">
+          <Card className="db-panel gap-0 p-4 text-center">
+            <span className="mb-1 block text-xs font-medium text-[var(--text-muted)]">อันดับปัจจุบัน</span>
+            <span className="font-mono text-2xl font-black text-[var(--text)] tabular-nums sm:text-3xl">
               {rank ? `ที่ ${rank}` : "—"}
             </span>
-            {playerCount ? <span className="mt-0.5 block text-xs text-muted-foreground">จาก {playerCount} คน</span> : null}
+            {playerCount ? <span className="mt-0.5 block text-xs text-[var(--text-muted)] tabular-nums">จาก {playerCount} คน</span> : null}
           </Card>
         </div>
       </div>
 
-      <Separator />
-      <p className="py-2 text-center text-xs text-muted-foreground motion-safe:animate-pulse">
+      <p className="db-world-label py-2 text-center text-xs text-[var(--text)]">
         รอผู้สอนเปิดตารางคะแนนหรือข้อถัดไป…
       </p>
     </div>

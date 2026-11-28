@@ -1,0 +1,17 @@
+﻿import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {tileGeometry,projectItem} from '../../lib/dragon/geometry.mjs';
+const manifest=JSON.parse(fs.readFileSync(new URL('../../public/dragon/generated/manifest.json',import.meta.url)));
+test('all static source symbols have finite indexed meshes with UVs inside their own atlas region',()=>{for(const [name,s]of Object.entries(manifest.bindings)){if(s.kind!=='sprite')continue;assert.equal(s.vertices.length,s.uvs.length,name);assert(s.indices.every(i=>i<s.vertices.length/2),name);const t=manifest.textures[s.texture],r=s.atlasRect;for(let i=0;i<s.uvs.length;i+=2){const x=s.uvs[i]*t.width,y=(1-s.uvs[i+1])*t.height;assert(x>=r.x-4&&x<=r.x+r.width+4,name+' atlas X '+x);assert(y>=r.y-4&&y<=r.y+r.height+4,name+' atlas Y '+y);}}});
+test('partial tiles clip triangles and interpolate UVs without sampling adjacent atlas sprites',()=>{const s={vertices:[-.5,.5,.5,.5,.5,-.5,-.5,-.5],uvs:[.25,.5,.5,.5,.5,.25,.25,.25],indices:[0,1,2,0,2,3],rect:{width:100,height:100},ppu:100,pivot:{x:.5,y:.5}};const tiled=tileGeometry(s,-2.3,1.4);for(let i=0;i<tiled.vertices.length;i+=2){assert(Math.abs(tiled.vertices[i])<=1.15+1e-7);assert(Math.abs(tiled.vertices[i+1])<=.7+1e-7);}for(const v of tiled.uvs)assert(v>=.25-1e-7&&v<=.5+1e-7);assert(tiled.indices.length>6);});
+test('projection includes layer depth, near clipping, Unity Y direction and clockwise authored map rotation',()=>{const c={x:0,y:0,z:-10000,fov:.25,near:.5,far:20000},screen={width:1000,height:650};const p=projectItem({XPos:1,YPos:2,ZPos:100,rotation:30},500,c,screen),far=projectItem({XPos:1,YPos:2,ZPos:2000,rotation:0},500,c,screen);assert.equal(p.z,600);assert(p.x>500&&p.y<325);assert(p.scale>far.scale);assert.equal(p.rotation,Math.PI/6);assert.equal(projectItem({XPos:0,YPos:0,ZPos:-11000,rotation:0},0,c,screen),null);});
+test('all 38 original tiled placements produce valid, bounded geometry',()=>{const map=JSON.parse(fs.readFileSync(new URL('../../public/dragon/data/source-map.json',import.meta.url)));let n=0;for(const item of map.MapItemData.filter(i=>!i.isMarker&&i.isTiled)){const geo=tileGeometry(manifest.bindings[item.SymbolID],item.tileSizeX,item.tileSizeY);assert(geo.indices.length>0,item.SymbolID);assert(Math.max(...geo.indices)<65536,item.SymbolID);assert(geo.vertices.every(Number.isFinite));n++;}assert.equal(n,38);});
+
+test('original left-house power cable stays nearly horizontal rather than doubling its baked tilt',()=>{
+ const map=JSON.parse(fs.readFileSync(new URL('../../public/dragon/data/source-map.json',import.meta.url))),item=map.MapItemData.find(i=>i.GUID==='g920361676'),sprite=manifest.bindings[item.SymbolID];
+ assert.equal(item.SymbolID,'power_line_2_0');assert.equal(item.rotation,337.6317);
+ const xs=sprite.vertices.filter((_,i)=>i%2===0),left=Math.min(...xs),right=Math.max(...xs);
+ const edgeY=x=>{const values=[];for(let i=0;i<sprite.vertices.length;i+=2)if(Math.abs(sprite.vertices[i]-x)<1e-5)values.push(sprite.vertices[i+1]);return values.reduce((sum,v)=>sum+v,0)/values.length;};
+ const p=projectItem(item,0,{x:0,y:0,z:-9000,fov:.25,near:.5,far:20000},{width:1280,height:900}),dx=(right-left)*item.scaleX,dy=(edgeY(right)-edgeY(left))*item.scaleY;
+ const angle=Math.atan2(dx*Math.sin(p.rotation)+dy*Math.cos(p.rotation),dx*Math.cos(p.rotation)-dy*Math.sin(p.rotation))*180/Math.PI;
+ // User-supplied original screenshot: cable runs gently up to the right (~ -6 degrees).
+ assert(angle>-10&&angle<-2,'original cable screen slope, got '+angle+' degrees');
+});

@@ -6,10 +6,13 @@ import { json, getLiveCaller, readLiveRows } from "@/lib/live-server";
 interface CreateLiveBody {
   quiz_id?: unknown;
   course_id?: unknown;
+  hub_id?: unknown;
   restrict_to_course?: unknown;
   team_mode?: unknown;
   team_count?: unknown;
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,6 +28,7 @@ export async function POST(req: NextRequest) {
     const {
       quiz_id,
       course_id,
+      hub_id,
       restrict_to_course = true,
       team_mode,
       team_count,
@@ -32,6 +36,23 @@ export async function POST(req: NextRequest) {
 
     if (!quiz_id || typeof quiz_id !== "string" || !course_id || typeof course_id !== "string") {
       return json({ error: "quiz_id and course_id are required" }, 400);
+    }
+    if (!hub_id || typeof hub_id !== "string" || !UUID_RE.test(hub_id)) {
+      return json({ error: "กรุณาเลือก hub ก่อนเปิดห้อง" }, 400);
+    }
+
+    // Hub must exist and be owned by caller
+    const { data: hub, error: hErr } = await db
+      .from("live_hubs")
+      .select("id, host_id")
+      .eq("id", hub_id)
+      .maybeSingle();
+    if (hErr) throw hErr;
+    if (!hub) {
+      return json({ error: "ไม่พบ hub ที่เลือก" }, 404);
+    }
+    if (hub.host_id !== callerId) {
+      return json({ error: "ไม่มีสิทธิ์เปิดห้องใน hub นี้" }, 403);
     }
 
     // Quiz must be owned by caller
@@ -115,6 +136,7 @@ export async function POST(req: NextRequest) {
         p_quiz: quiz_id,
         p_course: course_id,
         p_pin: candidatePin,
+        p_hub: hub_id,
         p_team_mode: Boolean(team_mode),
         p_restrict: restrict_to_course !== false,
       });

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChoiceIcon } from "./choice-icon";
 import { answerTheme } from "./answer-palette";
+import { QuizPartnerDragon } from "./quiz-partner-dragon";
+import type { QuizPartnerDragonInfo } from "@/lib/quiz-partner-dragon";
 import * as sound from "@/lib/live-sound";
 
 interface LiveChoice {
@@ -33,13 +35,16 @@ export function PlayerQuestion({
   state,
   sessionId,
   onRefresh,
+  partnerDragon = null,
 }: {
   state: PlayerQuestionState;
   sessionId: string;
   onRefresh?: () => void;
+  partnerDragon?: QuizPartnerDragonInfo | null;
 }) {
   const { question, index, total, deadline, now, me } = state;
   const choices = question?.choices || [];
+  const gridRef = useRef<HTMLDivElement | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [selectedChoice, setSelectedChoice] = useState<string | null>(me?.chosen || null);
@@ -167,17 +172,17 @@ export function PlayerQuestion({
 
   return (
     <div className="mx-auto flex h-full w-full max-w-lg flex-1 flex-col justify-between py-2 sm:py-4">
-      <div className="flex items-center justify-between border-b px-2 pb-3">
-        <span className="text-sm font-semibold text-muted-foreground">
+      <div className="db-panel flex items-center justify-between gap-2 px-3 py-2">
+        <span className="text-sm font-bold text-[var(--text-strong)] tabular-nums">
           ข้อที่ {index + 1} จาก {total}
         </span>
 
-        <div className="flex items-center gap-2 rounded-full border bg-card px-3 py-1 shadow-xs">
-          <span className="text-xs text-muted-foreground">เหลือเวลา</span>
+        <div className="db-chip db-chip--dark px-3 py-1">
+          <span className="text-xs text-[var(--text-muted)]">เหลือเวลา</span>
           <span
             className={cn(
-              "font-mono text-base font-bold tabular-nums",
-              remainingSec <= 5 ? "text-destructive motion-safe:animate-pulse" : "text-primary",
+              "font-mono text-base font-black tabular-nums",
+              remainingSec <= 5 ? "text-[var(--warn)] motion-safe:animate-pulse" : "text-[var(--timer-text)]",
             )}
           >
             {remainingSec}s
@@ -186,29 +191,29 @@ export function PlayerQuestion({
       </div>
 
       {hasAnswered ? (
-        <div className="my-2 rounded-2xl border border-primary/20 bg-primary-soft p-3 text-center shadow-xs motion-safe:animate-in motion-safe:fade-in sm:p-4">
-          <div className="mb-1 inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs">
+        <div className="db-panel my-2 border-t-[var(--accept)] border-b-[var(--accept)] p-3 text-center motion-safe:animate-in motion-safe:fade-in sm:p-4">
+          <div className="mb-1 inline-flex size-8 items-center justify-center rounded-full bg-[var(--accept)] text-[var(--text)] shadow-xs">
             <CheckIcon className="size-5" aria-hidden />
           </div>
-          <div className="text-base font-bold text-foreground sm:text-lg">{statusMessage || "ส่งคำตอบแล้ว รอเฉลย"}</div>
-          <p className="mt-0.5 text-xs text-muted-foreground">คำตอบถูกบันทึกที่ระบบแล้ว รอผู้สอนเปิดเฉลยบนหน้าจอ</p>
+          <div className="text-base font-bold text-[var(--text)] sm:text-lg">{statusMessage || "ส่งคำตอบแล้ว รอเฉลย"}</div>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">คำตอบถูกบันทึกที่ระบบแล้ว รอผู้สอนเปิดเฉลยบนหน้าจอ</p>
         </div>
       ) : (
         <div className="my-2 text-center">
           {statusMessage && (
             <div
               role="alert"
-              className="mb-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm font-semibold text-destructive motion-safe:animate-in motion-safe:fade-in"
+              className="db-panel mb-2 border-t-[var(--cancel-ink)] border-b-[var(--cancel-ink)] p-3 text-sm font-semibold text-[var(--warn)] motion-safe:animate-in motion-safe:fade-in"
             >
               <div>{statusMessage}</div>
-              <p className="mt-0.5 text-xs font-normal opacity-90">แตะเลือกคำตอบอีกครั้งเพื่อลองใหม่</p>
+              <p className="mt-0.5 text-xs font-normal text-[var(--text-strong)]">แตะเลือกคำตอบอีกครั้งเพื่อลองใหม่</p>
             </div>
           )}
-          <div className="mb-0.5 flex items-center justify-center gap-1.5 text-xs font-semibold text-primary sm:text-sm">
-            <MonitorIcon className="size-4" aria-hidden />
+          <div className="db-world-label mb-0.5 flex items-center justify-center gap-1.5 text-xs font-bold text-[var(--text)] sm:text-sm">
+            <MonitorIcon className="size-4 text-[var(--gold)]" aria-hidden />
             <span>ดูคำถามบนจอผู้สอน</span>
           </div>
-          <p className="text-xs font-medium text-muted-foreground">
+          <p className="db-world-label text-xs font-medium text-[var(--text)]">
             แตะเลือกคำตอบด้านล่าง
             {/* Keyboard hint only on devices with a fine pointer (hidden on touch) */}
             <span className="hidden [@media(pointer:fine)]:inline"> หรือกด 1-4 บนคีย์บอร์ด</span>
@@ -218,11 +223,20 @@ export function PlayerQuestion({
 
       {/* Capped tile height so 4 choices fit on 390x844 without scrolling */}
       <div
+        ref={gridRef}
         className={cn(
-          "my-2 grid flex-1 content-center gap-2.5 sm:gap-3",
+          "relative my-2 grid flex-1 content-center gap-2.5 sm:gap-3",
           choices.length <= 2 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2",
         )}
       >
+        <QuizPartnerDragon
+          partner={partnerDragon}
+          questionIndex={index}
+          choiceCount={choices.length}
+          sessionId={sessionId}
+          takingOff={hasAnswered || submitting || remainingSec === 0}
+          gridRef={gridRef}
+        />
         {choices.map((choice, i) => {
           const style = CHOICE_STYLES[i] || CHOICE_STYLES[0];
           const theme = answerTheme(i);
@@ -234,16 +248,17 @@ export function PlayerQuestion({
               key={choice.id || i}
               type="button"
               variant="link"
+              data-choice-tile=""
               disabled={isDisabled}
               onClick={() => handleSelectChoice(choice.id)}
               className={cn(
-                "relative h-auto min-h-14 justify-start gap-3 rounded-2xl border-2 p-3 text-left whitespace-normal no-underline shadow-sm hover:no-underline active:scale-[0.98] sm:p-4",
+                "db-choice-tile relative h-auto min-h-14 justify-start gap-3 p-3 text-left whitespace-normal no-underline shadow-sm hover:no-underline active:scale-[0.98] sm:p-4",
                 choices.length > 2 ? "max-h-20 sm:max-h-28" : "max-h-30 sm:max-h-36",
                 isSelected
-                  ? cn(theme.tile, "opacity-100 shadow-md ring-4 ring-primary disabled:opacity-100")
+                  ? cn(theme.tile, "db-choice-tile opacity-100 shadow-md ring-4 ring-[var(--gold)] disabled:opacity-100")
                   : isDisabled
-                    ? "border-border bg-muted/70 text-muted-foreground disabled:opacity-60"
-                    : cn(theme.tile, "hover:brightness-105"),
+                    ? "border-[var(--frame-soft)] bg-[var(--surface-well)] text-[var(--text-muted)] disabled:opacity-70"
+                    : cn(theme.tile, "db-choice-tile hover:brightness-105"),
               )}
             >
               <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl shadow-xs", theme.icon)}>
@@ -251,7 +266,16 @@ export function PlayerQuestion({
               </div>
 
               <div className="min-w-0 flex-1">
-                <span className={cn("mb-0.5 block text-[11px] font-bold tracking-wider uppercase", theme.label)}>
+                <span
+                  className={cn(
+                    "mb-0.5 block text-[11px] font-bold tracking-wider uppercase",
+                    isDisabled && !isSelected
+                      ? "text-[var(--text-muted)]"
+                      : theme.label === "text-white/90"
+                        ? "text-white"
+                        : theme.label,
+                  )}
+                >
                   {style.label} · {style.name}
                 </span>
                 <div className="line-clamp-2 text-sm leading-tight font-bold break-words sm:text-base">{choice.text}</div>

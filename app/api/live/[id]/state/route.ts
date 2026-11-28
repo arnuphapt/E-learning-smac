@@ -3,6 +3,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { rankRows } from "@/lib/live";
 import { json, getLiveCaller, readLiveRows } from "@/lib/live-server";
+import {
+  DRAGON_GROWTH_THRESHOLDS,
+  READY_TO_HATCH_SUMMARY_THAI,
+  summarizeDragonPointGrant,
+  type DragonGrantSummary,
+} from "@/lib/dragon-growth";
+import { attachPodiumDragons } from "@/lib/podium-dragons";
 
 interface LiveSessionInfo {
   id: string;
@@ -422,6 +429,75 @@ export async function GET(
       case "ended": {
         const standings = await computeStandings(db, session.id, callerId);
 
+        let dragonSummary: DragonGrantSummary | null = null;
+        if (!isHost) {
+          const { data: grant, error: gErr } = await db
+            .from("dragon_point_grants")
+            .select("dragon_id, points, points_before, points_after, overflow, first_egg")
+            .eq("session_id", session.id)
+            .eq("user_id", callerId)
+            .maybeSingle();
+          if (gErr) throw gErr;
+
+          if (grant) {
+            let hatched = true;
+            let hasReadyUnhatchedEgg = false;
+            if (grant.dragon_id) {
+              const { data: dragonRow, error: drErr } = await db
+                .from("dragons")
+                .select("hatched_at")
+                .eq("id", grant.dragon_id)
+                .maybeSingle();
+              if (drErr) throw drErr;
+              if (dragonRow) {
+                hatched = dragonRow.hatched_at !== null;
+              }
+            } else {
+              const { data: unhatchedEgg, error: eggErr } = await db
+                .from("dragons")
+                .select("points")
+                .eq("user_id", callerId)
+                .is("hatched_at", null)
+                .limit(1)
+                .maybeSingle();
+              if (eggErr) throw eggErr;
+              hasReadyUnhatchedEgg =
+                Boolean(unhatchedEgg) &&
+                unhatchedEgg!.points >= DRAGON_GROWTH_THRESHOLDS.hatch;
+            }
+            const baseSummary = summarizeDragonPointGrant({
+              points: grant.points,
+              pointsBefore: grant.points_before,
+              pointsAfter: grant.points_after,
+              overflow: grant.overflow,
+              firstEgg: grant.first_egg,
+              hatched,
+            });
+            dragonSummary =
+              hasReadyUnhatchedEgg && !baseSummary.message
+                ? { ...baseSummary, message: READY_TO_HATCH_SUMMARY_THAI }
+                : baseSummary;
+          }
+        }
+
+        let top3: unknown = standings.top3;
+        if (isHost) {
+          const top3UserIds = standings.top3
+            .map((p) => p.userId)
+            .filter((uid): uid is string => typeof uid === "string" && uid.length > 0);
+          if (top3UserIds.length > 0) {
+            const { data: partnerRows, error: dErr } = await db
+              .from("dragons")
+              .select("user_id, species_id, points, hatched_at")
+              .in("user_id", top3UserIds)
+              .eq("is_partner", true);
+            if (dErr) throw dErr;
+            top3 = attachPodiumDragons(standings.top3, partnerRows ?? []);
+          } else {
+            top3 = attachPodiumDragons(standings.top3, []);
+          }
+        }
+
         const teamBoard = session.team_mode ? standings.teamBoard : undefined;
         const meTeam = session.team_mode ? standings.meTeam : undefined;
         const teams = session.team_mode ? standings.teams : undefined;
@@ -430,7 +506,7 @@ export async function GET(
           index: session.current_index,
           total: session.total,
           top5: standings.top5,
-          top3: standings.top3,
+          top3,
           playerCount: standings.playerCount,
           ...(session.team_mode ? { teamBoard, teams } : {}),
         };
@@ -440,6 +516,7 @@ export async function GET(
           rank: standings.meRank,
           playerCount: standings.playerCount,
           ...(session.team_mode && !isHost ? { team: meTeam } : {}),
+          ...(isHost ? {} : { dragon_summary: dragonSummary }),
         };
         break;
       }

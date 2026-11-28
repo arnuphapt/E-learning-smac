@@ -12,6 +12,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "lib/dragon/**",
   ]),
 
   // UI architecture guards (.claude/rules/ui-architecture.md).

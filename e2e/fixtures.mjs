@@ -17,12 +17,14 @@ export const UI_CODE_PREFIX = "FXE2E-";
 export const AUTH_DIR = path.resolve("e2e/.auth"); // gitignored: holds minted session cookies
 export const STATE = {
   student: path.join(AUTH_DIR, "student.json"),
+  studentYear2: path.join(AUTH_DIR, "student-y2.json"),
   instructor: path.join(AUTH_DIR, "instructor.json"),
   guest: path.join(AUTH_DIR, "guest.json"),
 };
 
 export const FX = {
   student: { id: "fx_e2e_student", name: "E2E Student", email: "fx_e2e_student@e2e.invalid" },
+  studentYear2: { id: "fx_e2e_student_y2", name: "E2E Student Year 2", email: "fx_e2e_student_y2@e2e.invalid", study_year: 2 },
   instructor: { id: "fx_e2e_instructor", name: "E2E Instructor", email: "fx_e2e_instructor@e2e.invalid" },
   // External-domain (tutor-only) user. Domain and year levels exist only for the external-domain spec (seedExternal).
   guest: { id: "fx_e2e_guest", name: "E2E Guest", email: "69999991@fx-e2e-ext.invalid", studentNo: "69999991" },
@@ -109,6 +111,7 @@ export async function mintSessions(db, origin) {
   const { data, error } = await db.from("roles").select("permissions").eq("id", "admin").single(); // read-only
   if (error) throw new Error("e2e: cannot read roles: " + error.message);
   await writeState(STATE.student, FX.student, "student", [], origin);
+  await writeState(STATE.studentYear2, FX.studentYear2, "student", [], origin);
   await writeState(STATE.instructor, FX.instructor, "admin", data.permissions || [], origin);
   await writeState(STATE.guest, FX.guest, "tutor_guest", [], origin);
 }
@@ -130,6 +133,13 @@ export async function seedFixtures(db) {
   must(
     await db.from("users").upsert([
       { id: FX.student.id, name: FX.student.name, email: FX.student.email, role: "student" },
+      {
+        id: FX.studentYear2.id,
+        name: FX.studentYear2.name,
+        email: FX.studentYear2.email,
+        role: "student",
+        study_year: FX.studentYear2.study_year,
+      },
       { id: FX.instructor.id, name: FX.instructor.name, email: FX.instructor.email, role: "admin" },
     ]),
     "seed users",
@@ -234,7 +244,7 @@ async function del(db, table, col, values) {
 
 // Deletes every row created by the fixture (seed) or by the fixture users through the app. Idempotent.
 export async function cleanFixtures(db) {
-  const userIds = [FX.student.id, FX.instructor.id, FX.guest.id];
+  const userIds = [FX.student.id, FX.studentYear2.id, FX.instructor.id, FX.guest.id];
   const [links, byCode, byId] = await Promise.all([
     db.from("course_instructors").select("course_id").in("user_id", userIds),
     db.from("courses_all").select("id").like("code", `${UI_CODE_PREFIX}%`),

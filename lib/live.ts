@@ -87,10 +87,10 @@ export function revealDelayMs(deadlineMs: number, serverNowMs: number): number {
   return Math.max(0, Number(deadlineMs) + GRACE_MS - Number(serverNowMs));
 }
 
-export const POINTS_MIN = 100;
-export const POINTS_MAX = 5000;
-export const POINTS_STEP = 100;
-export const POINTS_DEFAULT = 1000;
+export const POINTS_MIN = 1;
+export const POINTS_MAX = 50;
+export const POINTS_STEP = 1;
+export const POINTS_DEFAULT = 10;
 
 export function isValidPoints(value: unknown): boolean {
   const n = Number(value);
@@ -164,9 +164,9 @@ export function validateQuiz(questions: unknown): QuizValidationResult {
       problems.push({ index, reason: 'เวลาต่อข้อต้องอยู่ในค่าที่กำหนด' });
     }
 
-    // points is optional here so legacy callers/rows without it still validate (DB default is 1000).
+    // points is optional here so legacy callers/rows without it still validate (DB default is 10).
     if (q && q.points !== undefined && !isValidPoints(q.points)) {
-      problems.push({ index, reason: 'คะแนนต่อข้อต้องเป็นจำนวนเต็ม 100-5000 (เพิ่มทีละ 100)' });
+      problems.push({ index, reason: 'คะแนนต่อข้อต้องเป็นจำนวนเต็ม 1-50' });
     }
   });
 
