@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { TextureAtlas, AtlasAttachmentLoader, SkeletonBinary } from '@esotericsoftware/spine-core';
 import { NATIVE_ATTRACTION_PARTICLES } from '../lib/dragon/generated/native-attraction-particles.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -45,20 +46,6 @@ function addTextureName(name) {
 function readSrcJson(urlPath) {
   const rel = urlToRel(urlPath);
   return JSON.parse(fs.readFileSync(path.join(SRC_ROOT, rel), 'utf8'));
-}
-
-function parseAtlasPages(atlasText) {
-  const pages = [];
-  const lines = atlasText.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    const next = (lines[i + 1] ?? '').trim();
-    if (next.startsWith('size:')) {
-      pages.push(line);
-    }
-  }
-  return pages;
 }
 
 function rewritePngRefsInJson(value) {
@@ -119,20 +106,19 @@ for (const entity of manifest.fixedEntities || []) {
   }
 }
 
-// 3. Expansions audio, cover, hintSprites
+// 3. Expansions cover, hintSprites (drop unused audio)
 const expansions = readSrcJson('/generated/expansions.json');
-if (expansions.audio?.tap) addUrl(expansions.audio.tap);
-if (expansions.audio?.clear) addUrl(expansions.audio.clear);
+const { audio: _droppedAudio, ...expansionsWithoutAudio } = expansions;
+transformedJson.set('generated/expansions.json', expansionsWithoutAudio);
 if (expansions.cover?.texture) addTextureName(expansions.cover.texture);
 for (const g of Object.values(expansions.hintSprites || {})) {
   if (g?.texture) addTextureName(g.texture);
 }
 
-// 4. NPC mixer + Adult level-up audio
+// 4. NPC mixer
 addUrl('/assets/TextAsset/Elf.atlas.txt');
 addUrl('/assets/TextAsset/Elf.skel.bytes');
 addUrl('/data/npc-animation-config.json');
-addUrl('/assets/Dragon/Audio/Butterfly/Butterfly_LevelUp.ogg');
 
 // 5. Hatchery catalog (species cut to S001, S002, S003)
 addUrl('/generated/hatching/catalog.json');
@@ -201,24 +187,45 @@ if (trimmedCatalog.feeding?.food?.texture) {
   addTextureName(trimmedCatalog.feeding.food.texture);
 }
 
-for (const fam of [
-  ...Object.values(filteredFeedingFamilies),
-  ...Object.values(filteredAdultFamilies),
-]) {
-  if (fam.atlasUrl) {
-    addUrl(fam.atlasUrl);
-    const atlasText = fs.readFileSync(path.join(SRC_ROOT, urlToRel(fam.atlasUrl)), 'utf8');
-    for (const pageImg of parseAtlasPages(atlasText)) {
-      addTextureName(pageImg);
+function addUsedSpinePages(fam, speciesIds, includeMax) {
+  if (!fam?.atlasUrl || !fam?.binaryUrl) return;
+  addUrl(fam.atlasUrl);
+  addUrl(fam.binaryUrl);
+  const atlasText = fs.readFileSync(path.join(SRC_ROOT, urlToRel(fam.atlasUrl)), 'utf8');
+  const atlas = new TextureAtlas(atlasText);
+  const binary = new Uint8Array(fs.readFileSync(path.join(SRC_ROOT, urlToRel(fam.binaryUrl))));
+  const skelData = new SkeletonBinary(new AtlasAttachmentLoader(atlas)).readSkeletonData(binary);
+
+  const skins = [];
+  if (skelData.defaultSkin) skins.push(skelData.defaultSkin);
+  for (const id of speciesIds) {
+    const base = skelData.findSkin(id);
+    if (base) skins.push(base);
+    if (includeMax) {
+      const max = skelData.findSkin(`${id}Max`);
+      if (max) skins.push(max);
     }
   }
-  if (fam.binaryUrl) addUrl(fam.binaryUrl);
-  for (const pageName of Object.values(fam.pages || {})) {
-    addTextureName(pageName);
+  for (const skin of skins) {
+    for (const entry of skin.getAttachments()) {
+      const pageName = entry.attachment?.region?.page?.name;
+      if (!pageName) continue;
+      const mapped = fam.pages?.[pageName] ?? pageName;
+      addTextureName(mapped);
+    }
   }
 }
 
-// Per-species hatching JSON + textures + adult status portrait
+for (const [famName, fam] of Object.entries(filteredFeedingFamilies)) {
+  const ids = keptSpecies.filter((s) => s.family === famName).map((s) => s.id);
+  addUsedSpinePages(fam, ids, false);
+}
+for (const [famName, fam] of Object.entries(filteredAdultFamilies)) {
+  const ids = keptSpecies.filter((s) => s.adultFamily === famName).map((s) => s.id);
+  addUsedSpinePages(fam, ids, true);
+}
+
+// Per-species hatching JSON + textures
 for (const sp of keptSpecies) {
   if (sp.url) {
     addUrl(sp.url);
@@ -227,22 +234,55 @@ for (const sp of keptSpecies) {
       addTextureName(packData.pages?.[shape.page]);
     }
   }
-  addUrl(`/generated/dragon-book/${sp.id}-portrait.png`);
 }
 
 // 6. Native UI JSONs, sprite art, and fonts
+// ponytail: explicit keep-lists of sprites that can render in active adult/baby status panels
 const nativeUiPanels = [
-  { jsonUrl: '/generated/native-adult-status.json', artDir: 'generated/native-adult-status-art' },
-  { jsonUrl: '/generated/native-baby-status.json', artDir: 'generated/native-baby-status-art' },
-  { jsonUrl: '/generated/native-expansion-status.json', artDir: 'generated/native-expansion-status-art' },
-  { jsonUrl: '/generated/native-hud.json', artDir: 'generated/native-hud-art' },
+  {
+    jsonUrl: '/generated/native-adult-status.json',
+    artDir: 'generated/native-adult-status-art',
+    keepSprites: new Set([
+      'Panel_Header',
+      'Coin_Small',
+      'clock',
+      'EntityStatus_Decor1',
+      'EntityStatus_Decor2',
+    ]),
+  },
+  {
+    jsonUrl: '/generated/native-baby-status.json',
+    artDir: 'generated/native-baby-status-art',
+    keepSprites: new Set([
+      'Panel_Header',
+      'lvl-progress-outer',
+      'lvl-progress-fill',
+      'EntityStatus_Decor1',
+      'EntityStatus_Decor2',
+      'Button_Default',
+      'Inlay_Move',
+    ]),
+  },
 ];
 for (const panel of nativeUiPanels) {
   addUrl(panel.jsonUrl);
   const uiJson = readSrcJson(panel.jsonUrl);
+  const keptSprites = {};
   for (const spriteName of Object.keys(uiJson.sprites || {})) {
+    if (!panel.keepSprites.has(spriteName)) continue;
+    keptSprites[spriteName] = uiJson.sprites[spriteName];
     filesToCopy.add(path.posix.join(panel.artDir, `${spriteName}.png`));
   }
+  const prunedImages = (uiJson.images || []).map((img) =>
+    img?.sprite && !panel.keepSprites.has(img.sprite)
+      ? { ...img, sprite: '', enabled: false }
+      : img
+  );
+  transformedJson.set(urlToRel(panel.jsonUrl), {
+    ...uiJson,
+    sprites: keptSprites,
+    images: prunedImages,
+  });
   for (const font of Object.values(uiJson.fonts || {})) {
     if (font?.url) addUrl(font.url);
   }

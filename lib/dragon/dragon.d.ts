@@ -31,13 +31,6 @@ declare module "@/lib/dragon/engine.mjs" {
   ): Promise<DragonBaseApi>;
 }
 
-declare module "@/lib/dragon/game-reset.mjs" {
-  export function resetGameDataOnce(
-    storage: Storage,
-    session?: Storage
-  ): boolean;
-}
-
 declare module "@/lib/dragon/hatchery-panel.mjs" {
   import type * as ReactNS from "react";
   export function createHatcheryFeature(
@@ -62,32 +55,6 @@ declare module "@/lib/dragon/hatchery-panel.mjs" {
     onSummonRequest?: () => void;
     onPartnerRequest?: (dragonId: string) => void;
     onSnapshot?: (snapshot: { active?: { id: string; status: string } | null }) => void;
-  }>;
-}
-
-declare module "@/lib/dragon/native-expansion-status.mjs" {
-  import type * as ReactNS from "react";
-  export function createNativeExpansionStatus(
-    React: typeof ReactNS
-  ): ReactNS.ComponentType<{
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api: any;
-    roomID: string;
-    onClose: () => void;
-  }>;
-}
-
-declare module "@/lib/dragon/native-hud.mjs" {
-  import type * as ReactNS from "react";
-  export function createNativeHud(
-    React: typeof ReactNS
-  ): ReactNS.ComponentType<{
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api: any;
-    onOpenBook?: () => void;
-    onOpenSettings?: () => void;
-    onOpenCurrency?: (currency: "SC" | "HC") => void;
-    settingsOpen?: boolean;
   }>;
 }
 

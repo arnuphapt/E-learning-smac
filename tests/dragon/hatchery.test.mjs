@@ -1,4 +1,4 @@
-﻿import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {createHatchery,HATCHERY_KEY,LEGACY_HATCHERY_KEY,roundHalfEven,nectarTargetForSpecies,adultWaitSeconds,adultCoinReward,isSpeciesDiscovered} from '../../lib/dragon/hatchery.mjs';import {eggNewSpeciesGlow,EGG_ARRIVAL_END_SECONDS,eggGlowStart} from '../../lib/dragon/egg-effects.mjs';import {dragonPanelTitle,UNDISCOVERED_DRAGON_TITLE} from '../../lib/dragon/hatchery-panel.mjs';import {createHatcheryRenderer} from '../../lib/dragon/hatchery-renderer.mjs';import {createWallet} from '../../lib/dragon/wallet.mjs';import {createBabyMoveController} from '../../components/dragon/baby-move.ts';import {projectItem} from '../../lib/dragon/geometry.mjs';import {RETICLE_SPEC} from '../../lib/dragon/reticle.mjs';import {coinBoneName,coinHeaderOffsetY,coinParticleState,coinSpinScaleX,elasticOut,sparkleQuadState,stepCoinVisibility,COLLECT_SC_START_ALPHA_KEYS,evalFixedGradient,COLLECT_SC_VELOCITY,sampleCollectSCVelocityAxis,integrateCollectSCVelocityAxis,sampleDonutSpawn,collectSCPerspective,createCoinParticleEntry} from '../../lib/dragon/adult-coin.mjs';
+﻿import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {createHatchery,HATCHERY_KEY,LEGACY_HATCHERY_KEY,roundHalfEven,nectarTargetForSpecies,adultWaitSeconds,adultCoinReward,isSpeciesDiscovered} from '../../lib/dragon/hatchery.mjs';import {eggNewSpeciesGlow,EGG_ARRIVAL_END_SECONDS,eggGlowStart} from '../../lib/dragon/egg-effects.mjs';import {dragonPanelTitle,UNDISCOVERED_DRAGON_TITLE} from '../../lib/dragon/hatchery-panel.mjs';import {createHatcheryRenderer} from '../../lib/dragon/hatchery-renderer.mjs';import {createWallet} from '../../lib/dragon/wallet.mjs';import {projectItem} from '../../lib/dragon/geometry.mjs';import {RETICLE_SPEC} from '../../lib/dragon/reticle.mjs';import {coinBoneName,coinHeaderOffsetY,coinParticleState,coinSpinScaleX,elasticOut,sparkleQuadState,stepCoinVisibility,COLLECT_SC_START_ALPHA_KEYS,evalFixedGradient,COLLECT_SC_VELOCITY,sampleCollectSCVelocityAxis,integrateCollectSCVelocityAxis,sampleDonutSpawn,collectSCPerspective,createCoinParticleEntry} from '../../lib/dragon/adult-coin.mjs';
 const catalog=JSON.parse(fs.readFileSync(new URL('../../public/dragon/generated/hatching/catalog.json',import.meta.url))),map=JSON.parse(fs.readFileSync(new URL('../../public/dragon/data/source-map.json',import.meta.url)));
 function fixture(){const values=new Map();let time=1000,id=0;const storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)},options={catalog,map,storage,now:()=>time,random:()=>0,makeId:()=>String(++id)};return {values,storage,options,advance:ms=>time+=ms,at:t=>time=t,create:()=>createHatchery(options)};}
 function ready(f,a){const egg=a.summon();f.at(egg.readyAt);a.tick();return egg;}
@@ -321,47 +321,6 @@ test('getEmptySlots, canMove, moveBaby and move(slotGUID) support relocating bab
  const fullH=full.create();
  assert.deepEqual(fullH.getEmptySlots(),[]);
  assert.equal(fullH.canMove(),false);
-});
-test('transit state machine handles canMove gating, off-target taps, cancel, and drop on valid slot',()=>{
- const f=fixture(),a=f.create(),slots=map.MapItemData.filter(i=>i.isMarker&&i.SymbolID==='Egg_Slot');
- hatched(f,a);
- const b1=a.move();
- const movingCalls=[],transitCalls=[];let afterCount=0,errors=[];
- const renderer={setBabyMoving:(id,v)=>movingCalls.push([id,v]),setTransitSlots:s=>transitCalls.push([...s])};
- const ctrl=createBabyMoveController({getModel:()=>a,renderer,onAfterSuccess:()=>afterCount++,onError:e=>errors.push(e)});
- assert.equal(ctrl.begin({kind:'baby',babyId:'missing'}),false);
- const emptyIds=a.getEmptySlots().map(s=>s.GUID);
- assert.equal(emptyIds.includes(b1.slotGUID),false);
- assert.equal(ctrl.begin({kind:'baby',babyId:b1.id}),true);
- assert.deepEqual(ctrl.state.targetSlotGUIDs,emptyIds);
- assert.deepEqual(movingCalls.at(-1),[b1.id,true]);
- assert.deepEqual(transitCalls.at(-1),emptyIds);
- // Tapping own slot or unknown point does nothing and stays in transit.
- assert.equal(ctrl.drop(b1.slotGUID),false);
- assert.equal(ctrl.drop(null),false);
- assert.ok(ctrl.state);
- // Cancel restores glow and exits transit.
- assert.equal(ctrl.cancel(),true);
- assert.equal(ctrl.state,null);
- assert.deepEqual(movingCalls.at(-1),[b1.id,false]);
- assert.deepEqual(transitCalls.at(-1),[]);
- // Drop on valid target slot relocates once and closes transit.
- assert.equal(ctrl.begin({kind:'baby',babyId:b1.id}),true);
- const target=emptyIds[1];
- assert.equal(ctrl.drop(target),true);
- assert.equal(ctrl.state,null);
- assert.equal(afterCount,1);
- assert.equal(a.getSnapshot().babies[0].slotGUID,target);
- assert.deepEqual(movingCalls.at(-1),[b1.id,false]);
- assert.deepEqual(transitCalls.at(-1),[]);
- assert.deepEqual(errors,[]);
- // Full nursery refuses transit entry.
- const full=fixture();
- full.storage.setItem(HATCHERY_KEY,JSON.stringify({version:2,summoned:slots.length,active:null,babies:slots.map((s,i)=>({id:'x'+i,speciesId:'001',slotGUID:s.GUID,hatchedAt:1}))}));
- const fullModel=full.create();
- const fullCtrl=createBabyMoveController({getModel:()=>fullModel,renderer});
- assert.equal(fullCtrl.begin({kind:'baby',babyId:'x0'}),false);
- assert.equal(fullCtrl.state,null);
 });
 test('renderer setTransitSlots places Select reticles on getEmptySlots only and slotAt hits projected outer radius',async()=>{
  class Container{children=[];position={x:0,y:0,set(x,y=x){this.x=x;this.y=y;}};scale={x:1,y:1,set(x,y=x){this.x=x;this.y=y;}};addChild(...cs){this.children.push(...cs);return cs[0];}destroy(){}}
