@@ -34,15 +34,15 @@ export interface HostLeaderboardState {
 
 function Score({ value, big }: { value?: number; big?: boolean }) {
   return (
-    <div className={cn("shrink-0 font-mono font-black text-primary tabular-nums", big ? "text-xl sm:text-3xl" : "text-lg sm:text-xl")}>
+    <div className={cn("shrink-0 font-mono font-black text-[var(--gold)] tabular-nums", big ? "text-xl sm:text-3xl" : "text-lg sm:text-xl")}>
       {(value || 0).toLocaleString()}{" "}
-      <span className={cn("font-normal text-muted-foreground", big ? "text-sm sm:text-base" : "text-xs")}>คะแนน</span>
+      <span className={cn("font-normal text-[var(--text)]/80", big ? "text-sm sm:text-base" : "text-xs")}>คะแนน</span>
     </div>
   );
 }
 
 function EmptyLine({ children, big }: { children: string; big?: boolean }) {
-  return <div className={cn("text-center text-muted-foreground", big ? "py-12" : "py-8")}>{children}</div>;
+  return <div className={cn("text-center text-[var(--text-muted)]", big ? "py-12" : "py-8")}>{children}</div>;
 }
 
 export function HostLeaderboard({
@@ -65,19 +65,19 @@ export function HostLeaderboard({
       top5.map((player, idx) => (
         <Card
           key={player.userId || idx}
-          className={cn("flex-row items-center justify-between gap-3", big ? "p-4 sm:p-5" : "p-3.5 sm:p-4")}
+          className={cn("db-row flex-row items-center justify-between gap-3", big ? "p-4 sm:p-5" : "p-3.5 sm:p-4")}
         >
           <div className={cn("flex min-w-0 items-center", big ? "gap-4 sm:gap-6" : "gap-3 sm:gap-4")}>
             <div
               className={cn(
-                "flex shrink-0 items-center justify-center rounded-full border font-black",
+                "flex shrink-0 items-center justify-center rounded-full border font-black tabular-nums",
                 big ? "size-10 text-lg sm:size-12 sm:text-xl" : "size-9 text-base sm:size-10",
                 rankMedalClass(player.rank),
               )}
             >
               {player.rank}
             </div>
-            <div className={cn("truncate font-bold text-foreground", big ? "text-xl sm:text-2xl" : "text-base sm:text-lg")}>
+            <div className={cn("truncate font-bold text-[var(--text)]", big ? "text-xl sm:text-2xl" : "text-base sm:text-lg")}>
               {player.name}
             </div>
           </div>
@@ -94,23 +94,23 @@ export function HostLeaderboard({
       )}
     >
       <div className="flex flex-col items-center gap-2 text-center">
-        <Badge variant="secondary" className="px-4 py-1.5 text-sm font-semibold">
+        <Badge variant="secondary" className="db-chip px-4 py-1.5 text-sm font-semibold">
           จบข้อที่ {index + 1} จาก {total}
         </Badge>
-        <h2 className="text-3xl font-black tracking-wide text-foreground sm:text-5xl">ตารางผู้นำ (Leaderboard)</h2>
+        <h2 className="db-world-label text-3xl font-black tracking-wide text-[var(--text)] sm:text-5xl">ตารางผู้นำ (Leaderboard)</h2>
       </div>
 
       {teamView ? (
         <div className="my-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-          <div className="flex flex-col gap-3">
-            <h3 className="mb-2 text-xl font-bold text-foreground">คะแนนเดี่ยว (Top 5)</h3>
+          <div className="db-panel flex flex-col gap-3 p-5">
+            <h3 className="mb-1 text-xl font-bold text-[var(--text-strong)]">คะแนนเดี่ยว (Top 5)</h3>
             {playerRows(false)}
           </div>
 
-          <div className="flex flex-col gap-3">
-            <h3 className="mb-2 flex items-center justify-between text-xl font-bold text-foreground">
+          <div className="db-panel flex flex-col gap-3 p-5">
+            <h3 className="mb-1 flex items-center justify-between text-xl font-bold text-[var(--text-strong)]">
               <span>ตารางคะแนนทีม</span>
-              <span className="text-xs font-normal text-muted-foreground">คะแนนเฉลี่ย</span>
+              <span className="text-xs font-normal text-[var(--text-muted)]">คะแนนเฉลี่ย</span>
             </h3>
             {teamBoard.length === 0 ? (
               <EmptyLine>ยังไม่มีข้อมูลทีม</EmptyLine>
@@ -118,16 +118,16 @@ export function HostLeaderboard({
               teamBoard.map((team, idx) => {
                 const style = getTeamStyle(team.colorNo);
                 return (
-                  <Card key={team.id || idx} className="flex-row items-center justify-between gap-3 p-3.5 sm:p-4">
+                  <Card key={team.id || idx} className="db-row flex-row items-center justify-between gap-3 p-3.5 sm:p-4">
                     <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-muted text-base font-black text-foreground sm:size-10">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--frame-soft)] bg-[var(--surface-well)] text-base font-black text-[var(--text)] tabular-nums sm:size-10">
                         {team.rank}
                       </div>
                       <div className="flex items-center gap-2 truncate">
                         <span aria-hidden className={cn("size-3.5 shrink-0 rounded-full", style.dot)} />
-                        <span className="truncate text-base font-bold text-foreground sm:text-lg">ทีม{team.name}</span>
+                        <span className="truncate text-base font-bold text-[var(--text)] sm:text-lg">ทีม{team.name}</span>
                       </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">({team.members} คน)</span>
+                      <span className="shrink-0 text-xs text-[var(--text)]/80">({team.members} คน)</span>
                     </div>
                     <Score value={team.score} />
                   </Card>
@@ -137,13 +137,13 @@ export function HostLeaderboard({
           </div>
         </div>
       ) : (
-        <div className="my-6 flex flex-col gap-3">{playerRows(true)}</div>
+        <div className="db-panel my-6 flex flex-col gap-3 p-5">{playerRows(true)}</div>
       )}
 
       <div className="flex justify-end pt-2">
         <Button
           size="lg"
-          className="h-auto rounded-full px-8 py-3.5 text-lg font-bold shadow-md sm:text-xl"
+          className="db-btn db-btn--accept h-auto px-8 py-3.5 text-[19px] font-bold sm:text-xl"
           onClick={() => onAdvance(isLast ? "finish" : "next")}
           disabled={advancing}
         >

@@ -194,12 +194,12 @@ async function run() {
     if (hubErr || !hub) throw new Error(`Insert live_hubs failed: ${hubErr?.message}`);
     hubId = hub.id;
 
-    // 3. Session 1 (with hub): student1 gets 2 * 1000 = 2000 pts, student2 gets 0 pts
+    // 3. Session 1 (with hub): student1 gets 2 * 10 = 20 pts, student2 gets 0 pts
     const session1Id = await seedSession({
       title: `${tag}_s1`,
       hubIdValue: hubId,
       questionsCount: 2,
-      student1PointsPerQ: 1000,
+      student1PointsPerQ: 10,
       student2Answer: true,
     });
 
@@ -229,7 +229,7 @@ async function run() {
     const { data: s2Dragons } = await admin.from("dragons").select("*").eq("user_id", student2Id);
     assert.equal(s1Dragons?.length, 1, "Student 1 should have 1 partner dragon");
     assert.equal(s1Dragons[0].is_partner, true);
-    assert.equal(s1Dragons[0].points, 2000);
+    assert.equal(s1Dragons[0].points, 20);
     assert.equal(s1Dragons[0].hatched_at, null, "Points above hatch threshold must accrue to unhatched egg");
     assert.ok(validSpecies.has(s1Dragons[0].species_id), "Student 1 dragon species must be valid");
 
@@ -241,7 +241,7 @@ async function run() {
 
     const { data: s1Wallet1 } = await admin.from("dragon_wallets").select("*").eq("user_id", student1Id).single();
     assert.equal(s1Wallet1.balance, 0);
-    assert.equal(s1Wallet1.lifetime, 2000);
+    assert.equal(s1Wallet1.lifetime, 20);
 
     const { data: s2Wallet1 } = await admin.from("dragon_wallets").select("*").eq("user_id", student2Id).single();
     assert.equal(s2Wallet1.balance, 0);
@@ -255,7 +255,7 @@ async function run() {
     assert.equal(g1.first_egg, true);
     assert.equal(g1.dragon_id, s1Dragons[0].id);
     assert.equal(g1.points_before, 0);
-    assert.equal(g1.points_after, 2000);
+    assert.equal(g1.points_after, 20);
     assert.equal(g1.overflow, 0);
 
     // (e) Hub membership created for both players on hub session
@@ -265,12 +265,12 @@ async function run() {
       .eq("hub_id", hubId);
     assert.equal(membersAfterHub?.length, 2, "Both players added to live_hub_members");
 
-    // 4. Session 2 (null hub_id): 17 * 5000 = 85000 pts for student1 -> total 87000 -> cap 80000, overflow 7000
+    // 4. Session 2 (null hub_id): 17 * 5 = 85 pts for student1 -> total 105 -> cap 50, overflow 55
     const session2Id = await seedSession({
       title: `${tag}_s2`,
       hubIdValue: null,
       questionsCount: 17,
-      student1PointsPerQ: 5000,
+      student1PointsPerQ: 5,
       student2Answer: false,
     });
 
@@ -282,9 +282,9 @@ async function run() {
     assert.equal(end2Err, null, `live_session_end(2) error: ${end2Err?.message}`);
     assert.equal(end2, "ok");
 
-    // (d) Verify level-5 cap (80000) + wallet overflow (7000) + lifetime (87000)
+    // (d) Verify adult cap (50) + wallet overflow (55) + lifetime (105)
     const { data: s1Dragon2 } = await admin.from("dragons").select("*").eq("user_id", student1Id).single();
-    assert.equal(s1Dragon2.points, 80000, "Dragon points must cap at 80000");
+    assert.equal(s1Dragon2.points, 50, "Dragon points must cap at 50");
     assert.equal(s1Dragon2.hatched_at, null, "Unhatched egg stays unhatched until dragon_hatch is called");
 
     // Verify dragon_hub_scene includes hatched_at per dragon
@@ -300,8 +300,8 @@ async function run() {
     );
 
     const { data: s1Wallet2 } = await admin.from("dragon_wallets").select("*").eq("user_id", student1Id).single();
-    assert.equal(s1Wallet2.balance, 7000, "Overflow past 80000 must go to wallet balance");
-    assert.equal(s1Wallet2.lifetime, 87000, "Lifetime must equal total earned points");
+    assert.equal(s1Wallet2.balance, 55, "Overflow past 50 must go to wallet balance");
+    assert.equal(s1Wallet2.lifetime, 105, "Lifetime must equal total earned points");
 
     const { data: g2 } = await admin
       .from("dragon_point_grants")
@@ -310,9 +310,9 @@ async function run() {
       .eq("user_id", student1Id)
       .single();
     assert.equal(g2.first_egg, false);
-    assert.equal(g2.points_before, 2000);
-    assert.equal(g2.points_after, 80000);
-    assert.equal(g2.overflow, 7000);
+    assert.equal(g2.points_before, 20);
+    assert.equal(g2.points_after, 50);
+    assert.equal(g2.overflow, 55);
 
     // (e) Null-hub session must not add any extra live_hub_members rows
     const { data: membersAfterNull } = await admin

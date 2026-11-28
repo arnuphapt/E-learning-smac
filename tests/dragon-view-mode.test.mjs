@@ -7,6 +7,8 @@ import { createHatchery, HATCHERY_KEY } from "../lib/dragon/hatchery.mjs";
 import {
   getViewOnlySummonDeadline,
   handleViewOnlyHatchInteraction,
+  handleViewOnlySummonTap,
+  shouldRenderViewOnlySummonButton,
 } from "../lib/dragon/hatchery-panel.mjs";
 import { createWallet } from "../lib/dragon/wallet.mjs";
 
@@ -48,9 +50,9 @@ test("viewOnly hatchery + wallet path with in-memory storage never touches globa
     const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8"));
     const save = toHatcherySave(
       [
-        { id: "v-egg", species_id: "001", points: 100, created_at: "2026-11-26T10:00:00Z" },
-        { id: "v-baby", species_id: "002", points: 2_500, created_at: "2026-11-26T09:00:00Z" },
-        { id: "v-adult", species_id: "003", points: 60_000, created_at: "2026-11-26T08:00:00Z" },
+        { id: "v-egg", species_id: "001", points: 5, created_at: "2026-11-26T10:00:00Z" },
+        { id: "v-baby", species_id: "002", points: 25, created_at: "2026-11-26T09:00:00Z" },
+        { id: "v-adult", species_id: "003", points: 50, created_at: "2026-11-26T08:00:00Z" },
       ],
       map
     );
@@ -75,7 +77,7 @@ test("viewOnly hatchery + wallet path with in-memory storage never touches globa
     assert.equal(snap.active?.id, "v-egg");
     assert.equal(snap.babies.length, 1);
     assert.equal(snap.adults.length, 1);
-    assert.equal(snap.adults[0].level, 4);
+    assert.equal(snap.adults[0].speciesId, "003");
     assert.equal(wallet.getSnapshot().SC, 0);
     assert.deepEqual(calls, []);
   } finally {
@@ -111,7 +113,7 @@ test("handleViewOnlyHatchInteraction respects allowHatch, readiness, API failure
 
   // 1. allowHatch = false -> tap ignored
   {
-    const h = makeHatchery(2_000);
+    const h = makeHatchery(20);
     let hatchCalls = 0;
     let notReadyCalls = 0;
     let inFlight = false;
@@ -133,7 +135,7 @@ test("handleViewOnlyHatchInteraction respects allowHatch, readiness, API failure
 
   // 2. allowHatch = true + not ready -> fires onHatchNotReady, does not hatch
   {
-    const h = makeHatchery(500);
+    const h = makeHatchery(5);
     let hatchCalls = 0;
     const notReadyIds = [];
     let inFlight = false;
@@ -155,7 +157,7 @@ test("handleViewOnlyHatchInteraction respects allowHatch, readiness, API failure
 
   // 3. allowHatch = true + onHatch returns false -> does not hatch, resets guard
   {
-    const h = makeHatchery(2_000);
+    const h = makeHatchery(20);
     let inFlight = false;
     const ran = await handleViewOnlyHatchInteraction({
       active: h.getSnapshot().active,
@@ -173,7 +175,7 @@ test("handleViewOnlyHatchInteraction respects allowHatch, readiness, API failure
 
   // 4. allowHatch = true + ready -> calls onHatch, runs hatch(), schedules onHatchComplete, blocks repeat tap
   {
-    const h = makeHatchery(2_000);
+    const h = makeHatchery(20);
     const hatchedIds = [];
     const completedIds = [];
     const scheduled = [];
@@ -225,4 +227,51 @@ test("getViewOnlySummonDeadline only schedules summon phases when allowSummonTic
   assert.equal(getViewOnlySummonDeadline(summoning, true), 5_000);
   assert.equal(getViewOnlySummonDeadline(arriving, true), 7_000);
   assert.equal(getViewOnlySummonDeadline(incubating, true), null);
+});
+
+test("viewOnly SummonButton visibility and tap respect allowSummon and active egg state", () => {
+  const catalog = { summoning: { buttonImage: "/generated/summon-button.webp" } };
+  const emptyView = { active: null };
+  const activeView = { active: { id: "egg-1", status: "incubating" } };
+
+  // allowSummon off -> hidden & inert
+  assert.equal(
+    shouldRenderViewOnlySummonButton({ viewOnly: true, allowSummon: false, view: emptyView, catalog }),
+    false
+  );
+  let requested = 0;
+  assert.equal(
+    handleViewOnlySummonTap({ allowSummon: false, active: null, onSummonRequest: () => { requested++; } }),
+    false
+  );
+  assert.equal(requested, 0);
+
+  // allowSummon on + no active egg -> visible & fires onSummonRequest
+  assert.equal(
+    shouldRenderViewOnlySummonButton({ viewOnly: true, allowSummon: true, view: emptyView, catalog }),
+    true
+  );
+  assert.equal(
+    handleViewOnlySummonTap({ allowSummon: true, active: null, onSummonRequest: () => { requested++; } }),
+    true
+  );
+  assert.equal(requested, 1);
+
+  // nest full (disabled) -> does not fire
+  assert.equal(
+    handleViewOnlySummonTap({ allowSummon: true, active: null, disabled: true, onSummonRequest: () => { requested++; } }),
+    false
+  );
+  assert.equal(requested, 1);
+
+  // active egg present -> no summon button & inert
+  assert.equal(
+    shouldRenderViewOnlySummonButton({ viewOnly: true, allowSummon: true, view: activeView, catalog }),
+    false
+  );
+  assert.equal(
+    handleViewOnlySummonTap({ allowSummon: true, active: activeView.active, onSummonRequest: () => { requested++; } }),
+    false
+  );
+  assert.equal(requested, 1);
 });

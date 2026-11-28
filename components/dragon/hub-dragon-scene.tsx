@@ -136,12 +136,12 @@ export function HubDragonScene({
   const totalMembers = payload?.total_members ?? 0;
 
   return (
-    <Card>
+    <Card className="db-hub-card">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 py-3">
         <div className="space-y-0.5">
-          <CardTitle className="text-base">ฉากมังกรรวมของ Hub</CardTitle>
+          <CardTitle className="db-hub-title text-base">ฉากมังกรรวมของ Hub</CardTitle>
           {payload && (
-            <p className="text-xs text-muted-foreground">
+            <p className="db-hub-meta text-xs text-muted-foreground">
               {totalMembers > visibleDragons.length
                 ? `แสดง ${visibleDragons.length} จาก ${totalMembers} คน`
                 : `สมาชิกทั้งหมด ${totalMembers} คน`}
@@ -151,6 +151,7 @@ export function HubDragonScene({
 
         <div className="flex items-center gap-2">
           <Button
+            className="db-hub-btn"
             variant="outline"
             size="sm"
             disabled={loading || refreshing}
@@ -161,6 +162,7 @@ export function HubDragonScene({
           </Button>
           {allowFullscreen && visibleDragons.length > 0 && (
             <Button
+              className="db-hub-btn"
               variant="outline"
               size="sm"
               onClick={() => void toggleFullscreen()}
@@ -191,13 +193,14 @@ export function HubDragonScene({
           <div
             ref={containerRef}
             className={cn(
-              "w-full overflow-hidden rounded-xl bg-card",
+              "db-hub-frame w-full overflow-hidden rounded-xl bg-card",
               isFullscreen ? "h-screen" : heightClassName
             )}
           >
             <DragonSceneView
               key={`${hubId}:${refreshSeq}`}
               dragons={visibleDragons}
+              allowAdultDrag
             />
           </div>
         )}

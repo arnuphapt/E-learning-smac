@@ -35,25 +35,13 @@ test('failed unperching writes preserve the occupied perch and existing save',()
  const f=fixture(),perch=map.MapItemData.find(p=>p.SymbolID==='PerchMarker_Branch'),slot=map.MapItemData.find(p=>p.SymbolID==='Egg_Slot');f.storage.setItem(HATCHERY_KEY,JSON.stringify({version:1,summoned:1,active:null,babies:[],adults:[{id:'a',speciesId:'001',originSlotGUID:slot.GUID,perchGUID:perch.GUID,maturedAt:0,flyUntil:0}]}));
  const model=f.create(),before=f.storage.getItem(HATCHERY_KEY);f.storage.setItem=()=>{throw Error('quota');};assert.throws(()=>model.releaseAdultPerch('a',{x:1,y:-20,z:-38,layerID:perch.LayerID}));assert.equal(f.storage.getItem(HATCHERY_KEY),before);assert.equal(model.getSnapshot().adults[0].perchReserved,undefined);
 });
-test('nectar targets scale by rarity multiplier, level-ups carry remainder, and level 5 blocks pickup',{todo:'Species cut to S001-S003 (no Epic/Legendary species in cut; spec: จำกัดสายพันธุ์)'},()=>{
+test('adult is final stage: nectarTargetForSpecies returns 0 and creditAdultNectar is a no-op',()=>{
  const byRarity=r=>catalog.species.find(s=>s.rarity===r);
- assert.equal(nectarTargetForSpecies(byRarity('Common'),0),Math.ceil(byRarity('Common').nectarTargetConstant*1*7));
- assert.equal(nectarTargetForSpecies(byRarity('Uncommon'),1),Math.ceil(byRarity('Uncommon').nectarTargetConstant*2*10));
- assert.equal(nectarTargetForSpecies(byRarity('Rare'),2),Math.ceil(byRarity('Rare').nectarTargetConstant*3*15));
- assert.equal(nectarTargetForSpecies(byRarity('Epic'),3),Math.ceil(byRarity('Epic').nectarTargetConstant*4*20));
- assert.equal(nectarTargetForSpecies(byRarity('Legendary'),4),Math.ceil(byRarity('Legendary').nectarTargetConstant*5*24));
- assert.equal(nectarTargetForSpecies(byRarity('Common'),5),0);
+ assert.equal(nectarTargetForSpecies(byRarity('Common'),0),0);
  const f=fixture(),perch=map.MapItemData.find(p=>p.SymbolID==='PerchMarker_Branch'),slot=map.MapItemData.find(p=>p.SymbolID==='Egg_Slot');
- f.storage.setItem(LEGACY_HATCHERY_KEY,JSON.stringify({version:1,summoned:1,active:null,babies:[],adults:[{id:'a',speciesId:'001',originSlotGUID:slot.GUID,perchGUID:perch.GUID,maturedAt:100,flyUntil:200}],summonedSpecies:['001']}));
- const h=f.create(),sp001=catalog.species.find(s=>s.id==='001'),t0=nectarTargetForSpecies(sp001,0);
- let s=h.getAdultStatus('a');assert.equal(s.level,0);assert.equal(s.nectar,0);assert.equal(s.target,t0);assert.equal(h.getSnapshot().adults[0].coinStampedAt,1000);
- f.at(5000);
- const up=h.creditAdultNectar('a',t0+2);
- assert.equal(up.credited,t0+2);assert.equal(up.leveledUp,true);
- s=h.getAdultStatus('a');assert.equal(s.level,1);assert.equal(s.nectar,2);assert.equal(h.getSnapshot().adults[0].coinStampedAt,5000);
- f.storage.setItem(HATCHERY_KEY,JSON.stringify({version:2,summoned:1,active:null,babies:[],adults:[{id:'a',speciesId:'001',originSlotGUID:slot.GUID,perchGUID:perch.GUID,maturedAt:100,flyUntil:200,level:5,nectar:0,coinStampedAt:5000}],summonedSpecies:['001']}));
+ f.storage.setItem(HATCHERY_KEY,JSON.stringify({version:2,summoned:1,active:null,babies:[],adults:[{id:'a',speciesId:'001',originSlotGUID:slot.GUID,perchGUID:perch.GUID,maturedAt:100,flyUntil:200,level:0,nectar:0,coinStampedAt:5000}],summonedSpecies:['001']}));
  const maxed=f.create().creditAdultNectar('a',3);
- assert.equal(maxed.credited,0);assert.equal(maxed.leftover,3);assert.equal(f.create().getAdultStatus('a').level,5);
+ assert.equal(maxed.credited,0);assert.equal(maxed.leftover,3);assert.equal(maxed.leveledUp,false);
 });
 test('roundHalfEven, coin readiness without stacking, harvest SC reward, and matured adults',()=>{
  assert.deepEqual([1.5,2.5,3.5,4.5].map(roundHalfEven),[2,2,4,4]);
@@ -76,7 +64,7 @@ test('roundHalfEven, coin readiness without stacking, harvest SC reward, and mat
  const newest=snap.adults.find(a=>a.speciesId===baby.speciesId);
  assert.equal(newest.level,0);assert.equal(newest.nectar,0);assert.equal(newest.coinStampedAt,mat.maturing.doneAt);
 });
-test('renderer sync updates reused adult entry on harvestAdult and level-up without rebuild',async()=>{
+test('renderer sync updates reused adult entry on harvestAdult without rebuild',async()=>{
  class Container{children=[];position={x:0,y:0,set(x,y=x){this.x=x;this.y=y;}};scale={x:1,y:1,set(x,y=x){this.x=x;this.y=y;}};addChild(c){this.children.push(c);return c;}destroy(){}}
  class SimpleMesh{constructor(t,v,u,i){this.texture=t;this.vertices=v;this.uvs=u;this.indices=i;this.position={x:0,y:0,set(x,y=x){this.x=x;this.y=y;}};this.scale={x:1,y:1,set(x,y=x){this.x=x;this.y=y;}};this.geometry={getBuffer:()=>({update(){}}),addAttribute(){return this;}};}destroy(){}}
  class Mesh extends SimpleMesh{constructor(g,s){super({},g.vertices,g.uvs,g.indices);this.geometry=g;this.shader=s;}}
@@ -101,13 +89,6 @@ test('renderer sync updates reused adult entry on harvestAdult and level-up with
   renderer.update(.016,false);
   assert.equal(entries.find(e=>e.actorId==='a'),entry);
   assert.equal(entry.control.readyToHarvest,false);
-  h.creditAdultNectar('a',1);
-  await renderer.sync(h.getSnapshot(),catalog);
-  assert.equal(entry.adult.nectar,1);
-  h.creditAdultNectar('a',nectarTargetForSpecies(sp001,0)-1);
-  await renderer.sync(h.getSnapshot(),catalog);
-  assert.equal(entries.find(e=>e.actorId==='a'),entry);
-  assert.equal(entry.adult.level,1);
  }finally{globalThis.fetch=oldFetch;}
 });
 test('currency HUD roll duration and requestCurrencyShop routing match native spec',{todo:'Removed feature: currency shop / gold flow (spec: เงินในเกม)'},()=>{

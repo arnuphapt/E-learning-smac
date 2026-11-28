@@ -23,7 +23,7 @@ function createMemoryStorage(initialEntries = {}) {
   };
 }
 
-test("toHatcherySave converts egg, baby, and level-3 adult into a valid hatchery snapshot", (t) => {
+test("toHatcherySave converts egg, baby, and adult into a valid hatchery snapshot", (t) => {
   if (!fs.existsSync(MAP_PATH) || !fs.existsSync(CATALOG_PATH)) {
     t.skip("public/dragon assets are not built");
     return;
@@ -37,24 +37,32 @@ test("toHatcherySave converts egg, baby, and level-3 adult into a valid hatchery
       {
         id: "d-egg",
         species_id: "001",
-        points: 200,
+        points: 5,
         created_at: "2026-11-26T10:00:00Z",
+        is_partner: false,
       },
       {
         id: "d-baby",
         species_id: "002",
-        points: 2_000,
+        points: 20,
         created_at: "2026-11-26T09:00:00Z",
+        is_partner: false,
       },
       {
         id: "d-adult",
         species_id: "003",
-        points: 40_000,
+        points: 50,
         created_at: "2026-11-26T08:00:00Z",
+        is_partner: true,
       },
     ],
     map
   );
+
+  assert.equal(save.active?.isPartner, false);
+  assert.equal(save.babies[0]?.isPartner, false);
+  assert.equal(save.adults.length, 1);
+  assert.equal(save.adults[0].isPartner, true);
 
   const storage = createMemoryStorage({
     [HATCHERY_KEY]: JSON.stringify(save),
@@ -79,7 +87,6 @@ test("toHatcherySave converts egg, baby, and level-3 adult into a valid hatchery
   assert.equal(snapshot.adults.length, 1);
   assert.equal(snapshot.adults[0].id, "d-adult");
   assert.equal(snapshot.adults[0].speciesId, "003");
-  assert.equal(snapshot.adults[0].level, 3);
 });
 
 test("toHatcherySave keeps the newest nursery dragons when eggs+babies exceed Egg_Slot count", (t) => {
@@ -97,7 +104,7 @@ test("toHatcherySave keeps the newest nursery dragons when eggs+babies exceed Eg
   const manyBabies = Array.from({ length: slotCount + 3 }, (_, idx) => ({
     id: `baby-${idx}`,
     species_id: "001",
-    points: 2_000,
+    points: 20,
     created_at: new Date(Date.UTC(2026, 10, 1, 0, idx)).toISOString(),
   }));
 
@@ -125,8 +132,8 @@ test("toHatcherySave flags eggs beyond the first as eggs, never babies", (t) => 
     [
       { id: "egg-1", species_id: "001", points: 0, created_at: at(1) },
       { id: "egg-2", species_id: "001", points: 0, created_at: at(2) },
-      { id: "egg-3", species_id: "002", points: 500, created_at: at(3) },
-      { id: "baby-1", species_id: "002", points: 2_000, created_at: at(4) },
+      { id: "egg-3", species_id: "002", points: 5, created_at: at(3) },
+      { id: "baby-1", species_id: "002", points: 20, created_at: at(4) },
     ],
     map
   );
@@ -156,7 +163,7 @@ test("toHatcherySave sets readyAt in the past for ready unhatched eggs and far f
   const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8"));
 
   const notReadySave = toHatcherySave(
-    [{ id: "egg-low", species_id: "001", points: 999, hatched_at: null }],
+    [{ id: "egg-low", species_id: "001", points: 9, hatched_at: null }],
     map
   );
   assert.equal(notReadySave.active?.phase, "incubating");
@@ -171,7 +178,7 @@ test("toHatcherySave sets readyAt in the past for ready unhatched eggs and far f
   assert.equal(notReadyHatchery.getSnapshot().active?.status, "incubating");
 
   const readySave = toHatcherySave(
-    [{ id: "egg-high", species_id: "001", points: 25_000, hatched_at: null }],
+    [{ id: "egg-high", species_id: "001", points: 25, hatched_at: null }],
     map
   );
   assert.equal(readySave.active?.id, "egg-high");
@@ -198,10 +205,10 @@ test("toHatcherySave renders a hub mix of multiple unhatched eggs and hatched dr
   const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8"));
   const save = toHatcherySave(
     [
-      { id: "s1-egg-ready", species_id: "001", points: 25_000, hatched_at: null },
-      { id: "s2-egg-low", species_id: "002", points: 300, hatched_at: null },
-      { id: "s3-baby", species_id: "003", points: 2_000, hatched_at: "2026-11-26T00:00:00Z" },
-      { id: "s4-adult", species_id: "001", points: 35_000, hatched_at: "2026-11-26T00:00:00Z" },
+      { id: "s1-egg-ready", species_id: "001", points: 25, hatched_at: null },
+      { id: "s2-egg-low", species_id: "002", points: 3, hatched_at: null },
+      { id: "s3-baby", species_id: "003", points: 20, hatched_at: "2026-11-26T00:00:00Z" },
+      { id: "s4-adult", species_id: "001", points: 50, hatched_at: "2026-11-26T00:00:00Z" },
     ],
     map
   );
@@ -217,7 +224,6 @@ test("toHatcherySave renders a hub mix of multiple unhatched eggs and hatched dr
   );
   assert.equal(save.adults.length, 1);
   assert.equal(save.adults[0].id, "s4-adult");
-  assert.equal(save.adults[0].level, 3);
 
   const hatchery = createHatchery({
     catalog,

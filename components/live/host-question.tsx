@@ -145,17 +145,17 @@ export function HostQuestion({
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center gap-3 py-2 sm:gap-5 sm:py-4">
       <div className="flex flex-col gap-3 text-center">
         <div className="flex items-center justify-between px-2">
-          <Badge variant="outline" className="bg-card px-4 py-1.5 text-sm text-muted-foreground sm:text-base">
+          <Badge variant="outline" className="db-chip px-4 py-1.5 text-sm font-semibold sm:text-base">
             ข้อที่ {index + 1} จาก {total}
           </Badge>
-          <Badge variant="outline" className="gap-2 bg-card px-4 py-1.5 text-sm tabular-nums sm:text-base">
-            <span aria-hidden className="size-2.5 rounded-full bg-emerald-500" />
+          <Badge variant="outline" className="db-chip px-4 py-1.5 text-sm font-semibold tabular-nums sm:text-base">
+            <span aria-hidden className="size-2.5 rounded-full bg-[var(--accept)]" />
             ตอบแล้ว {answeredCount} / {playerCount} คน
           </Badge>
         </div>
 
-        <Card className="min-h-28 items-center justify-center p-6 sm:min-h-32 sm:p-8">
-          <h2 className="text-center text-2xl leading-relaxed font-bold text-foreground sm:text-4xl lg:text-5xl">
+        <Card className="db-panel min-h-28 items-center justify-center p-6 sm:min-h-32 sm:p-8">
+          <h2 className="text-center text-2xl leading-relaxed font-bold text-[var(--text)] sm:text-4xl lg:text-5xl">
             {question?.text || "กำลังโหลดคำถาม..."}
           </h2>
         </Card>
@@ -164,14 +164,14 @@ export function HostQuestion({
       <div className="flex flex-col items-center justify-center gap-2 py-2">
         <div
           className={cn(
-            "flex size-20 items-center justify-center rounded-full border-4 bg-card shadow-md transition-all duration-300 sm:size-24",
-            isUrgent ? "border-destructive bg-destructive/10 motion-safe:animate-pulse" : "border-primary",
+            "flex size-20 items-center justify-center rounded-full border-4 bg-[var(--surface-0)] shadow-md transition-all duration-300 sm:size-24",
+            isUrgent ? "border-[var(--cancel-ink)] bg-[#d22f4c]/15 motion-safe:animate-pulse" : "border-[var(--timer)]",
           )}
         >
           <span
             className={cn(
               "font-mono text-3xl font-black tabular-nums sm:text-4xl",
-              isUrgent ? "text-destructive" : "text-primary",
+              isUrgent ? "text-[var(--warn)]" : "text-[var(--timer-text)]",
             )}
           >
             {remainingSec}
@@ -181,8 +181,10 @@ export function HostQuestion({
           value={timerRatio * 100}
           aria-label="เวลาที่เหลือ"
           className={cn(
-            "h-2 max-w-md bg-muted",
-            isUrgent && "[&_[data-slot=progress-indicator]]:bg-destructive",
+            "h-2.5 max-w-md border border-[var(--frame-soft)] bg-[var(--surface-1)]",
+            isUrgent
+              ? "[&_[data-slot=progress-indicator]]:bg-[var(--cancel-ink)]"
+              : "[&_[data-slot=progress-indicator]]:bg-[var(--timer)]",
           )}
         />
       </div>
@@ -195,8 +197,9 @@ export function HostQuestion({
             <div
               key={choice.id || i}
               className={cn(
-                "flex min-h-20 items-center gap-4 rounded-2xl border-2 p-4 shadow-md sm:min-h-24 sm:gap-6 sm:p-6",
+                "flex min-h-20 items-center gap-4 p-4 shadow-md sm:min-h-24 sm:gap-6 sm:p-6",
                 theme.tile,
+                "db-choice-tile",
               )}
             >
               <div className={cn("flex size-12 shrink-0 items-center justify-center rounded-xl sm:size-14", theme.icon)}>

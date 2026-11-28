@@ -1,0 +1,570 @@
+/* Dragon Base scoped theme & components.
+ * All tokens and db-* classes are scoped under .dragon-base so nothing leaks globally. */
+
+.dragon-base {
+  /* Colors (tokens.json) */
+  --world: #1f6f7a;
+  --scrim: #061416cc;
+  --surface-0: #192126;
+  --surface-1: #233038;
+  --surface-2: #2e3e3d;
+  --surface-row: #365b5a;
+  --surface-row-off: #2b3f40;
+  --surface-well: #11191d;
+  --frame: #a2bab8;
+  --frame-soft: #a2bab855;
+  --text: #ffffff;
+  --text-strong: #d2e0df;
+  --text-muted: #a2bab8;
+  --text-subtle: #a7c6c4;
+  --text-cream: #f7efdc;
+  --rim: #e5f1f1;
+  --accept: #27a085;
+  --default: #497c86;
+  --secondary: #64aab8;
+  --premium: #812993;
+  --cancel: #ffffff;
+  --cancel-ink: #d22f4c;
+  --gold: #f2c94c;
+  --gold-soft: #ffcb7a;
+  --gold-track: #866c49;
+  --gem: #7b7cf0;
+  --timer: #078dd6;
+  --timer-text: #38bdf8;
+  --warn: #ffb858;
+  --leaf: #3d8443;
+  --label-shade: #00170c;
+
+  /* Typography: Poppins first for Latin/digits, then IBM Plex Sans Thai for Thai glyphs */
+  --font-sans: var(--font-poppins), var(--font-plex-sans-thai), var(--font-plex-sans), system-ui, sans-serif;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* Shadow */
+  --shadow-label: 0 2px 4px #00170c, 0 0 6px #00170c;
+  --shadow-panel: 0 18px 60px #00000088;
+
+  /* Size */
+  --size-hud: 52px;
+  --size-well: 82px;
+  --size-touch: 44px;
+  --size-rim: 3px;
+
+  font-family: var(--font-sans);
+  color: var(--text-strong);
+}
+
+.dragon-base.db-panel,
+.dragon-base .db-panel {
+  background: var(--surface-0);
+  color: var(--text-strong);
+  font-family: var(--font-sans);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  border: 0;
+  border-top: 2px solid var(--frame);
+  border-bottom: 2px solid var(--frame);
+  box-shadow: var(--shadow-panel);
+}
+
+.dragon-base .db-panel {
+  position: relative;
+}
+
+[data-slot="alert-dialog-overlay"]:has(+ .dragon-base) {
+  background: #061416cc;
+}
+
+.dragon-base .db-dialog-title {
+  font: 700 22px/28px var(--font-sans);
+  color: var(--text-strong);
+}
+
+.dragon-base .db-dialog-desc {
+  font: 500 14px/20px var(--font-sans);
+  color: var(--text-muted);
+}
+
+.dragon-base .db-caption {
+  font: 500 14px/20px var(--font-sans);
+  color: var(--text-muted);
+}
+
+.dragon-base .db-panel-title {
+  margin: 0 0 var(--space-2);
+  text-align: center;
+  font: 700 32px/36px var(--font-sans);
+  color: var(--text-strong);
+}
+
+.dragon-base .db-panel-sub {
+  margin: 0;
+  text-align: center;
+  font: 500 14px/20px var(--font-sans);
+  color: var(--text-muted);
+}
+
+.dragon-base .db-close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--frame);
+  font: 700 34px/1 var(--font-sans);
+  cursor: pointer;
+}
+
+.dragon-base .db-close:focus-visible {
+  outline: 3px solid var(--gold-soft);
+  outline-offset: 2px;
+}
+
+.dragon-base .db-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-row);
+  color: var(--text);
+  text-align: left;
+  font-family: var(--font-sans);
+}
+
+.dragon-base .db-row:focus-visible {
+  outline: 3px solid var(--gold-soft);
+  outline-offset: 2px;
+}
+
+.dragon-base .db-row[aria-disabled="true"] {
+  background: var(--surface-row-off);
+  color: #ffffff80;
+  cursor: default;
+}
+
+.dragon-base .db-row-well {
+  flex: none;
+  width: var(--size-well);
+  height: var(--size-well);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--surface-well);
+}
+
+.dragon-base .db-row-title {
+  display: block;
+  font: 700 18px/24px var(--font-sans);
+  color: var(--text);
+}
+
+.dragon-base .db-row-meta {
+  display: block;
+  font: 500 14px/20px var(--font-sans);
+  color: var(--text);
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.dragon-base .db-price {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: 700 22px/28px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.dragon-base .db-coin,
+.dragon-base .db-gem {
+  display: inline-block;
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.dragon-base .db-coin {
+  background: var(--gold);
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+}
+
+.dragon-base .db-gem {
+  background: var(--gem);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.dragon-base .db-btn {
+  --b: var(--default);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--size-touch);
+  padding: var(--space-2) var(--space-4);
+  background: var(--b);
+  color: var(--text);
+  border: var(--size-rim) solid var(--rim);
+  border-radius: var(--radius-md);
+  font: 700 19px/24px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.dragon-base .db-btn:hover:not(:disabled) {
+  background: var(--b);
+  filter: brightness(1.08);
+}
+
+.dragon-base .db-btn:focus-visible {
+  outline: 3px solid var(--gold-soft);
+  outline-offset: 3px;
+}
+
+.dragon-base .db-btn:disabled {
+  filter: grayscale(0.75);
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.dragon-base .db-btn--default {
+  --b: var(--default);
+}
+
+.dragon-base .db-btn--accept {
+  --b: var(--accept);
+}
+
+.dragon-base .db-btn--premium {
+  --b: var(--premium);
+}
+
+.dragon-base .db-btn--cancel {
+  --b: var(--cancel);
+  color: var(--cancel-ink);
+}
+
+.dragon-base .db-btn--cancel:hover:not(:disabled) {
+  color: var(--cancel-ink);
+}
+
+.dragon-base .db-btn--icon {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  font-size: 34px;
+}
+
+.dragon-base .db-cta {
+  --b: var(--premium);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--b);
+  color: var(--text);
+  border: var(--size-rim) solid var(--rim);
+  border-radius: var(--radius-md);
+  text-align: left;
+  font: 700 20px/24px var(--font-sans);
+  cursor: pointer;
+}
+
+.dragon-base .db-cta small {
+  display: block;
+  font: 500 14px/20px var(--font-sans);
+  opacity: 0.9;
+}
+
+.dragon-base .db-cta:focus-visible {
+  outline: 3px solid var(--gold-soft);
+  outline-offset: 3px;
+}
+
+.dragon-base .db-hud {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.dragon-base .db-hud-tab {
+  --b: var(--secondary);
+  width: var(--size-hud);
+  height: var(--size-hud);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--b);
+  border: var(--size-rim) solid var(--rim);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.dragon-base .db-hud-tab[aria-pressed="true"] {
+  --b: var(--accept);
+  transform: scale(1.12);
+}
+
+.dragon-base .db-hud-tab:focus-visible {
+  outline: 3px solid var(--gold-soft);
+  outline-offset: 3px;
+}
+
+.dragon-base .db-hud-tab svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dragon-base .db-currency {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  border: 1px solid var(--frame-soft);
+  color: var(--text);
+  font: 600 20px/24px var(--font-sans);
+  text-shadow: var(--shadow-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.dragon-base .db-currency .db-coin,
+.dragon-base .db-currency .db-gem {
+  width: 24px;
+  height: 24px;
+}
+
+.dragon-base .db-world-label {
+  color: var(--text);
+  font: 500 15px/1.25 var(--font-sans);
+  text-shadow: var(--shadow-label);
+}
+
+.dragon-base .db-progress {
+  position: relative;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-1);
+  border: 1px solid var(--frame-soft);
+  overflow: hidden;
+  font: 600 11px/20px var(--font-sans);
+  color: var(--text-strong);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.dragon-base .db-progress > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--v, 0%);
+  background: var(--accept);
+}
+
+.dragon-base .db-progress > span {
+  position: relative;
+}
+
+.dragon-base .db-sheet {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--surface-0);
+  color: var(--text);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-top: 2px solid var(--frame);
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-sans);
+}
+
+.dragon-base .db-sheet-title {
+  margin: 0;
+  font: 700 20px/24px var(--font-sans);
+  color: var(--text-strong);
+}
+
+.dragon-base .db-timer {
+  color: var(--timer);
+  font: 600 14px/20px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.dragon-base .db-tags {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  color: var(--text-subtle);
+  font: 500 16px/24px var(--font-sans);
+}
+
+.dragon-base .db-tags > i {
+  width: 8px;
+  height: 8px;
+  background: var(--text-subtle);
+  transform: rotate(45deg);
+}
+
+.dragon-base .db-prompt {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.dragon-base .db-prompt-mark {
+  font: 700 72px/1 var(--font-sans);
+  color: var(--frame);
+}
+
+.dragon-base .db-prompt-text {
+  margin: 0;
+  font: 600 16px/22px var(--font-sans);
+  color: var(--text-strong);
+}
+
+.dragon-base .db-prompt-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-around;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dragon-base .db-hud-tab {
+    transition: none;
+  }
+  .dragon-base .db-hud-tab[aria-pressed="true"] {
+    transform: none;
+  }
+}
+
+/* Scoped overrides for HubDragonScene when rendered inside .dragon-base */
+.dragon-base .db-hub-card {
+  background: var(--surface-0);
+  color: var(--text-strong);
+  font-family: var(--font-sans);
+  border-radius: var(--radius-lg);
+  border: 0;
+  border-top: 2px solid var(--frame);
+  border-bottom: 2px solid var(--frame);
+  box-shadow: var(--shadow-panel);
+}
+
+.dragon-base .db-hub-title {
+  font: 700 20px/24px var(--font-sans);
+  color: var(--text-strong);
+}
+
+.dragon-base .db-hub-meta {
+  font: 500 14px/20px var(--font-sans);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dragon-base .db-hub-btn {
+  --b: var(--default);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--size-touch);
+  padding: var(--space-2) var(--space-4);
+  background: var(--b);
+  color: var(--text);
+  border: var(--size-rim) solid var(--rim);
+  border-radius: var(--radius-md);
+  font: 700 16px/20px var(--font-sans);
+  cursor: pointer;
+}
+
+.dragon-base .db-hub-btn:hover:not(:disabled) {
+  background: var(--b);
+  color: var(--text);
+  filter: brightness(1.08);
+}
+
+.dragon-base .db-hub-btn:focus-visible {
+  outline: 3px solid var(--gold-soft);
+  outline-offset: 3px;
+}
+
+.dragon-base .db-hub-frame {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--frame-soft);
+  background: var(--surface-1);
+}
+
+/* Live quiz projector & play screen helpers (scoped under .dragon-base) */
+.dragon-base.db-world,
+.dragon-base .db-world {
+  background: var(--world);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+.dragon-base .db-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  border: 1px solid var(--frame-soft);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.dragon-base .db-chip--dark {
+  background: var(--surface-0);
+}
+
+.dragon-base .db-well {
+  border-radius: var(--radius-md);
+  background: var(--surface-well);
+  border: 1px solid var(--frame-soft);
+}
+
+.dragon-base .db-choice-tile {
+  border: var(--size-rim) solid var(--rim);
+  border-radius: var(--radius-md);
+}
+
+.dragon-base .db-btn--compact {
+  min-width: var(--size-touch);
+  min-height: var(--size-touch);
+  padding: 0 var(--space-2);
+  font-size: 14px;
+  line-height: 18px;
+}
+
+@media (min-width: 640px) {
+  .dragon-base .db-btn--compact {
+    padding: 0 var(--space-3);
+  }
+}
+

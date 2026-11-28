@@ -1,4 +1,4 @@
-import { getDragonGrowthState, type DragonLevel } from "./dragon-growth.ts";
+import { getDragonGrowthState } from "./dragon-growth.ts";
 
 export interface DragonSceneInputItem {
   id?: string;
@@ -6,6 +6,7 @@ export interface DragonSceneInputItem {
   points: number;
   created_at?: string | null;
   hatched_at?: string | null;
+  is_partner?: boolean;
 }
 
 export interface DragonMapItem {
@@ -32,6 +33,7 @@ export interface HatcheryActiveEggV2 {
   appearanceAt?: number;
   startedAt: number;
   readyAt: number;
+  isPartner?: boolean;
 }
 
 export interface HatcheryBabyV2 {
@@ -41,6 +43,7 @@ export interface HatcheryBabyV2 {
   hatchedAt: number;
   /** View-only extension: render this nursery entry as an egg. */
   isEgg?: true;
+  isPartner?: boolean;
 }
 
 export interface HatcheryAdultV2 {
@@ -58,9 +61,9 @@ export interface HatcheryAdultV2 {
   maturedAt: number;
   hoverUntil: number;
   flyUntil: number;
-  level: DragonLevel;
   nectar: number;
   coinStampedAt: number;
+  isPartner?: boolean;
 }
 
 export interface HatcherySaveV2 {
@@ -102,6 +105,7 @@ export function toSummoningHatcherySave(
       appearanceAt: summonDoneAt,
       startedAt,
       readyAt: FAR_FUTURE_READY_AT,
+      isPartner: Boolean(dragon.is_partner),
     },
     babies: [],
     adults: [],
@@ -166,7 +170,8 @@ export function extractDragonMapMarkers(map: DragonSourceMap): {
  */
 export function toHatcherySave(
   dragons: readonly DragonSceneInputItem[],
-  map: DragonSourceMap
+  map: DragonSourceMap,
+  options?: { summoningDragonId?: string | null; nowMs?: number }
 ): HatcherySaveV2 {
   const { slots, perches } = extractDragonMapMarkers(map);
 
@@ -176,7 +181,6 @@ export function toHatcherySave(
   const adultsList: Array<{
     item: DragonSceneInputItem;
     id: string;
-    level: DragonLevel;
   }> = [];
 
   for (let i = 0; i < ordered.length; i++) {
@@ -189,7 +193,7 @@ export function toHatcherySave(
     } else if (growth.stage === "baby") {
       babiesList.push({ item, id });
     } else {
-      adultsList.push({ item, id, level: growth.level });
+      adultsList.push({ item, id });
     }
   }
 
@@ -224,14 +228,35 @@ export function toHatcherySave(
 
   if (keptEggs.length > 0) {
     const [firstEgg, ...extraEggs] = keptEggs;
-    active = {
-      id: firstEgg.id,
-      speciesId: firstEgg.item.species_id,
-      slotGUID: slots[slotCursor++].GUID,
-      phase: "incubating",
-      startedAt: 0,
-      readyAt: firstEgg.readyToHatch ? PAST_READY_AT : FAR_FUTURE_READY_AT,
-    };
+    const isSummoning =
+      Boolean(options?.summoningDragonId) &&
+      firstEgg.id === options?.summoningDragonId;
+    if (isSummoning) {
+      const summonAt = options?.nowMs ?? Date.now();
+      const summonDoneAt = summonAt + SUMMON_DURATION_MS;
+      active = {
+        id: firstEgg.id,
+        speciesId: firstEgg.item.species_id,
+        slotGUID: slots[slotCursor++].GUID,
+        phase: "summoning",
+        summonAt,
+        summonDoneAt,
+        appearanceAt: summonDoneAt,
+        startedAt: summonDoneAt + ARRIVAL_DURATION_MS,
+        readyAt: FAR_FUTURE_READY_AT,
+        isPartner: Boolean(firstEgg.item.is_partner),
+      };
+    } else {
+      active = {
+        id: firstEgg.id,
+        speciesId: firstEgg.item.species_id,
+        slotGUID: slots[slotCursor++].GUID,
+        phase: "incubating",
+        startedAt: 0,
+        readyAt: firstEgg.readyToHatch ? PAST_READY_AT : FAR_FUTURE_READY_AT,
+        isPartner: Boolean(firstEgg.item.is_partner),
+      };
+    }
     // Extra eggs ride in nursery slots; `isEgg` makes the renderer draw eggs.
     for (const extra of extraEggs) {
       babies.push({
@@ -240,6 +265,7 @@ export function toHatcherySave(
         slotGUID: slots[slotCursor++].GUID,
         hatchedAt: 0,
         isEgg: true,
+        isPartner: Boolean(extra.item.is_partner),
       });
     }
   }
@@ -250,6 +276,7 @@ export function toHatcherySave(
       speciesId: baby.item.species_id,
       slotGUID: slots[slotCursor++].GUID,
       hatchedAt: 0,
+      isPartner: Boolean(baby.item.is_partner),
     });
   }
 
@@ -265,9 +292,9 @@ export function toHatcherySave(
         maturedAt: 0,
         hoverUntil: 0,
         flyUntil: 0,
-        level: adult.level,
         nectar: 0,
         coinStampedAt: 0,
+        isPartner: Boolean(adult.item.is_partner),
       };
     }
 
@@ -287,9 +314,9 @@ export function toHatcherySave(
       maturedAt: 0,
       hoverUntil: 0,
       flyUntil: 0,
-      level: adult.level,
       nectar: 0,
       coinStampedAt: 0,
+      isPartner: Boolean(adult.item.is_partner),
     };
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { PlayerQuestion } from "@/components/live/player-question";
 import { PlayerReveal } from "@/components/live/player-reveal";
@@ -13,6 +13,11 @@ import { PlayerConnecting, PlayerLoadError } from "@/components/student/live/pla
 import { TeamBoard } from "@/components/student/live/team-board";
 import { TeamRankBanner } from "@/components/student/live/team-rank-banner";
 import { usePlayerSession } from "@/components/student/live/use-player-session";
+import {
+  resolveAdultPartner,
+  type DragonMeSummary,
+  type QuizPartnerDragonInfo,
+} from "@/lib/quiz-partner-dragon";
 
 // Student side of a live quiz room. The phase (lobby / question / reveal / leaderboard / ended) comes from the polled session.
 export default function StudentLiveSessionPage() {
@@ -33,6 +38,21 @@ export default function StudentLiveSessionPage() {
     }
     return false;
   });
+
+  const [partnerDragon, setPartnerDragon] = useState<QuizPartnerDragonInfo | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/dragon/me", { cache: "no-store", signal: controller.signal })
+      .then((res) => (res.ok ? (res.json() as Promise<{ dragons?: DragonMeSummary[] }>) : null))
+      .then((payload) => {
+        if (!payload || controller.signal.aborted) return;
+        setPartnerDragon(resolveAdultPartner(payload.dragons));
+      })
+      .catch(() => {
+        // Non-blocking: quiz play continues without partner dragon.
+      });
+    return () => controller.abort();
+  }, []);
 
   if (!s.mounted) return null;
   if (s.error) return <PlayerLoadError message={s.error.message} onRetry={() => s.refresh()} />;
@@ -59,7 +79,14 @@ export default function StudentLiveSessionPage() {
             firstEgg={firstEgg}
           />
         )}
-        {state.phase === "question" && <PlayerQuestion state={state} sessionId={id || ""} onRefresh={s.refresh} />}
+        {state.phase === "question" && (
+          <PlayerQuestion
+            state={state}
+            sessionId={id || ""}
+            onRefresh={s.refresh}
+            partnerDragon={partnerDragon}
+          />
+        )}
         {state.phase === "reveal" && <PlayerReveal state={state} />}
         {state.phase === "leaderboard" && <PlayerLeaderboard state={state} />}
         {state.phase === "ended" && (

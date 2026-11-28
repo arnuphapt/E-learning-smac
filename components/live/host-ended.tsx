@@ -1,11 +1,15 @@
 "use client";
 
+import { useId } from "react";
 import Link from "next/link";
 import { CrownIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import type { PodiumDragonInfo } from "@/lib/podium-dragons";
+import type { PodiumEntryGroup } from "@/lib/dragon/podium-renderer.mjs";
+import { PodiumDragon } from "./podium-dragon";
 import { getTeamStyle } from "./team-colors";
 
 interface LeaderboardPlayer {
@@ -13,6 +17,7 @@ interface LeaderboardPlayer {
   name: string;
   score?: number;
   rank?: number;
+  dragon?: PodiumDragonInfo | null;
 }
 
 interface TeamBoardEntry {
@@ -34,44 +39,62 @@ export interface HostEndedState {
   teamBoard?: TeamBoardEntry[];
 }
 
-// Podium tiers: fixed gold / silver / bronze colours (game-show identity, not theme tokens).
+// Podium tiers: solid gold / silver / bronze fills with Dragon Base rim; dark panels for name/score plates.
 const PODIUM = {
   1: {
-    label: "bg-amber-400 border-amber-500/40 text-amber-950",
-    name: "line-clamp-2 mt-1 max-w-40 text-xl font-black break-words text-foreground sm:max-w-56 sm:text-3xl",
-    score: "text-base font-black text-amber-800 sm:text-2xl",
-    step: "h-48 rounded-t-3xl border-amber-400/80 bg-gradient-to-b from-amber-200 via-amber-300 to-amber-400 shadow-lg ring-4 ring-amber-400/20 sm:h-64",
-    rank: "text-5xl text-amber-950 sm:text-8xl",
+    label: "border-[var(--rim)] bg-amber-400 text-amber-950",
+    name: "line-clamp-2 mt-1 max-w-40 text-base font-black break-words text-[var(--text)] sm:max-w-56 sm:text-xl lg:text-2xl",
+    score: "text-sm font-black text-[var(--gold)] sm:text-lg lg:text-xl",
+    step: "h-[clamp(96px,17.5vh,220px)] rounded-t-[var(--radius-lg)] border-[var(--rim)] bg-amber-400 shadow-lg",
+    rank: "text-5xl text-amber-950 sm:text-7xl lg:text-8xl",
   },
   2: {
-    label: "bg-slate-200 border-slate-300 text-slate-800",
-    name: "line-clamp-2 mt-1 max-w-36 text-lg font-bold break-words text-foreground sm:max-w-44 sm:text-2xl",
-    score: "text-sm font-bold text-slate-700 sm:text-lg",
-    step: "h-36 rounded-t-2xl border-slate-300 bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 shadow-md sm:h-48",
-    rank: "text-4xl text-slate-800 sm:text-6xl",
+    label: "border-[var(--rim)] bg-slate-200 text-slate-900",
+    name: "line-clamp-2 mt-1 max-w-36 text-sm font-bold break-words text-[var(--text)] sm:max-w-44 sm:text-lg lg:text-xl",
+    score: "text-xs font-bold text-[var(--text-strong)] sm:text-base lg:text-lg",
+    step: "h-[clamp(76px,13.5vh,170px)] rounded-t-[var(--radius-md)] border-[var(--rim)] bg-slate-200 shadow-md",
+    rank: "text-4xl text-slate-900 sm:text-5xl lg:text-6xl",
   },
   3: {
-    label: "bg-orange-700 border-orange-800 text-white",
-    name: "line-clamp-2 mt-1 max-w-36 text-lg font-bold break-words text-foreground sm:max-w-44 sm:text-2xl",
-    score: "text-sm font-bold text-orange-800 sm:text-lg",
-    step: "h-28 rounded-t-2xl border-orange-300 bg-gradient-to-b from-orange-100 via-orange-200 to-orange-300 shadow-md sm:h-36",
-    rank: "text-4xl text-orange-950 sm:text-5xl",
+    label: "border-[var(--rim)] bg-orange-300 text-orange-950",
+    name: "line-clamp-2 mt-1 max-w-36 text-sm font-bold break-words text-[var(--text)] sm:max-w-44 sm:text-lg lg:text-xl",
+    score: "text-xs font-bold text-[var(--text-strong)] sm:text-base lg:text-lg",
+    step: "h-[clamp(60px,10.5vh,132px)] rounded-t-[var(--radius-md)] border-[var(--rim)] bg-orange-300 shadow-md",
+    rank: "text-3xl text-orange-950 sm:text-4xl lg:text-5xl",
   },
 } as const;
 
-function PodiumPlace({ place, player }: { place: 1 | 2 | 3; player: LeaderboardPlayer }) {
+function PodiumPlace({
+  place,
+  player,
+  entryGroup,
+}: {
+  place: 1 | 2 | 3;
+  player: LeaderboardPlayer;
+  entryGroup?: PodiumEntryGroup;
+}) {
   const t = PODIUM[place];
   return (
-    <div className={cn("flex flex-1 flex-col items-center", place === 1 && "z-10")}>
-      <div className="mb-3 text-center">
-        <span className={cn("rounded-full border px-3 py-1 text-xs font-bold shadow-xs sm:text-sm", t.label)}>อันดับ {place}</span>
+    <div className={cn("flex min-w-0 flex-1 flex-col items-center", place === 1 && "z-10")}>
+      <div className="db-panel mb-1.5 w-full max-w-56 px-3 py-2 text-center">
+        <span className={cn("inline-block rounded-[var(--radius-sm)] border-2 px-3 py-0.5 text-xs font-bold sm:text-sm", t.label)}>
+          อันดับ {place}
+        </span>
         <div title={player.name} className={t.name}>
           {player.name}
         </div>
         <div className={cn("font-mono tabular-nums", t.score)}>{(player.score || 0).toLocaleString()} คะแนน</div>
       </div>
-      <div className={cn("flex w-full items-center justify-center border-2 border-b-0", t.step)}>
-        <span className={cn("font-black", t.rank)}>{player.rank ?? place}</span>
+      {player.dragon && (
+        <PodiumDragon
+          speciesId={player.dragon.species_id}
+          stage={player.dragon.growth.stage}
+          place={place}
+          entryGroup={entryGroup}
+        />
+      )}
+      <div className={cn("flex w-full items-center justify-center border-[3px] border-b-0", t.step)}>
+        <span className={cn("font-mono font-black tabular-nums", t.rank)}>{player.rank ?? place}</span>
       </div>
     </div>
   );
@@ -79,8 +102,8 @@ function PodiumPlace({ place, player }: { place: 1 | 2 | 3; player: LeaderboardP
 
 function ScoreText({ value }: { value?: number }) {
   return (
-    <span className="shrink-0 font-mono text-sm font-bold text-amber-accent tabular-nums">
-      {(value || 0).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">คะแนน</span>
+    <span className="shrink-0 font-mono text-sm font-bold text-[var(--gold)] tabular-nums">
+      {(value || 0).toLocaleString()} <span className="text-xs font-normal text-[var(--text)]/80">คะแนน</span>
     </span>
   );
 }
@@ -88,35 +111,43 @@ function ScoreText({ value }: { value?: number }) {
 export function HostEnded({ state }: { state: HostEndedState }) {
   const { top3 = [], top5 = [], total, playerCount } = state;
   const [first, second, third] = top3;
+  const podiumId = useId();
+  const expectedAdults = [first, second, third].filter(
+    (p) => p?.dragon?.growth.stage === "adult",
+  ).length;
+  const entryGroup: PodiumEntryGroup | undefined =
+    expectedAdults > 0 ? { id: `${state.id}:${podiumId}`, expectedAdults } : undefined;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-between py-4 sm:py-8">
-      <div className="flex flex-col items-center gap-2 text-center">
-        <Badge className="border-transparent bg-success-soft px-4 py-1.5 text-sm font-bold text-success">จบการแข่งขันแล้ว</Badge>
-        <h2 className="text-3xl font-black tracking-wide text-foreground sm:text-6xl">แท่นรับรางวัล</h2>
-        <p className="text-sm text-muted-foreground sm:text-base">
+    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-between overflow-x-clip py-1">
+      <div className="flex flex-col items-center gap-1 text-center">
+        <Badge className="db-chip border-[var(--accept)] bg-[var(--accept)] px-4 py-1 text-sm font-bold text-[var(--text)]">
+          จบการแข่งขันแล้ว
+        </Badge>
+        <h2 className="db-world-label text-2xl font-black tracking-wide text-[var(--text)] sm:text-4xl lg:text-5xl">แท่นรับรางวัล</h2>
+        <p className="db-world-label text-xs text-[var(--text)] sm:text-sm">
           ควิซสด {total} ข้อ · ผู้เข้าแข่งขันทั้งหมด {playerCount} คน
         </p>
       </div>
 
-      <div className="mx-auto my-8 flex w-full max-w-3xl items-end justify-center gap-3 px-4 sm:gap-6">
-        {second && <PodiumPlace place={2} player={second} />}
-        {first && <PodiumPlace place={1} player={first} />}
-        {third && <PodiumPlace place={3} player={third} />}
+      <div className="mx-auto my-1 flex w-full max-w-3xl items-end justify-center gap-3 px-4 sm:my-2 sm:gap-6">
+        {second && <PodiumPlace place={2} player={second} entryGroup={entryGroup} />}
+        {first && <PodiumPlace place={1} player={first} entryGroup={entryGroup} />}
+        {third && <PodiumPlace place={3} player={third} entryGroup={entryGroup} />}
       </div>
 
       {state.team_mode && state.teamBoard ? (
         <div className="mx-auto my-6 grid w-full max-w-5xl grid-cols-1 items-start gap-6 px-4 lg:grid-cols-2">
-          <Card className="gap-3 p-5">
-            <h3 className="text-lg font-bold text-foreground">คะแนนเดี่ยว (Top 5)</h3>
+          <Card className="db-panel gap-3 p-5">
+            <h3 className="text-lg font-bold text-[var(--text-strong)]">คะแนนเดี่ยว (Top 5)</h3>
             <div className="flex flex-col gap-2.5">
               {top5.map((p, idx) => (
-                <div key={p.userId || idx} className="flex items-center justify-between rounded-lg border bg-muted/50 p-2.5">
+                <div key={p.userId || idx} className="db-row flex items-center justify-between p-2.5">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full border bg-card text-xs font-bold text-foreground">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-[var(--frame-soft)] bg-[var(--surface-well)] text-xs font-bold text-[var(--text)] tabular-nums">
                       {p.rank ?? idx + 1}
                     </span>
-                    <span className="truncate text-sm font-semibold text-foreground sm:text-base">{p.name}</span>
+                    <span className="truncate text-sm font-semibold text-[var(--text)] sm:text-base">{p.name}</span>
                   </div>
                   <ScoreText value={p.score} />
                 </div>
@@ -124,10 +155,10 @@ export function HostEnded({ state }: { state: HostEndedState }) {
             </div>
           </Card>
 
-          <Card className="gap-3 p-5">
-            <h3 className="flex items-center justify-between text-lg font-bold text-foreground">
+          <Card className="db-panel gap-3 p-5">
+            <h3 className="flex items-center justify-between text-lg font-bold text-[var(--text-strong)]">
               <span>ตารางคะแนนทีม</span>
-              <span className="text-xs font-normal text-muted-foreground">คะแนนเฉลี่ยสมาชิก</span>
+              <span className="text-xs font-normal text-[var(--text-muted)]">คะแนนเฉลี่ยสมาชิก</span>
             </h3>
             <div className="flex flex-col gap-2.5">
               {state.teamBoard.map((team, idx) => {
@@ -138,22 +169,24 @@ export function HostEnded({ state }: { state: HostEndedState }) {
                   <div
                     key={team.id || idx}
                     className={cn(
-                      "flex items-center justify-between rounded-xl p-3",
-                      isWinner ? "border-2 border-amber-400 bg-amber-50 shadow-sm" : "border bg-muted/50",
+                      "db-row flex items-center justify-between p-3",
+                      isWinner && "border-2 border-[var(--gold)] bg-[var(--surface-1)]",
                     )}
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
                       <div
                         className={cn(
-                          "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-black",
-                          isWinner ? "bg-amber-400 text-amber-950" : "border bg-card text-foreground",
+                          "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-black tabular-nums",
+                          isWinner
+                            ? "bg-amber-400 text-amber-950"
+                            : "border border-[var(--frame-soft)] bg-[var(--surface-well)] text-[var(--text)]",
                         )}
                       >
                         {rank}
                       </div>
                       <div className="flex items-center gap-2 truncate">
                         <span aria-hidden className={cn("size-3 shrink-0 rounded-full", style.dot)} />
-                        <span className={cn("truncate text-sm font-bold sm:text-base", isWinner ? "text-amber-950" : "text-foreground")}>
+                        <span className="truncate text-sm font-bold text-[var(--text)] sm:text-base">
                           ทีม{team.name}
                         </span>
                         {isWinner && (
@@ -163,7 +196,7 @@ export function HostEnded({ state }: { state: HostEndedState }) {
                           </Badge>
                         )}
                       </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">({team.members} คน)</span>
+                      <span className="shrink-0 text-xs text-[var(--text)]/80">({team.members} คน)</span>
                     </div>
                     <ScoreText value={team.score} />
                   </div>
@@ -174,12 +207,12 @@ export function HostEnded({ state }: { state: HostEndedState }) {
         </div>
       ) : (
         top5.length > 3 && (
-          <Card className="mx-auto mt-2 w-full max-w-xl gap-2 p-4">
-            <div className="text-xs font-semibold text-muted-foreground">อันดับ 4 - 5</div>
+          <Card className="db-panel mx-auto mt-2 w-full max-w-xl gap-2 p-4">
+            <div className="text-xs font-semibold text-[var(--text-muted)]">อันดับ 4 - 5</div>
             <div className="flex flex-col gap-2">
               {top5.slice(3, 5).map((p, idx) => (
-                <div key={p.userId || idx} className="flex items-center justify-between text-sm sm:text-base">
-                  <span className="font-medium text-foreground">
+                <div key={p.userId || idx} className="db-row flex items-center justify-between px-3 py-2 text-sm sm:text-base">
+                  <span className="font-semibold text-[var(--text)] tabular-nums">
                     {p.rank ?? idx + 4}. {p.name}
                   </span>
                   <ScoreText value={p.score} />
@@ -190,11 +223,11 @@ export function HostEnded({ state }: { state: HostEndedState }) {
         )
       )}
 
-      <div className="flex items-center justify-center gap-4 pt-4">
-        <Button asChild variant="outline" size="lg" className="rounded-full">
+      <div className="flex items-center justify-center gap-4 pt-2">
+        <Button asChild variant="outline" size="lg" className="db-btn db-btn--default h-auto px-6 py-3 text-base font-bold">
           <Link href="/i/live/hubs">กลับหน้ารายการห้อง</Link>
         </Button>
-        <Button asChild size="lg" className="rounded-full px-8 shadow-md">
+        <Button asChild size="lg" className="db-btn db-btn--accept h-auto px-8 py-3 text-[19px] font-bold">
           <Link href={`/i/live/${state.id}/results`}>ดูรายงานผลคะแนน</Link>
         </Button>
       </div>

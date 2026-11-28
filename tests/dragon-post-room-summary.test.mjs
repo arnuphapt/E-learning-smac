@@ -19,9 +19,9 @@ test("summarizeDragonPointGrant: first egg with 0 points", () => {
 
 test("summarizeDragonPointGrant: crossing hatch threshold (egg -> baby)", () => {
   const res = summarizeDragonPointGrant({
-    points: 500,
-    pointsBefore: 700,
-    pointsAfter: 1_200,
+    points: 5,
+    pointsBefore: 7,
+    pointsAfter: 12,
     overflow: 0,
     firstEgg: false,
   });
@@ -30,53 +30,54 @@ test("summarizeDragonPointGrant: crossing hatch threshold (egg -> baby)", () => 
   assert.equal(res.after?.stage, "baby");
 });
 
-test("summarizeDragonPointGrant: crossing an adult level threshold", () => {
+test("summarizeDragonPointGrant: crossing adult threshold (baby -> adult)", () => {
   const res = summarizeDragonPointGrant({
-    points: 3_000,
-    pointsBefore: 18_000,
-    pointsAfter: 21_000,
+    points: 10,
+    pointsBefore: 40,
+    pointsAfter: 50,
     overflow: 0,
     firstEgg: false,
   });
-  assert.equal(res.before?.level, 1);
-  assert.equal(res.after?.level, 2);
+  assert.equal(res.before?.stage, "baby");
+  assert.equal(res.after?.stage, "adult");
+  assert.equal(res.after?.nextAt, null);
 });
 
 test("summarizeDragonPointGrant: hitting the cap reports persisted overflow", () => {
   const res = summarizeDragonPointGrant({
-    points: 85_000,
+    points: 55,
     pointsBefore: 0,
-    pointsAfter: 80_000,
-    overflow: 5_000,
+    pointsAfter: 50,
+    overflow: 5,
     firstEgg: true,
   });
-  assert.equal(res.after?.level, 5);
+  assert.equal(res.after?.stage, "adult");
   assert.equal(res.after?.nextAt, null);
-  assert.equal(res.overflow, 5_000);
+  assert.equal(res.overflow, 5);
 });
 
 test("summarizeDragonPointGrant: already-maxed dragon claims no stage change", () => {
   const res = summarizeDragonPointGrant({
-    points: 1_000,
+    points: 10,
     pointsBefore: null,
     pointsAfter: null,
-    overflow: 1_000,
+    overflow: 10,
     firstEgg: false,
   });
   assert.equal(res.before, null);
   assert.equal(res.after, null);
-  assert.equal(res.overflow, 1_000);
+  assert.equal(res.overflow, 10);
 });
 
 test("summarizeDragonPointGrant: legacy row (all nulls) gives points only", () => {
   const res = summarizeDragonPointGrant({
-    points: 400,
+    points: 4,
     pointsBefore: null,
     pointsAfter: null,
     overflow: null,
     firstEgg: null,
   });
-  assert.equal(res.points, 400);
+  assert.equal(res.points, 4);
   assert.equal(res.before, null);
   assert.equal(res.after, null);
   assert.equal(res.first_egg, false);
@@ -86,9 +87,9 @@ test("summarizeDragonPointGrant: legacy row (all nulls) gives points only", () =
 
 test("summarizeDragonPointGrant: unhatched egg reaching hatch threshold shows ready-to-hatch message", () => {
   const res = summarizeDragonPointGrant({
-    points: 500,
-    pointsBefore: 700,
-    pointsAfter: 1_200,
+    points: 5,
+    pointsBefore: 7,
+    pointsAfter: 12,
     overflow: 0,
     firstEgg: false,
     hatched: false,
@@ -101,9 +102,9 @@ test("summarizeDragonPointGrant: unhatched egg reaching hatch threshold shows re
 
 test("summarizeDragonPointGrant: unhatched egg below hatch threshold does not show ready-to-hatch message", () => {
   const res = summarizeDragonPointGrant({
-    points: 200,
-    pointsBefore: 700,
-    pointsAfter: 900,
+    points: 2,
+    pointsBefore: 7,
+    pointsAfter: 9,
     overflow: 0,
     firstEgg: false,
     hatched: false,

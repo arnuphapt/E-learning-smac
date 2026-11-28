@@ -14,6 +14,9 @@ import { useConfirm } from "@/components/common/confirm";
 import { ErrorState, LoadingState } from "@/components/common/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { poppins } from "@/components/dragon/dragon-base-theme";
+import "@/components/dragon/dragon-base.css";
+import { cn } from "@/lib/utils";
 import * as sound from "@/lib/live-sound";
 import { bg, assetExists } from "@/lib/live-assets";
 
@@ -242,14 +245,14 @@ export default function HostLiveSessionPage() {
 
   if (error) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6">
+      <div className={cn("dragon-base db-world fixed inset-0 z-50 flex items-center justify-center p-6", poppins.variable)}>
         <ErrorState
           title="เกิดข้อผิดพลาดในการโหลดห้อง"
           description={error.message || "ไม่สามารถเชื่อมต่อห้องควิซได้"}
           onRetry={() => refresh()}
-          className="max-w-md"
+          className="db-panel max-w-md"
         />
-        <Button asChild variant="outline" className="absolute bottom-10">
+        <Button asChild variant="outline" className="db-btn db-btn--default absolute bottom-10">
           <Link href="/i/live/hubs">กลับหน้ารายการห้อง</Link>
         </Button>
       </div>
@@ -258,8 +261,8 @@ export default function HostLiveSessionPage() {
 
   if (!state) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-6">
-        <LoadingState label="กำลังเชื่อมต่อห้องควิซสด..." />
+      <div className={cn("dragon-base db-world fixed inset-0 z-50 flex items-center justify-center p-6", poppins.variable)}>
+        <LoadingState label="กำลังเชื่อมต่อห้องควิซสด..." className="db-panel px-8 py-6" />
       </div>
     );
   }
@@ -268,29 +271,29 @@ export default function HostLiveSessionPage() {
   const teams: LobbyTeam[] = Array.isArray(state.teams) ? (state.teams as LobbyTeam[]) : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-between overflow-x-hidden overflow-y-auto bg-background p-4 text-foreground select-none sm:p-8">
-      {/* Phase background image (computed url) with a light overlay keeping text contrast >= 4.5:1 */}
+    <div className={cn("dragon-base db-world fixed inset-0 z-50 flex flex-col justify-between overflow-x-hidden overflow-y-auto p-4 select-none sm:p-8", poppins.variable)}>
+      {/* Phase background image (computed url) with dark forest scrim keeping contrast >= 4.5:1 */}
       {bgUrl && (
         <div
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 z-0 bg-cover bg-center transition-all duration-700"
           style={{ backgroundImage: `url(${bgUrl})` }}
         >
-          <div className="absolute inset-0 bg-background/90 backdrop-blur-[1px]" />
+          <div className="absolute inset-0 bg-[#061416]/75 backdrop-blur-[1px]" />
         </div>
       )}
 
-      <header className="relative z-10 flex items-center justify-between gap-4 border-b pb-3">
+      <header className="db-panel relative z-10 flex items-center justify-between gap-4 px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Button asChild variant="outline" size="sm" className="shrink-0">
+          <Button asChild variant="outline" size="sm" className="db-btn db-btn--default h-auto shrink-0 px-3 py-2 text-sm sm:text-base">
             <Link href="/i/live/hubs">
               <ArrowLeftIcon />
               หน้ารายการห้อง
             </Link>
           </Button>
-          <span className="max-w-sm truncate text-base font-bold text-foreground sm:max-w-md sm:text-lg">{state.title}</span>
+          <span className="max-w-sm truncate text-base font-bold text-[var(--text)] sm:max-w-md sm:text-xl">{state.title}</span>
           {state.phase !== "lobby" && (
-            <Badge variant="outline" className="bg-card px-3 py-1 text-sm text-muted-foreground">
+            <Badge variant="outline" className="db-chip px-3 py-1 text-sm font-semibold">
               ข้อ {state.current_index + 1}/{state.total}
             </Badge>
           )}
@@ -305,20 +308,27 @@ export default function HostLiveSessionPage() {
             aria-pressed={muted}
             aria-label={muted ? "เปิดเสียง" : "ปิดเสียง"}
             title={muted ? "เปิดเสียง" : "ปิดเสียง"}
-            className="rounded-full"
+            className="db-btn db-btn--default h-auto px-3.5 py-2 text-sm sm:text-base"
           >
-            {muted ? <VolumeXIcon className="text-destructive" /> : <Volume2Icon className="text-success" />}
+            {muted ? <VolumeXIcon className="text-[var(--warn)]" /> : <Volume2Icon className="text-[var(--text)]" />}
             {muted ? "ปิดเสียงอยู่" : "เปิดเสียง"}
           </Button>
 
           {state.phase !== "ended" && (
-            <Button variant="destructive" size="sm" onClick={handleEndGame} disabled={advancing} title="จบการแข่งขันทันที">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleEndGame}
+              disabled={advancing}
+              title="จบการแข่งขันทันที"
+              className="db-btn db-btn--cancel h-auto px-4 py-2 text-sm sm:text-base"
+            >
               จบเกม
             </Button>
           )}
 
-          <Badge variant="outline" className="hidden gap-2 bg-card px-3.5 py-1.5 font-mono text-sm font-bold sm:inline-flex sm:text-base">
-            <span aria-hidden className="size-2.5 animate-pulse rounded-full bg-emerald-500" />
+          <Badge variant="outline" className="db-chip hidden px-3.5 py-1.5 font-mono text-sm font-bold sm:inline-flex sm:text-base">
+            <span aria-hidden className="size-2.5 animate-pulse rounded-full bg-[var(--accept)]" />
             PIN: {state.pin}
           </Badge>
         </div>

@@ -192,8 +192,8 @@ test.describe("dragon hub phase 2 E2E", () => {
       const answerRes = await answerPromise;
       expect(answerRes.ok()).toBe(true);
 
-      // Seed answer points past the hatch threshold so room end makes the egg ready to hatch
-      const hatchTargetPoints = DRAGON_GROWTH_THRESHOLDS.hatch + 200;
+      // Seed answer points past the hatch threshold (new scale: 1-50) so room end makes the egg ready to hatch
+      const hatchTargetPoints = DRAGON_GROWTH_THRESHOLDS.hatch + 2;
       must(
         await adminDb()
           .from("live_answers")
@@ -213,13 +213,10 @@ test.describe("dragon hub phase 2 E2E", () => {
       await expect(student1Page.getByText(/\+[1-9][\d,]* แต้มมังกร/)).toBeVisible({ timeout: 15_000 });
       await expect(student1Page.getByText("ไข่พร้อมฟักแล้ว ไปกดฟักที่หน้ามังกร")).toBeVisible();
 
-      // 5. Personal dragon hub (/s/dragon): random-egg button disabled before hatch, then tap ready egg to hatch
+      // 5. Personal dragon hub (/s/dragon): no Summon button while unhatched egg is on incubator, then tap ready egg to hatch
       await student1Page.goto("/s/dragon");
       await expect(student1Page.getByText(/ทั้งหมด 1 ตัว/)).toBeVisible({ timeout: 15_000 });
-      await expect(student1Page.getByRole("button", { name: /สุ่มไข่ใบใหม่/ })).toBeDisabled();
-      await expect(
-        student1Page.getByText("ยังมีไข่ที่ยังไม่ฟัก ฟักไข่ใบเดิมก่อนจึงจะสุ่มไข่ใบใหม่ได้")
-      ).toBeVisible();
+      await expect(student1Page.getByRole("button", { name: "อัญเชิญไข่" })).toHaveCount(0);
 
       const canvas = student1Page.locator(".dragon-game .world canvas");
       await expect(canvas).toBeVisible({ timeout: 30_000 });
@@ -260,6 +257,7 @@ test.describe("dragon hub phase 2 E2E", () => {
         (r) => r.url().includes("/api/dragon/hatch") && r.request().method() === "POST"
       );
       await student1Page.mouse.click(box.x + proj.x, box.y + proj.y);
+      await student1Page.getByRole("button", { name: "ฟักไข่" }).click();
       const hatchRes = await hatchPromise;
       expect(hatchRes.ok()).toBe(true);
 

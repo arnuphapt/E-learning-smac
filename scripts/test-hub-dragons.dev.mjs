@@ -78,11 +78,12 @@ async function run() {
     const { error: mErr } = await admin.from("live_hub_members").insert(memberRows);
     if (mErr) throw new Error(`Insert live_hub_members failed: ${mErr.message}`);
 
-    // 42 members have partner dragons; memberIds[42] (newest) has NO partner dragon
+    // 42 members have partner dragons (egg=9, babies=10..49, newest adult=50); memberIds[42] has NO partner dragon
     const dragonRows = memberIds.slice(0, 42).map((userId, i) => ({
       user_id: userId,
       species_id: "001",
-      points: 1000 + i * 100,
+      points: Math.min(50, 9 + i),
+      hatched_at: i === 0 ? null : new Date(baseTime + i * 1000).toISOString(),
       is_partner: true,
     }));
     const { error: dErr } = await admin.from("dragons").insert(dragonRows);
@@ -93,12 +94,12 @@ async function run() {
     assert.equal(memberView.status, 200);
     assert.equal(memberView.data.total_members, 43);
     assert.equal(memberView.data.dragons.length, 40);
-    // Newest with partner is memberIds[41] -> points = 1000 + 41*100 = 5100
-    assert.equal(memberView.data.dragons[0].points, 5100);
+    // Newest with partner is memberIds[41] -> points = 50 (adult, final stage)
+    assert.equal(memberView.data.dragons[0].points, 50);
     assert.equal(memberView.data.dragons[0].growth.stage, "adult");
 
     for (const d of memberView.data.dragons) {
-      assert.deepEqual(Object.keys(d).sort(), ["growth", "points", "species_id"]);
+      assert.deepEqual(Object.keys(d).sort(), ["growth", "hatched_at", "is_partner", "points", "species_id"]);
     }
     assert.deepEqual(Object.keys(memberView.data.hub).sort(), ["id", "name", "year_level"]);
 
@@ -110,8 +111,8 @@ async function run() {
     assert.equal(sceneErr, null);
     assert.equal(scene.total_members, 43);
     assert.equal(scene.dragons.length, 5);
-    assert.equal(scene.dragons[0].points, 5100);
-    assert.deepEqual(Object.keys(scene.dragons[0]).sort(), ["points", "species_id"]);
+    assert.equal(scene.dragons[0].points, 50);
+    assert.deepEqual(Object.keys(scene.dragons[0]).sort(), ["hatched_at", "points", "species_id"]);
 
     // 2. Host also sees partner dragons
     const hostView = await getHubDragons(admin, hubId, hostId);

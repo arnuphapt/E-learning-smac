@@ -55,8 +55,8 @@ async function run() {
     const { data: insertedDragons, error: dErr } = await admin
       .from("dragons")
       .insert([
-        { user_id: studentA, species_id: "001", points: 5000, is_partner: true, hatched_at: hatchedAtSeed },
-        { user_id: studentA, species_id: "002", points: 1000, is_partner: false, hatched_at: hatchedAtSeed },
+        { user_id: studentA, species_id: "001", points: 50, is_partner: true, hatched_at: hatchedAtSeed },
+        { user_id: studentA, species_id: "002", points: 10, is_partner: false, hatched_at: hatchedAtSeed },
         { user_id: studentB, species_id: "003", points: 0, is_partner: true, hatched_at: null },
       ])
       .select("id, user_id, is_partner, hatched_at");

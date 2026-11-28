@@ -11,6 +11,7 @@ export interface HubDragonSceneItem {
   species_id: string;
   points: number;
   hatched_at: string | null;
+  is_partner: boolean;
   growth: DragonGrowthState;
 }
 
@@ -109,6 +110,7 @@ export async function getHubDragons(
       species_id: d.species_id,
       points: d.points,
       hatched_at: hatchedAt,
+      is_partner: true,
       growth: getDragonGrowthState(d.points, hatchedAt !== null),
     };
   });

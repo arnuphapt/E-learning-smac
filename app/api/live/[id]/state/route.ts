@@ -9,6 +9,7 @@ import {
   summarizeDragonPointGrant,
   type DragonGrantSummary,
 } from "@/lib/dragon-growth";
+import { attachPodiumDragons } from "@/lib/podium-dragons";
 
 interface LiveSessionInfo {
   id: string;
@@ -479,6 +480,24 @@ export async function GET(
           }
         }
 
+        let top3: unknown = standings.top3;
+        if (isHost) {
+          const top3UserIds = standings.top3
+            .map((p) => p.userId)
+            .filter((uid): uid is string => typeof uid === "string" && uid.length > 0);
+          if (top3UserIds.length > 0) {
+            const { data: partnerRows, error: dErr } = await db
+              .from("dragons")
+              .select("user_id, species_id, points, hatched_at")
+              .in("user_id", top3UserIds)
+              .eq("is_partner", true);
+            if (dErr) throw dErr;
+            top3 = attachPodiumDragons(standings.top3, partnerRows ?? []);
+          } else {
+            top3 = attachPodiumDragons(standings.top3, []);
+          }
+        }
+
         const teamBoard = session.team_mode ? standings.teamBoard : undefined;
         const meTeam = session.team_mode ? standings.meTeam : undefined;
         const teams = session.team_mode ? standings.teams : undefined;
@@ -487,7 +506,7 @@ export async function GET(
           index: session.current_index,
           total: session.total,
           top5: standings.top5,
-          top3: standings.top3,
+          top3,
           playerCount: standings.playerCount,
           ...(session.team_mode ? { teamBoard, teams } : {}),
         };

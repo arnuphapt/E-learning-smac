@@ -170,3 +170,276 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* World-space summon & egg-status overlays (ported from reference style.css:6-9,21,50, scoped to .dragon-game) */
+.dragon-game .summon-menu {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.dragon-game .summon-menu button {
+  pointer-events: auto;
+}
+
+.dragon-game .summon-world-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.dragon-game .summon-world-button {
+  position: absolute;
+  z-index: 3;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 20%;
+  cursor: pointer;
+  line-height: 1.2;
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+
+.dragon-game .summon-world-button[hidden] {
+  display: none;
+}
+
+.dragon-game .summon-world-button img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.dragon-game .summon-world-button span {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-weight: 500;
+  text-shadow: 0 2px 4px #00170c, 0 0 6px #00170c;
+  white-space: nowrap;
+}
+
+.dragon-game .summon-world-button:hover {
+  background: transparent;
+  filter: brightness(1.08);
+}
+
+.dragon-game .summon-world-button:disabled {
+  filter: grayscale(0.7);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dragon-game .hatch-world-status {
+  position: absolute;
+  transform: translateX(-50%);
+  text-align: center;
+  color: white;
+  font-weight: 500;
+  text-shadow: 0 2px 4px #00170c, 0 0 6px #00170c;
+  pointer-events: none;
+  line-height: 1.25;
+}
+
+.dragon-game .hatch-world-status[hidden] {
+  display: none;
+}
+
+.dragon-game .hatch-world-status progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin: 0 0 4px;
+  accent-color: #fff;
+}
+
+.dragon-game .hatch-world-status strong {
+  font-weight: 500;
+}
+
+.dragon-game .hatch-world-hit {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  width: var(--egg-width);
+  height: var(--egg-height);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.dragon-game .hatch-world-hit:hover {
+  background: transparent;
+}
+
+.dragon-game .hatch-world-hit:focus-visible {
+  outline: 2px solid #ffffc0;
+  border-radius: 50%;
+}
+
+.dragon-game .hatch-world-move {
+  display: block;
+  width: var(--move-size);
+  height: var(--move-size);
+  margin: 8px auto 24px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  pointer-events: auto;
+  position: relative;
+}
+
+.dragon-game .hatch-world-move:hover {
+  background: transparent;
+  filter: brightness(1.1);
+}
+
+.dragon-game .hatch-world-move:disabled {
+  filter: grayscale(0.85);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dragon-game .hatch-world-move img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: saturate(0.4);
+}
+
+.dragon-game .hatch-world-move span {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 500;
+  color: white;
+  text-shadow: 0 2px 4px #00170c;
+}
+
+.dragon-game .native-partner-bar {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 7;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+}
+
+.dragon-game .native-partner-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 18px;
+  border-radius: var(--radius-md, 12px);
+  border: 3px solid var(--rim, #e5f1f1);
+  background: var(--accept, #27a085);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-shadow: 0 2px 4px #00170c;
+  box-shadow: 0 4px 16px #00150d66;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dragon-game .native-partner-btn:hover:not(:disabled) {
+  background: #2eb89a;
+}
+
+.dragon-game .native-partner-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.dragon-game .native-partner-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md, 12px);
+  border: 2px solid var(--gold, #f2c94c);
+  background: #192126ee;
+  color: var(--gold, #f2c94c);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-shadow: 0 2px 4px #00170c;
+  box-shadow: 0 4px 16px #00150d66;
+}
+
+.dragon-game .egg-partner-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100% - 32px);
+  padding: 12px 16px;
+  border-radius: var(--radius-lg, 14px);
+  border-top: 2px solid var(--frame, #a2bab8);
+  border-bottom: 2px solid var(--frame, #a2bab8);
+  background: #192126f2;
+  box-shadow: 0 18px 60px #00000088;
+  pointer-events: auto;
+}
+
+.dragon-game .egg-partner-panel .native-partner-bar {
+  position: static;
+}
+
+.dragon-game .egg-partner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.dragon-game .native-hatch-btn {
+  background: var(--premium, #812993);
+}
+
+.dragon-game .native-hatch-btn:hover:not(:disabled) {
+  background: #9a34af;
+}
+
+.dragon-game .egg-partner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dragon-game .egg-partner-info strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-strong, #d2e0df);
+}
+
+.dragon-game .egg-partner-info span {
+  font-size: 13px;
+  color: var(--text-muted, #a2bab8);
+}

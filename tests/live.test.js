@@ -169,50 +169,50 @@ describe('Live Quiz Core Lib', () => {
       assert.equal(scorePoints({ elapsedMs: 5000, limitSec: 20, correct: false }), 0);
     });
 
-    it('returns 1000 for instant correct answer (elapsed = 0)', () => {
-      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true }), 1000);
+    it('returns 10 for instant correct answer (elapsed = 0)', () => {
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true }), 10);
     });
 
-    it('returns 500 when elapsed = limit', () => {
-      assert.equal(scorePoints({ elapsedMs: 20000, limitSec: 20, correct: true }), 500);
+    it('returns 5 when elapsed = limit', () => {
+      assert.equal(scorePoints({ elapsedMs: 20000, limitSec: 20, correct: true }), 5);
     });
 
-    it('returns 500 when elapsed is past limit', () => {
-      assert.equal(scorePoints({ elapsedMs: 25000, limitSec: 20, correct: true }), 500);
-      assert.equal(scorePoints({ elapsedMs: 30000, limitSec: 20, correct: true }), 500);
+    it('returns 5 when elapsed is past limit', () => {
+      assert.equal(scorePoints({ elapsedMs: 25000, limitSec: 20, correct: true }), 5);
+      assert.equal(scorePoints({ elapsedMs: 30000, limitSec: 20, correct: true }), 5);
     });
 
     it('calculates properly across two different limits', () => {
-      // Limit 10s (10000ms): half time (5000ms) -> 750
-      assert.equal(scorePoints({ elapsedMs: 5000, limitSec: 10, correct: true }), 750);
-      assert.equal(scorePoints({ elapsedMs: 10000, limitSec: 10, correct: true }), 500);
+      // Limit 10s (10000ms): half time (5000ms) -> 8 (round(7.5))
+      assert.equal(scorePoints({ elapsedMs: 5000, limitSec: 10, correct: true }), 8);
+      assert.equal(scorePoints({ elapsedMs: 10000, limitSec: 10, correct: true }), 5);
 
-      // Limit 60s (60000ms): half time (30000ms) -> 750
-      assert.equal(scorePoints({ elapsedMs: 30000, limitSec: 60, correct: true }), 750);
-      assert.equal(scorePoints({ elapsedMs: 60000, limitSec: 60, correct: true }), 500);
+      // Limit 60s (60000ms): half time (30000ms) -> 8 (round(7.5))
+      assert.equal(scorePoints({ elapsedMs: 30000, limitSec: 60, correct: true }), 8);
+      assert.equal(scorePoints({ elapsedMs: 60000, limitSec: 60, correct: true }), 5);
     });
 
-    it('scales by maxPoints and keeps 1000 as the default', () => {
-      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 1000 }), 1000);
-      assert.equal(scorePoints({ elapsedMs: 5000, limitSec: 10, correct: true, maxPoints: 1000 }), 750);
+    it('scales by maxPoints and keeps 10 as the default', () => {
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 10 }), 10);
+      assert.equal(scorePoints({ elapsedMs: 5000, limitSec: 10, correct: true, maxPoints: 10 }), 8);
 
-      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 2000 }), 2000);
-      assert.equal(scorePoints({ elapsedMs: 20000, limitSec: 20, correct: true, maxPoints: 2000 }), 1000);
-      assert.equal(scorePoints({ elapsedMs: 10000, limitSec: 20, correct: true, maxPoints: 2000 }), 1500);
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 20 }), 20);
+      assert.equal(scorePoints({ elapsedMs: 20000, limitSec: 20, correct: true, maxPoints: 20 }), 10);
+      assert.equal(scorePoints({ elapsedMs: 10000, limitSec: 20, correct: true, maxPoints: 20 }), 15);
 
-      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 100 }), 100);
-      assert.equal(scorePoints({ elapsedMs: 20000, limitSec: 20, correct: true, maxPoints: 100 }), 50);
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 1 }), 1);
+      assert.equal(scorePoints({ elapsedMs: 20000, limitSec: 20, correct: true, maxPoints: 1 }), 1);
 
-      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 5000 }), 5000);
-      assert.equal(scorePoints({ elapsedMs: 30000, limitSec: 20, correct: true, maxPoints: 5000 }), 2500);
-      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: false, maxPoints: 2000 }), 0);
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: true, maxPoints: 50 }), 50);
+      assert.equal(scorePoints({ elapsedMs: 30000, limitSec: 20, correct: true, maxPoints: 50 }), 25);
+      assert.equal(scorePoints({ elapsedMs: 0, limitSec: 20, correct: false, maxPoints: 20 }), 0);
     });
   });
 
   describe('isValidPoints / validateQuiz points', () => {
-    it('accepts 100..5000 in steps of 100 only', () => {
-      for (const v of [100, 1000, 2500, 5000, '300']) assert.equal(isValidPoints(v), true, String(v));
-      for (const v of [0, 50, 150, 5100, -100, 1000.5, NaN, '', null, undefined, 'abc'])
+    it('accepts integers 1..50 only', () => {
+      for (const v of [1, 10, 25, 50, '3']) assert.equal(isValidPoints(v), true, String(v));
+      for (const v of [0, 51, -1, 10.5, NaN, '', null, undefined, 'abc'])
         assert.equal(isValidPoints(v), false, String(v));
     });
 
@@ -225,12 +225,12 @@ describe('Live Quiz Core Lib', () => {
     });
 
     it('validateQuiz rejects bad points but allows missing points', () => {
-      assert.equal(validateQuiz([q(2000)]).ok, true);
+      assert.equal(validateQuiz([q(20)]).ok, true);
       assert.equal(validateQuiz([q(undefined)]).ok, true);
-      const bad = validateQuiz([q(150)]);
+      const bad = validateQuiz([q(1.5)]);
       assert.equal(bad.ok, false);
       assert.ok(bad.problems.some((p) => p.reason.includes('คะแนน')));
-      assert.equal(validateQuiz([q(6000)]).ok, false);
+      assert.equal(validateQuiz([q(60)]).ok, false);
     });
   });
 
@@ -453,12 +453,12 @@ describe('SQL parity pins (migrations are the scoring source of truth)', () => {
     assert.ok(sql.includes(`interval '${GRACE_MS} milliseconds'`));
   });
 
-  it('points bounds in SQL match isValidPoints, and team XP is capped at the old 1000 per answer', () => {
-    const sql = read('20261126000000_live_quiz_points.sql');
-    assert.equal(sql.match(/ADD CONSTRAINT \w+ CHECK \(points BETWEEN 100 AND 5000 AND points % 100 = 0\)/g)?.length, 2);
-    assert.ok(sql.includes('live_answers_points_check CHECK (points >= 0 AND points <= 5000)'));
-    assert.ok(sql.includes('least(COALESCE(a.points, 0), 1000)'));
-    assert.equal(isValidPoints(100) && isValidPoints(5000) && !isValidPoints(5100) && !isValidPoints(50), true);
+  it('points bounds in SQL match isValidPoints, and team XP is capped at 10 per answer', () => {
+    const sql = read('20261128000000_points_scale_down.sql');
+    assert.equal(sql.match(/ADD CONSTRAINT \w+ CHECK \(points BETWEEN 1 AND 50\)/g)?.length, 2);
+    assert.ok(sql.includes('live_answers_points_check CHECK (points >= 0 AND points <= 50)'));
+    assert.ok(sql.includes('least(COALESCE(a.points, 0), 10)'));
+    assert.equal(isValidPoints(1) && isValidPoints(50) && !isValidPoints(51) && !isValidPoints(0), true);
   });
 
   it('live_session_advance transitions mirror nextPhase', () => {
